@@ -890,35 +890,28 @@ fn gpu_hash_and_build_tree(
 ///
 /// The buffer must contain `num_rows * num_cols` u64 values in row-major order,
 /// each in canonical Goldilocks form.
+/// Encode leaf hashing + tree building into an existing Metal command buffer.
+///
+/// This helper encodes the compute dispatches for:
+/// 1. Hashing leaves from `buf_data` into the leaf positions of `tree_buf`
+/// 2. Building all tree levels by hashing pairs bottom-up
+///
+/// Does NOT commit or wait — the caller manages the command buffer lifecycle.
+/// This enables fusing Merkle encoding with prior compute work (e.g., FRI fold).
+///
+/// `tree_buf` must be pre-allocated with capacity for `(2 * leaves_len - 1) * 32` bytes,
+/// where `leaves_len = num_rows.next_power_of_two()`.
 #[cfg(all(target_os = "macos", feature = "metal"))]
-fn gpu_hash_and_build_tree_from_buffer(
+pub(crate) fn encode_hash_and_build_tree(
+    command_buffer: &metal::CommandBufferRef,
     buf_data: &metal::Buffer,
     num_rows: usize,
     num_cols: usize,
-    keccak_state: &GpuKeccakMerkleState,
-) -> Result<(Vec<[u8; 32]>, [u8; 32]), MetalError> {
-    use metal::{MTLCommandBufferStatus, MTLResourceOptions, MTLSize};
-
-    if num_rows == 0 {
-        return Err(MetalError::ExecutionError("Empty data".to_string()));
-    }
-
-    let leaves_len = num_rows.next_power_of_two();
-    let total_nodes = 2 * leaves_len - 1;
-
-    let tree_buf = keccak_state.state.device().new_buffer(
-        (total_nodes * 32) as u64,
-        MTLResourceOptions::StorageModeShared,
-    );
-
-    let num_cols_u32 = num_cols as u32;
-    let num_rows_u32 = num_rows as u32;
-    let buf_num_cols = keccak_state
-        .state
-        .alloc_buffer_with_data(std::slice::from_ref(&num_cols_u32))?;
-    let buf_num_rows = keccak_state
-        .state
-        .alloc_buffer_with_data(std::slice::from_ref(&num_rows_u32))?;
+    tree_buf: &metal::Buffer,
+    leaves_len: usize,
+    keccak_state: &GpuMerkleState,
+) -> Result<(), MetalError> {
+    use metal::MTLSize;
 
     let leaf_hash_pipeline = keccak_state
         .state
@@ -929,7 +922,14 @@ fn gpu_hash_and_build_tree_from_buffer(
         .get_pipeline_ref(keccak_state.pair_kernel)
         .ok_or_else(|| MetalError::FunctionError(keccak_state.pair_kernel.to_string()))?;
 
-    let command_buffer = keccak_state.state.command_queue().new_command_buffer();
+    let num_cols_u32 = num_cols as u32;
+    let num_rows_u32 = num_rows as u32;
+    let buf_num_cols = keccak_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&num_cols_u32))?;
+    let buf_num_rows = keccak_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&num_rows_u32))?;
 
     // Dispatch 1: Hash leaves directly into tree buffer at leaf positions
     {
@@ -940,7 +940,7 @@ fn gpu_hash_and_build_tree_from_buffer(
         let encoder = command_buffer.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(leaf_hash_pipeline);
         encoder.set_buffer(0, Some(buf_data), 0);
-        encoder.set_buffer(1, Some(&tree_buf), leaf_byte_offset);
+        encoder.set_buffer(1, Some(tree_buf), leaf_byte_offset);
         encoder.set_buffer(2, Some(&buf_num_cols), 0);
         encoder.set_buffer(3, Some(&buf_num_rows), 0);
         encoder.dispatch_thread_groups(
@@ -965,8 +965,8 @@ fn gpu_hash_and_build_tree_from_buffer(
 
         let encoder = command_buffer.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(pair_hash_pipeline);
-        encoder.set_buffer(0, Some(&tree_buf), children_byte_offset);
-        encoder.set_buffer(1, Some(&tree_buf), parents_byte_offset);
+        encoder.set_buffer(0, Some(tree_buf), children_byte_offset);
+        encoder.set_buffer(1, Some(tree_buf), parents_byte_offset);
         encoder.set_bytes(
             2,
             std::mem::size_of::<u32>() as u64,
@@ -982,6 +982,42 @@ fn gpu_hash_and_build_tree_from_buffer(
         level_end = level_begin - 1;
         level_begin = new_level_begin;
     }
+
+    Ok(())
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn gpu_hash_and_build_tree_from_buffer(
+    buf_data: &metal::Buffer,
+    num_rows: usize,
+    num_cols: usize,
+    keccak_state: &GpuKeccakMerkleState,
+) -> Result<(Vec<[u8; 32]>, [u8; 32]), MetalError> {
+    use metal::{MTLCommandBufferStatus, MTLResourceOptions};
+
+    if num_rows == 0 {
+        return Err(MetalError::ExecutionError("Empty data".to_string()));
+    }
+
+    let leaves_len = num_rows.next_power_of_two();
+    let total_nodes = 2 * leaves_len - 1;
+
+    let tree_buf = keccak_state.state.device().new_buffer(
+        (total_nodes * 32) as u64,
+        MTLResourceOptions::StorageModeShared,
+    );
+
+    let command_buffer = keccak_state.state.command_queue().new_command_buffer();
+
+    encode_hash_and_build_tree(
+        command_buffer,
+        buf_data,
+        num_rows,
+        num_cols,
+        &tree_buf,
+        leaves_len,
+        keccak_state,
+    )?;
 
     command_buffer.commit();
     command_buffer.wait_until_completed();

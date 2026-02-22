@@ -67,33 +67,42 @@ impl DeepCompositionState {
     }
 }
 
-/// Parameters struct matching the Metal shader's `DomainInvParams`.
+/// Parameters struct matching the Metal shader's `BatchDomainInvParams`.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[repr(C)]
 #[derive(Copy, Clone)]
-struct DomainInvParams {
+struct BatchDomainInvParams {
     num_rows: u32,
+    chunk_size: u32,
 }
+
+/// Chunk size for batch Montgomery inversions.
+/// Each GPU thread processes this many consecutive domain points per z-offset.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const BATCH_INV_CHUNK_SIZE: u32 = 16;
 
 /// Pre-compiled Metal state for GPU domain inversions (base field).
 ///
-/// Computes `1/(x_i - z^N)` and `1/(x_i - z*g^k)` on GPU using per-element
-/// Fermat inversions instead of CPU batch Montgomery inversions.
+/// Supports both per-element Fermat inversions (`compute_domain_inversions`)
+/// and batch Montgomery inversions (`batch_domain_inversions`).
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub struct DomainInversionState {
     state: DynamicMetalState,
-    max_threads: u64,
+    batch_max_threads: u64,
 }
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 impl DomainInversionState {
-    /// Compile the domain inversions shader and prepare the pipeline.
+    /// Compile the domain inversions shader and prepare the batch pipeline.
     pub fn new() -> Result<Self, lambdaworks_gpu::metal::abstractions::errors::MetalError> {
         let combined_source = build_domain_inv_source();
         let mut state = DynamicMetalState::new()?;
         state.load_library(&combined_source)?;
-        let max_threads = state.prepare_pipeline("compute_domain_inversions")?;
-        Ok(Self { state, max_threads })
+        let batch_max_threads = state.prepare_pipeline("batch_domain_inversions")?;
+        Ok(Self {
+            state,
+            batch_max_threads,
+        })
     }
 }
 
@@ -629,10 +638,13 @@ pub fn gpu_compute_deep_composition_evals_to_buffer(
     )
 }
 
-/// Dispatch the GPU domain inversions kernel for the base field.
+/// Dispatch the GPU batch Montgomery inversions kernel for the base field.
 ///
-/// Uploads domain points once, computes 4 inversion vectors on GPU using
-/// per-element Fermat inversions (`a^(p-2)`), and returns 4 Metal Buffers.
+/// Uploads domain points once, packs 4 z-values into a single buffer, and
+/// computes 4 inversion vectors on GPU using Montgomery batch inversion
+/// (1 Fermat inversion per chunk of CHUNK_SIZE elements, instead of per element).
+///
+/// Returns 4 Metal Buffers containing the inversion vectors.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 fn gpu_compute_domain_inversions_base(
     domain: &stark_platinum_prover::domain::Domain<Goldilocks64Field>,
@@ -650,12 +662,12 @@ fn gpu_compute_domain_inversions_base(
 
     let mut owned_state;
     let (inv_state, inv_max_threads) = match precompiled {
-        Some(pre) => (&pre.state, pre.max_threads),
+        Some(pre) => (&pre.state, pre.batch_max_threads),
         None => {
             let combined_source = build_domain_inv_source();
             owned_state = DynamicMetalState::new()?;
             owned_state.load_library(&combined_source)?;
-            let mt = owned_state.prepare_pipeline("compute_domain_inversions")?;
+            let mt = owned_state.prepare_pipeline("batch_domain_inversions")?;
             (&owned_state, mt)
         }
     };
@@ -668,16 +680,14 @@ fn gpu_compute_domain_inversions_base(
         .collect();
     let buf_domain = inv_state.alloc_buffer_with_data(&domain_raw)?;
 
-    // Scalar z-values as u64
-    let zp_raw = F::canonical(z_power.value());
-    let zs0_raw = F::canonical(z_shifted_0.value());
-    let zs1_raw = F::canonical(z_shifted_1.value());
-    let zs2_raw = F::canonical(z_shifted_2.value());
-
-    let buf_zp = inv_state.alloc_buffer_with_data(std::slice::from_ref(&zp_raw))?;
-    let buf_zs0 = inv_state.alloc_buffer_with_data(std::slice::from_ref(&zs0_raw))?;
-    let buf_zs1 = inv_state.alloc_buffer_with_data(std::slice::from_ref(&zs1_raw))?;
-    let buf_zs2 = inv_state.alloc_buffer_with_data(std::slice::from_ref(&zs2_raw))?;
+    // Pack 4 z-values into a single buffer (consolidated from 4 separate scalar buffers)
+    let z_packed: [u64; 4] = [
+        F::canonical(z_power.value()),
+        F::canonical(z_shifted_0.value()),
+        F::canonical(z_shifted_1.value()),
+        F::canonical(z_shifted_2.value()),
+    ];
+    let buf_z_values = inv_state.alloc_buffer_with_data(&z_packed)?;
 
     // Output buffers
     let buf_size = num_rows * std::mem::size_of::<u64>();
@@ -686,26 +696,27 @@ fn gpu_compute_domain_inversions_base(
     let buf_inv_zs1 = inv_state.alloc_buffer(buf_size)?;
     let buf_inv_zs2 = inv_state.alloc_buffer(buf_size)?;
 
-    let inv_params = DomainInvParams {
+    let inv_params = BatchDomainInvParams {
         num_rows: num_rows as u32,
+        chunk_size: BATCH_INV_CHUNK_SIZE,
     };
     let buf_params = inv_state.alloc_buffer_with_data(std::slice::from_ref(&inv_params))?;
 
+    // Thread count: one thread per chunk instead of one per element
+    let num_threads = (num_rows as u64).div_ceil(BATCH_INV_CHUNK_SIZE as u64);
+
     inv_state.execute_compute(
-        "compute_domain_inversions",
+        "batch_domain_inversions",
         &[
             &buf_domain,
-            &buf_zp,
-            &buf_zs0,
-            &buf_zs1,
-            &buf_zs2,
+            &buf_z_values,
             &buf_inv_zp,
             &buf_inv_zs0,
             &buf_inv_zs1,
             &buf_inv_zs2,
             &buf_params,
         ],
-        num_rows as u64,
+        num_threads,
         inv_max_threads,
     )?;
 

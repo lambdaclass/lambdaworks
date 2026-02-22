@@ -13,8 +13,8 @@ use lambdaworks_gpu::metal::abstractions::{
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::{
     fft::gpu::metal::ops::{
-        fft, fft_buffer_to_buffer, fft_buffer_to_buffer_reuse, fft_to_buffer, gen_twiddles,
-        gen_twiddles_to_buffer,
+        fft, fft_buffer_to_buffer, fft_buffer_to_buffer_reuse, fft_encode_to_command_buffer,
+        fft_to_buffer, gen_twiddles, gen_twiddles_to_buffer,
     },
     field::{
         element::FieldElement,
@@ -963,6 +963,149 @@ pub fn gpu_evaluate_coeff_buffers_on_lde(
     Ok((lde_buffers, domain_size))
 }
 
+/// Fused IFFT → scale → coset shift → FFT in a single Metal command buffer.
+///
+/// Performs the full LDE pipeline for one column without intermediate commit/wait calls:
+/// 1. IFFT (eval → working → coeff_buffer)
+/// 2. Scale by 1/N (coeff_buffer in-place)
+/// 3. Coset shift + zero-pad (coeff_buffer → shifted_buffer)
+/// 4. FFT (shifted → working → lde_buffer)
+///
+/// This eliminates 3 command buffer submissions per column (4→1).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+fn gpu_lde_column_fused(
+    eval_buffer: &metal::Buffer,
+    trace_len: usize,
+    domain_size: usize,
+    inv_twiddles: &metal::Buffer,
+    fwd_twiddles: &metal::Buffer,
+    n_inv: &FieldElement<Goldilocks64Field>,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    working_buffer: &metal::Buffer,
+    coset_state: &CosetShiftState,
+    metal_state: &MetalState,
+) -> Result<metal::Buffer, MetalError> {
+    use metal::MTLSize;
+
+    // Allocate intermediate and output buffers
+    let coeff_buffer = metal_state.alloc_buffer::<u64>(trace_len);
+    let shifted_buffer = coset_state
+        .state
+        .alloc_buffer(domain_size * std::mem::size_of::<u64>())?;
+    let lde_buffer = metal_state.alloc_buffer::<u64>(domain_size);
+
+    // Pre-compute scalar and parameter buffers for scale and coset shift
+    let scalar_u64 = Goldilocks64Field::canonical(n_inv.value());
+    let buf_scalar = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&scalar_u64))?;
+    let scale_len_u32 = trace_len as u32;
+    let buf_scale_len = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&scale_len_u32))?;
+
+    let offset_u64 = Goldilocks64Field::canonical(coset_offset.value());
+    let buf_offset = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&offset_u64))?;
+    let input_len_u32 = trace_len as u32;
+    let output_len_u32 = domain_size as u32;
+    let buf_input_len = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&input_len_u32))?;
+    let buf_output_len = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&output_len_u32))?;
+
+    objc::rc::autoreleasepool(|| {
+        let command_buffer = metal_state.queue.new_command_buffer();
+
+        // Stage 1: IFFT (eval_buffer → working_buffer → coeff_buffer)
+        fft_encode_to_command_buffer::<Goldilocks64Field>(
+            command_buffer,
+            eval_buffer,
+            trace_len,
+            inv_twiddles,
+            working_buffer,
+            &coeff_buffer,
+            metal_state,
+        )?;
+
+        // Stage 2: Scale by 1/N (coeff_buffer in-place)
+        {
+            let scale_pipeline = coset_state
+                .state
+                .get_pipeline_ref("goldilocks_scale")
+                .ok_or_else(|| MetalError::FunctionError("goldilocks_scale".to_string()))?;
+
+            let threads_per_group = coset_state.scale_max_threads.min(256);
+            let thread_groups = (trace_len as u64).div_ceil(threads_per_group);
+
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(scale_pipeline);
+            encoder.set_buffer(0, Some(&coeff_buffer), 0);
+            encoder.set_buffer(1, Some(&coeff_buffer), 0);
+            encoder.set_buffer(2, Some(&buf_scalar), 0);
+            encoder.set_buffer(3, Some(&buf_scale_len), 0);
+            encoder.dispatch_thread_groups(
+                MTLSize::new(thread_groups, 1, 1),
+                MTLSize::new(threads_per_group, 1, 1),
+            );
+            encoder.end_encoding();
+        }
+
+        // Stage 3: Coset shift + zero-pad (coeff_buffer → shifted_buffer)
+        {
+            let coset_pipeline = coset_state
+                .state
+                .get_pipeline_ref("goldilocks_coset_shift")
+                .ok_or_else(|| MetalError::FunctionError("goldilocks_coset_shift".to_string()))?;
+
+            let threads_per_group = coset_state.coset_shift_max_threads.min(256);
+            let thread_groups = (domain_size as u64).div_ceil(threads_per_group);
+
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(coset_pipeline);
+            encoder.set_buffer(0, Some(&coeff_buffer), 0);
+            encoder.set_buffer(1, Some(&shifted_buffer), 0);
+            encoder.set_buffer(2, Some(&buf_offset), 0);
+            encoder.set_buffer(3, Some(&buf_input_len), 0);
+            encoder.set_buffer(4, Some(&buf_output_len), 0);
+            encoder.dispatch_thread_groups(
+                MTLSize::new(thread_groups, 1, 1),
+                MTLSize::new(threads_per_group, 1, 1),
+            );
+            encoder.end_encoding();
+        }
+
+        // Stage 4: FFT (shifted_buffer → working_buffer → lde_buffer)
+        fft_encode_to_command_buffer::<Goldilocks64Field>(
+            command_buffer,
+            &shifted_buffer,
+            domain_size,
+            fwd_twiddles,
+            working_buffer,
+            &lde_buffer,
+            metal_state,
+        )?;
+
+        // Single commit + wait for all 4 stages
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+            return Err(MetalError::ExecutionError(
+                "GPU fused LDE command buffer error".to_string(),
+            ));
+        }
+
+        Ok::<(), MetalError>(())
+    })?;
+
+    Ok(lde_buffer)
+}
+
 /// Computes LDE directly from trace evaluations, fusing IFFT + coset LDE per column.
 ///
 /// Given columns of evaluations at roots of unity (all same length N), this computes
@@ -1025,45 +1168,26 @@ pub fn gpu_lde_from_evaluations(
     let mut lde_buffers = Vec::with_capacity(columns.len());
 
     for col in columns {
-        // Step 1: Upload evaluations as u64 to GPU
+        // Upload evaluations as u64 to GPU
         let evals_u64: Vec<u64> = col
             .iter()
             .map(|fe| Goldilocks64Field::canonical(fe.value()))
             .collect();
         let eval_buffer = metal_state.alloc_buffer_data(&evals_u64);
 
-        // Step 2: IFFT with shared inverse twiddles and reused working buffer
-        let coeff_buffer = fft_buffer_to_buffer_reuse::<Goldilocks64Field>(
+        // Fused IFFT → scale → coset shift → FFT in single command buffer
+        let lde_buffer = gpu_lde_column_fused(
             &eval_buffer,
             trace_len,
+            domain_size,
             &inv_twiddles,
-            &working_buffer,
-            metal_state,
-        )?;
-        drop(eval_buffer); // Free input GPU buffer
-
-        // Step 3: Normalize by 1/N in-place
-        gpu_scale_buffer_inplace(&coeff_buffer, trace_len, &n_inv, coset_state)?;
-
-        // Step 4: Coset shift + zero-pad to domain_size
-        let shifted_buffer = gpu_coset_shift_buffer_to_buffer(
-            &coeff_buffer,
-            trace_len,
-            coset_offset,
-            domain_size,
-            coset_state,
-        )?;
-        drop(coeff_buffer); // Free coefficient buffer before FFT
-
-        // Step 5: FFT with shared forward twiddles and reused working buffer
-        let lde_buffer = fft_buffer_to_buffer_reuse::<Goldilocks64Field>(
-            &shifted_buffer,
-            domain_size,
             &fwd_twiddles,
+            &n_inv,
+            coset_offset,
             &working_buffer,
+            coset_state,
             metal_state,
         )?;
-        drop(shifted_buffer); // Free shifted buffer
 
         lde_buffers.push(lde_buffer);
     }

@@ -680,6 +680,177 @@ pub fn gpu_fold_with_squared_inv(
     Ok((buf_output, half_len, buf_inv_x))
 }
 
+/// Fused stride-2-square-inverse + eval-domain fold + Merkle commit in a single
+/// GPU command buffer.
+///
+/// For FRI layers 1+: combines the fold from [`gpu_fold_with_squared_inv`] with the
+/// Merkle tree construction from [`gpu_fri_layer_commit_from_buffer`] into one
+/// command buffer submission, eliminating one `wait_until_completed()` per FRI layer.
+///
+/// Returns `(folded_buffer, half_len, new_inv_x_buffer, merkle_tree, root)`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_fold_and_commit_fused(
+    evals_buffer: &metal::Buffer,
+    num_evals: usize,
+    beta: &FieldElement<Goldilocks64Field>,
+    prev_inv_x: &metal::Buffer,
+    fold_eval_state: &FriFoldEvalState,
+    square_inv_state: &FriSquareInvState,
+    keccak_state: &GpuMerkleState,
+) -> Result<
+    (
+        metal::Buffer,
+        usize,
+        metal::Buffer,
+        BatchedMerkleTree<Goldilocks64Field>,
+        Commitment,
+    ),
+    MetalError,
+> {
+    use metal::{MTLCommandBufferStatus, MTLResourceOptions, MTLSize};
+
+    assert!(
+        num_evals >= 2 && num_evals.is_multiple_of(2),
+        "eval-domain fold requires even number of evaluations"
+    );
+
+    let half_len = num_evals / 2;
+
+    // --- Stride-2 square inverse output buffer ---
+    let buf_inv_x = square_inv_state
+        .state
+        .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
+    let sq_params = FriSquareInvParams {
+        len: half_len as u32,
+    };
+    let buf_sq_params = square_inv_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&sq_params))?;
+
+    // --- Fold parameters ---
+    let beta_u64 = Goldilocks64Field::canonical(beta.value());
+    let buf_output = fold_eval_state
+        .state
+        .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
+    let buf_beta = fold_eval_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&beta_u64))?;
+    let fold_params = FriFoldEvalParams {
+        half_len: half_len as u32,
+    };
+    let buf_fold_params = fold_eval_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&fold_params))?;
+
+    // --- Merkle tree allocation ---
+    let num_leaves = half_len / 2; // FRI paired leaves
+    let num_cols = 2usize;
+    let leaves_len = num_leaves.next_power_of_two();
+    let total_nodes = 2 * leaves_len - 1;
+    let tree_buf = keccak_state.state.device().new_buffer(
+        (total_nodes * 32) as u64,
+        MTLResourceOptions::StorageModeShared,
+    );
+
+    // --- Get pipelines ---
+    let sq_pipeline = square_inv_state
+        .state
+        .get_pipeline_ref("fri_square_inverses")
+        .ok_or_else(|| MetalError::FunctionError("fri_square_inverses".to_string()))?;
+
+    let fold_pipeline = fold_eval_state
+        .state
+        .get_pipeline_ref("goldilocks_fri_fold_eval")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_fri_fold_eval".to_string()))?;
+
+    // --- Single command buffer: square-inv → fold → hash leaves → build tree ---
+    let command_buffer = square_inv_state.state.command_queue().new_command_buffer();
+
+    // Encoder 1: Stride-2 square previous layer's inverses
+    {
+        let threads_per_group = square_inv_state.max_threads.min(256);
+        let thread_groups = (half_len as u64).div_ceil(threads_per_group);
+
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(sq_pipeline);
+        encoder.set_buffer(0, Some(prev_inv_x), 0);
+        encoder.set_buffer(1, Some(&buf_inv_x), 0);
+        encoder.set_buffer(2, Some(&buf_sq_params), 0);
+        encoder.dispatch_thread_groups(
+            MTLSize::new(thread_groups, 1, 1),
+            MTLSize::new(threads_per_group, 1, 1),
+        );
+        encoder.end_encoding();
+    }
+
+    // Encoder 2: Fold (reads stride-2 squared inv_x from encoder 1)
+    {
+        let fold_threads_per_group = fold_eval_state.max_threads.min(256);
+        let fold_thread_groups = (half_len as u64).div_ceil(fold_threads_per_group);
+
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(fold_pipeline);
+        encoder.set_buffer(0, Some(evals_buffer), 0);
+        encoder.set_buffer(1, Some(&buf_output), 0);
+        encoder.set_buffer(2, Some(&buf_beta), 0);
+        encoder.set_buffer(3, Some(&buf_inv_x), 0);
+        encoder.set_buffer(4, Some(&buf_fold_params), 0);
+        encoder.dispatch_thread_groups(
+            MTLSize::new(fold_thread_groups, 1, 1),
+            MTLSize::new(fold_threads_per_group, 1, 1),
+        );
+        encoder.end_encoding();
+    }
+
+    // Encoders 3+: Hash leaves + build tree levels (reads fold output from encoder 2)
+    crate::metal::merkle::encode_hash_and_build_tree(
+        command_buffer,
+        &buf_output,
+        num_leaves,
+        num_cols,
+        &tree_buf,
+        leaves_len,
+        keccak_state,
+    )?;
+
+    // --- ONE sync point ---
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU fused fold+commit error".to_string(),
+        ));
+    }
+
+    // Read back tree nodes
+    let mut nodes = vec![[0u8; 32]; total_nodes];
+    unsafe {
+        let ptr = tree_buf.contents() as *const u8;
+        std::ptr::copy_nonoverlapping(ptr, nodes.as_mut_ptr() as *mut u8, total_nodes * 32);
+    }
+
+    // Padding (FRI folded evals are always power-of-two, so this is typically a no-op)
+    if num_leaves < leaves_len {
+        let last_real = leaves_len - 1 + num_leaves - 1;
+        let pad_hash = nodes[last_real];
+        for node in nodes
+            .iter_mut()
+            .take(leaves_len - 1 + leaves_len)
+            .skip(last_real + 1)
+        {
+            *node = pad_hash;
+        }
+    }
+
+    let root = nodes[0];
+    let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)
+        .ok_or_else(|| MetalError::ExecutionError("Failed to build FRI Merkle tree".into()))?;
+
+    Ok((buf_output, half_len, buf_inv_x, tree, root))
+}
+
 /// Pre-compiled Metal state for FRI domain inverse precomputation.
 ///
 /// Caches the compiled pipeline for `compute_fri_domain_inverses`.
@@ -2096,9 +2267,10 @@ pub fn gpu_fri_commit_phase_eval_domain(
         coset_offset = coset_offset.square();
         domain_size /= 2;
 
-        let (folded_buf, folded_len, inv_x) = if layer_idx == 1 {
+        let (folded_buf, folded_len, inv_x, merkle_tree) = if layer_idx == 1 {
             // Layer 0: compute domain inverses from scratch (exp-by-squaring).
-            gpu_fold_evaluations_with_domain_inv(
+            // Cannot fuse with commit since it uses a different fold function.
+            let (fb, fl, ix) = gpu_fold_evaluations_with_domain_inv(
                 &current_evals,
                 current_len,
                 &zeta,
@@ -2109,28 +2281,28 @@ pub fn gpu_fri_commit_phase_eval_domain(
             )
             .map_err(|e| {
                 ProvingError::FieldOperationError(format!("GPU fused domain-inv+fold: {e}"))
-            })?
+            })?;
+            let (mt, _root) =
+                gpu_fri_layer_commit_from_buffer(&fb, fl, keccak_state).map_err(|e| {
+                    ProvingError::MerkleTreeError(format!("GPU Merkle in eval-domain FRI: {e}"))
+                })?;
+            (fb, fl, ix, mt)
         } else {
-            // Layers 1+: stride-2 square previous inv_x (1 mul/element).
-            gpu_fold_with_squared_inv(
+            // Layers 1+: fused stride-2 square + fold + Merkle commit in single command buffer.
+            let (fb, fl, ix, mt, _root) = gpu_fold_and_commit_fused(
                 &current_evals,
                 current_len,
                 &zeta,
                 prev_inv_x.as_ref().unwrap(),
                 fold_eval_state,
                 square_inv_state,
+                keccak_state,
             )
             .map_err(|e| {
-                ProvingError::FieldOperationError(format!("GPU fused stride2-square+fold: {e}"))
-            })?
+                ProvingError::FieldOperationError(format!("GPU fused fold+commit: {e}"))
+            })?;
+            (fb, fl, ix, mt)
         };
-
-        // Merkle commit from the folded evaluations.
-        // The folded evaluations are already in bit-reversed order.
-        let (merkle_tree, _root) =
-            gpu_fri_layer_commit_from_buffer(&folded_buf, folded_len, keccak_state).map_err(
-                |e| ProvingError::MerkleTreeError(format!("GPU Merkle in eval-domain FRI: {e}")),
-            )?;
 
         // Read back evaluations for FriLayer (needed for CPU query phase).
         let eval_u64: Vec<u64> = MetalState::retrieve_contents(&folded_buf);

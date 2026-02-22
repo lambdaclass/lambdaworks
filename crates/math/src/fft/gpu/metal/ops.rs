@@ -632,6 +632,93 @@ where
     Ok(result_buffer)
 }
 
+/// Encode FFT compute dispatches into an existing Metal command buffer without
+/// committing or waiting.
+///
+/// This enables fusing FFT with other GPU operations (e.g., coset shift, scaling)
+/// in a single command buffer submission.
+///
+/// Encodes: blit (input → working) + butterfly stages + bitrev (working → result).
+/// The caller must commit and wait on the command buffer.
+///
+/// # Arguments
+///
+/// - `command_buffer`: The Metal command buffer to encode into
+/// - `input_buffer`: Source data (not modified)
+/// - `input_len`: Number of elements (must be power of two)
+/// - `twiddles_buffer`: Pre-computed twiddle factors
+/// - `working_buffer`: Caller-owned scratch buffer (capacity >= input_len)
+/// - `result_buffer`: Caller-owned output buffer (capacity >= input_len)
+/// - `state`: Metal state with compiled pipelines
+pub fn fft_encode_to_command_buffer<F>(
+    command_buffer: &metal::CommandBufferRef,
+    input_buffer: &Buffer,
+    input_len: usize,
+    twiddles_buffer: &Buffer,
+    working_buffer: &Buffer,
+    result_buffer: &Buffer,
+    state: &MetalState,
+) -> Result<(), MetalError>
+where
+    F: IsFFTField + IsSubFieldOf<F>,
+    F::BaseType: Copy,
+{
+    if !input_len.is_power_of_two() {
+        return Err(MetalError::InputError(input_len));
+    }
+
+    let butterfly_pipeline =
+        state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
+    let bitrev_pipeline =
+        state.setup_pipeline(&format!("bitrev_permutation_{}", F::field_name()))?;
+
+    // Blit: copy input to working buffer
+    {
+        let blit_encoder = command_buffer.new_blit_command_encoder();
+        blit_encoder.copy_from_buffer(
+            input_buffer,
+            0,
+            working_buffer,
+            0,
+            (input_len * mem::size_of::<F::BaseType>()) as u64,
+        );
+        blit_encoder.end_encoding();
+    }
+
+    // Compute encoder: butterfly stages (in-place on working_buffer)
+    {
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(&butterfly_pipeline);
+        encoder.set_buffer(0, Some(working_buffer), 0);
+        encoder.set_buffer(1, Some(twiddles_buffer), 0);
+
+        let order = input_len.trailing_zeros();
+        for stage in 0..order {
+            encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
+            let grid_size = MTLSize::new(input_len as u64 / 2, 1, 1);
+            let threadgroup_size = MTLSize::new(butterfly_pipeline.thread_execution_width(), 1, 1);
+            encoder.dispatch_threads(grid_size, threadgroup_size);
+        }
+        encoder.end_encoding();
+    }
+
+    // Compute encoder: bit-reverse permutation (working_buffer → result_buffer)
+    {
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(&bitrev_pipeline);
+        encoder.set_buffer(0, Some(working_buffer), 0);
+        encoder.set_buffer(1, Some(result_buffer), 0);
+
+        let grid_size = MTLSize::new(input_len as u64, 1, 1);
+        let threadgroup_size =
+            MTLSize::new(bitrev_pipeline.max_total_threads_per_threadgroup(), 1, 1);
+        encoder.dispatch_threads(grid_size, threadgroup_size);
+        encoder.end_encoding();
+    }
+
+    Ok(())
+}
+
 /// Like [`fft_buffer_to_buffer`] but takes a caller-owned working buffer instead of
 /// allocating a new one. The working buffer must have capacity for at least `input_len`
 /// elements of `F::BaseType`. This avoids repeated GPU memory allocation when performing
@@ -649,68 +736,25 @@ where
     F: IsFFTField + IsSubFieldOf<F>,
     F::BaseType: Copy,
 {
-    if !input_len.is_power_of_two() {
-        return Err(MetalError::InputError(input_len));
-    }
-
-    let butterfly_pipeline =
-        state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
-    let bitrev_pipeline =
-        state.setup_pipeline(&format!("bitrev_permutation_{}", F::field_name()))?;
-
     let result_buffer = state.alloc_buffer::<F::BaseType>(input_len);
 
     objc::rc::autoreleasepool(|| {
         let command_buffer = state.queue.new_command_buffer();
 
-        // Copy input to working buffer so butterfly stages don't modify caller's data
-        {
-            let blit_encoder = command_buffer.new_blit_command_encoder();
-            blit_encoder.copy_from_buffer(
-                input_buffer,
-                0,
-                working_buffer,
-                0,
-                (input_len * mem::size_of::<F::BaseType>()) as u64,
-            );
-            blit_encoder.end_encoding();
-        }
-
-        // Encoder 1: Butterfly stages (in-place on working_buffer)
-        {
-            let encoder = command_buffer.new_compute_command_encoder();
-            encoder.set_compute_pipeline_state(&butterfly_pipeline);
-            encoder.set_buffer(0, Some(working_buffer), 0);
-            encoder.set_buffer(1, Some(twiddles_buffer), 0);
-
-            let order = input_len.trailing_zeros();
-            for stage in 0..order {
-                encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
-                let grid_size = MTLSize::new(input_len as u64 / 2, 1, 1);
-                let threadgroup_size =
-                    MTLSize::new(butterfly_pipeline.thread_execution_width(), 1, 1);
-                encoder.dispatch_threads(grid_size, threadgroup_size);
-            }
-            encoder.end_encoding();
-        }
-
-        // Encoder 2: Bit-reverse permutation (working_buffer -> result_buffer)
-        {
-            let encoder = command_buffer.new_compute_command_encoder();
-            encoder.set_compute_pipeline_state(&bitrev_pipeline);
-            encoder.set_buffer(0, Some(working_buffer), 0);
-            encoder.set_buffer(1, Some(&result_buffer), 0);
-
-            let grid_size = MTLSize::new(input_len as u64, 1, 1);
-            let threadgroup_size =
-                MTLSize::new(bitrev_pipeline.max_total_threads_per_threadgroup(), 1, 1);
-            encoder.dispatch_threads(grid_size, threadgroup_size);
-            encoder.end_encoding();
-        }
+        fft_encode_to_command_buffer::<F>(
+            command_buffer,
+            input_buffer,
+            input_len,
+            twiddles_buffer,
+            working_buffer,
+            &result_buffer,
+            state,
+        )?;
 
         command_buffer.commit();
         command_buffer.wait_until_completed();
-    });
+        Ok::<(), MetalError>(())
+    })?;
 
     Ok(result_buffer)
 }
