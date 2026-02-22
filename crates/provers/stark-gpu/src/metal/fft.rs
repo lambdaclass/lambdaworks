@@ -1106,6 +1106,215 @@ fn gpu_lde_column_fused(
     Ok(lde_buffer)
 }
 
+/// Fused IFFT→scale→decoset→trim→coset→FFT pipeline for composition polynomial.
+///
+/// When `number_of_parts == 1`, the entire composition polynomial interpolation
+/// and LDE can be done in a single Metal command buffer, eliminating 5 separate
+/// GPU→CPU sync points.
+///
+/// # Pipeline stages (single command buffer)
+///
+/// 1. IFFT (inverse twiddles): eval_buffer → working → ifft_buffer
+/// 2. Scale by 1/N: ifft_buffer in-place
+/// 3. Inverse coset shift: ifft_buffer → coeffs_buffer (size = eval_len)
+/// 4. Trim: blit first `meaningful_coeffs` from coeffs_buffer → trimmed_buffer
+/// 5. Forward coset shift + zero-pad: trimmed_buffer → shifted_buffer (size = lde_domain_size)
+/// 6. Forward FFT: shifted_buffer → working → lde_buffer
+///
+/// # Returns
+///
+/// `(coeffs_buffer, vec![lde_buffer], lde_domain_size)` where `coeffs_buffer` contains
+/// the full coset-IFFT output (used for OOD readback in Phase 3).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_composition_ifft_and_lde_fused(
+    eval_buffer: &metal::Buffer,
+    eval_len: usize,
+    meaningful_coeffs: usize,
+    blowup_factor: usize,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    coset_state: &CosetShiftState,
+    metal_state: &MetalState,
+) -> Result<(metal::Buffer, Vec<metal::Buffer>, usize), MetalError> {
+    use metal::MTLSize;
+
+    type F = Goldilocks64Field;
+    type FpE = FieldElement<F>;
+
+    let lde_domain_size = meaningful_coeffs * blowup_factor;
+    let ifft_order = eval_len.trailing_zeros() as u64;
+    let fft_order = lde_domain_size.trailing_zeros() as u64;
+
+    // Generate twiddles for IFFT (eval_len) and forward FFT (lde_domain_size)
+    let inv_twiddles =
+        gen_twiddles_to_buffer::<F>(ifft_order, RootsConfig::BitReverseInversed, metal_state)?;
+    let fwd_twiddles =
+        gen_twiddles_to_buffer::<F>(fft_order, RootsConfig::BitReverse, metal_state)?;
+
+    // Pre-compute scalar and parameter buffers
+    let n_inv = FpE::from(eval_len as u64)
+        .inv()
+        .expect("Power-of-two length is always invertible in an FFT field");
+    let n_inv_u64 = Goldilocks64Field::canonical(n_inv.value());
+    let offset_inv = coset_offset.inv().expect("Coset offset must be invertible");
+    let offset_inv_u64 = Goldilocks64Field::canonical(offset_inv.value());
+    let offset_u64 = Goldilocks64Field::canonical(coset_offset.value());
+
+    let buf_n_inv = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&n_inv_u64))?;
+    let eval_len_u32 = eval_len as u32;
+    let buf_eval_len = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&eval_len_u32))?;
+    let buf_offset_inv = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&offset_inv_u64))?;
+    let buf_offset_fwd = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&offset_u64))?;
+    let meaningful_u32 = meaningful_coeffs as u32;
+    let lde_u32 = lde_domain_size as u32;
+    let buf_meaningful_len = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&meaningful_u32))?;
+    let buf_lde_len = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&lde_u32))?;
+
+    // Allocate all intermediate and output buffers
+    let ifft_buffer = metal_state.alloc_buffer::<u64>(eval_len);
+    let coeffs_buffer = coset_state
+        .state
+        .alloc_buffer(eval_len * std::mem::size_of::<u64>())?;
+    let trimmed_buffer = coset_state
+        .state
+        .alloc_buffer(meaningful_coeffs * std::mem::size_of::<u64>())?;
+    let shifted_buffer = coset_state
+        .state
+        .alloc_buffer(lde_domain_size * std::mem::size_of::<u64>())?;
+    let lde_buffer = metal_state.alloc_buffer::<u64>(lde_domain_size);
+    let working_size = eval_len.max(lde_domain_size);
+    let working_buffer = metal_state.alloc_buffer::<u64>(working_size);
+
+    let scale_pipeline = coset_state
+        .state
+        .get_pipeline_ref("goldilocks_scale")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_scale".to_string()))?
+        .to_owned();
+    let coset_pipeline = coset_state
+        .state
+        .get_pipeline_ref("goldilocks_coset_shift")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_coset_shift".to_string()))?
+        .to_owned();
+
+    objc::rc::autoreleasepool(|| {
+        let command_buffer = metal_state.queue.new_command_buffer();
+
+        // Stage 1: IFFT (eval_buffer → working → ifft_buffer)
+        fft_encode_to_command_buffer::<F>(
+            command_buffer,
+            eval_buffer,
+            eval_len,
+            &inv_twiddles,
+            &working_buffer,
+            &ifft_buffer,
+            metal_state,
+        )?;
+
+        // Stage 2: Scale by 1/N (ifft_buffer in-place)
+        {
+            let threads_per_group = coset_state.scale_max_threads.min(256);
+            let thread_groups = (eval_len as u64).div_ceil(threads_per_group);
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(&scale_pipeline);
+            encoder.set_buffer(0, Some(&ifft_buffer), 0);
+            encoder.set_buffer(1, Some(&ifft_buffer), 0);
+            encoder.set_buffer(2, Some(&buf_n_inv), 0);
+            encoder.set_buffer(3, Some(&buf_eval_len), 0);
+            encoder.dispatch_thread_groups(
+                MTLSize::new(thread_groups, 1, 1),
+                MTLSize::new(threads_per_group, 1, 1),
+            );
+            encoder.end_encoding();
+        }
+
+        // Stage 3: Inverse coset shift (ifft_buffer → coeffs_buffer)
+        {
+            let threads_per_group = coset_state.coset_shift_max_threads.min(256);
+            let thread_groups = (eval_len as u64).div_ceil(threads_per_group);
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(&coset_pipeline);
+            encoder.set_buffer(0, Some(&ifft_buffer), 0);
+            encoder.set_buffer(1, Some(&coeffs_buffer), 0);
+            encoder.set_buffer(2, Some(&buf_offset_inv), 0);
+            encoder.set_buffer(3, Some(&buf_eval_len), 0);
+            encoder.set_buffer(4, Some(&buf_eval_len), 0);
+            encoder.dispatch_thread_groups(
+                MTLSize::new(thread_groups, 1, 1),
+                MTLSize::new(threads_per_group, 1, 1),
+            );
+            encoder.end_encoding();
+        }
+
+        // Stage 4: Trim via blit (first meaningful_coeffs from coeffs_buffer)
+        {
+            let blit = command_buffer.new_blit_command_encoder();
+            blit.copy_from_buffer(
+                &coeffs_buffer,
+                0,
+                &trimmed_buffer,
+                0,
+                (meaningful_coeffs * std::mem::size_of::<u64>()) as u64,
+            );
+            blit.end_encoding();
+        }
+
+        // Stage 5: Forward coset shift + zero-pad (trimmed → shifted)
+        {
+            let threads_per_group = coset_state.coset_shift_max_threads.min(256);
+            let thread_groups = (lde_domain_size as u64).div_ceil(threads_per_group);
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(&coset_pipeline);
+            encoder.set_buffer(0, Some(&trimmed_buffer), 0);
+            encoder.set_buffer(1, Some(&shifted_buffer), 0);
+            encoder.set_buffer(2, Some(&buf_offset_fwd), 0);
+            encoder.set_buffer(3, Some(&buf_meaningful_len), 0);
+            encoder.set_buffer(4, Some(&buf_lde_len), 0);
+            encoder.dispatch_thread_groups(
+                MTLSize::new(thread_groups, 1, 1),
+                MTLSize::new(threads_per_group, 1, 1),
+            );
+            encoder.end_encoding();
+        }
+
+        // Stage 6: Forward FFT (shifted → working → lde_buffer)
+        fft_encode_to_command_buffer::<F>(
+            command_buffer,
+            &shifted_buffer,
+            lde_domain_size,
+            &fwd_twiddles,
+            &working_buffer,
+            &lde_buffer,
+            metal_state,
+        )?;
+
+        // Single commit + wait for all 6 stages
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+            return Err(MetalError::ExecutionError(
+                "GPU fused composition IFFT+LDE command buffer error".to_string(),
+            ));
+        }
+
+        Ok::<(), MetalError>(())
+    })?;
+
+    Ok((coeffs_buffer, vec![lde_buffer], lde_domain_size))
+}
+
 /// Computes LDE directly from trace evaluations, fusing IFFT + coset LDE per column.
 ///
 /// Given columns of evaluations at roots of unity (all same length N), this computes

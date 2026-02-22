@@ -42,7 +42,8 @@ use crate::metal::constraint_eval::{
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{
-    gpu_cyclic_mul_buffer, gpu_interpolate_offset_fft_buffer_to_buffer, CosetShiftState,
+    gpu_composition_ifft_and_lde_fused, gpu_cyclic_mul_buffer,
+    gpu_interpolate_offset_fft_buffer_to_buffer, CosetShiftState,
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::merkle::{gpu_batch_commit_paired_from_column_buffers, GpuMerkleState};
@@ -301,11 +302,24 @@ where
         .collect()
 }
 
+/// Threshold for switching from GPU FFT to CPU direct Horner evaluation.
+/// For polynomials with degree <= this value, CPU parallel Horner is faster
+/// because it avoids padding to interpolation_domain_size, coset shift on
+/// all those zeros, and a full FFT on eval_domain_size elements.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const DIRECT_EVAL_DEGREE_THRESHOLD: usize = 64;
+
 /// Compute end exemptions polynomial evaluations as a GPU buffer.
 ///
 /// Like [`gpu_compute_end_exemptions_evals`] but keeps the result on GPU as a
 /// Metal buffer, avoiding CPU readback when the result will be consumed by
 /// `gpu_cyclic_mul_buffer`.
+///
+/// For low-degree polynomials (degree ≤ [`DIRECT_EVAL_DEGREE_THRESHOLD`]),
+/// uses parallel CPU Horner evaluation instead of coset-shift + FFT. This is
+/// significantly faster because the FFT path pads to interpolation_domain_size
+/// (e.g., 1M) and evaluates on eval_domain_size (e.g., 4M) even though the
+/// polynomial only has ~19 non-zero coefficients.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::too_many_arguments)]
 fn gpu_compute_end_exemptions_to_buffer(
@@ -321,9 +335,6 @@ fn gpu_compute_end_exemptions_to_buffer(
 ) -> (metal::Buffer, usize) {
     type F = Goldilocks64Field;
     type FpE = FieldElement<F>;
-
-    use crate::metal::fft::gpu_coset_shift_to_buffer;
-    use lambdaworks_math::fft::gpu::metal::ops::fft_buffer_to_buffer;
 
     // Build end exemptions polynomial on CPU (small: degree = end_exemptions)
     let one_poly = Polynomial::new_monomial(FpE::one(), 0);
@@ -351,6 +362,19 @@ fn gpu_compute_end_exemptions_to_buffer(
         let buf = state.inner().alloc_buffer_data(&data);
         return (buf, eval_domain_size);
     }
+
+    // For low-degree polynomials, use parallel CPU Horner evaluation instead of
+    // padding to interpolation_domain_size + coset shift + FFT on eval_domain_size.
+    let degree = coeffs.len() - 1;
+    if degree <= DIRECT_EVAL_DEGREE_THRESHOLD {
+        let data = cpu_direct_poly_eval_on_coset(coeffs, eval_domain_size, coset_offset);
+        let buf = state.inner().alloc_buffer_data(&data);
+        return (buf, eval_domain_size);
+    }
+
+    // High-degree path: GPU coset shift + FFT
+    use crate::metal::fft::gpu_coset_shift_to_buffer;
+    use lambdaworks_math::fft::gpu::metal::ops::fft_buffer_to_buffer;
 
     // Pad coefficients to interpolation_domain_size
     let mut padded_coeffs = coeffs.to_vec();
@@ -380,6 +404,59 @@ fn gpu_compute_end_exemptions_to_buffer(
     .expect("GPU FFT failed for end exemptions");
 
     (result_buffer, eval_domain_size)
+}
+
+/// Evaluate a polynomial on a coset domain using parallel CPU Horner's method.
+///
+/// Computes `P(coset_offset * omega^i)` for `i = 0..eval_domain_size-1`, where
+/// `omega` is a primitive root of unity of order `eval_domain_size`.
+///
+/// Domain points are precomputed in parallel blocks to avoid a sequential bottleneck.
+/// Each block independently computes its starting power and iterates from there.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn cpu_direct_poly_eval_on_coset(
+    coeffs: &[FieldElement<Goldilocks64Field>],
+    eval_domain_size: usize,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+) -> Vec<u64> {
+    type F = Goldilocks64Field;
+
+    use rayon::prelude::*;
+
+    let order = eval_domain_size.trailing_zeros() as u64;
+    let omega = F::get_primitive_root_of_unity(order)
+        .expect("primitive root of unity must exist for eval_domain_size");
+
+    // Precompute domain points in parallel blocks.
+    // Each block computes: x[block_start + j] = coset_offset * omega^(block_start + j)
+    // The block starting power is coset_offset * omega^block_start.
+    let block_size = 4096;
+    let num_blocks = eval_domain_size.div_ceil(block_size);
+
+    let domain_and_evals: Vec<u64> = (0..num_blocks)
+        .into_par_iter()
+        .flat_map_iter(|block_idx| {
+            let block_start = block_idx * block_size;
+            let block_end = (block_start + block_size).min(eval_domain_size);
+            let block_len = block_end - block_start;
+
+            // Compute starting power: coset_offset * omega^block_start
+            let mut x = coset_offset * omega.pow(block_start as u64);
+
+            (0..block_len).map(move |_| {
+                // Horner evaluation: result = c[d]*x^d + ... + c[1]*x + c[0]
+                let mut result = coeffs[coeffs.len() - 1];
+                for c in coeffs.iter().rev().skip(1) {
+                    result = result * x + c;
+                }
+                let val = F::canonical(result.value());
+                x *= omega;
+                val
+            })
+        })
+        .collect();
+
+    domain_and_evals
 }
 
 /// Result of GPU Phase 2 (composition polynomial round).
@@ -908,21 +985,7 @@ where
 
     eprintln!("    2c fused eval:     {:>10.2?}", t_constraint.elapsed());
 
-    // Step 4: GPU coset IFFT — interpolate constraint evaluations entirely on GPU.
-    let t_ifft = std::time::Instant::now();
-    let coset_offset = air.coset_offset();
-    let coeffs_buffer = gpu_interpolate_offset_fft_buffer_to_buffer(
-        &constraint_eval_buffer,
-        constraint_eval_len,
-        &coset_offset,
-        coset_state,
-        state.inner(),
-    )
-    .map_err(|e| ProvingError::FieldOperationError(format!("GPU composition IFFT error: {e}")))?;
-
-    eprintln!("    2d GPU IFFT:       {:>10.2?}", t_ifft.elapsed());
-
-    // Step 5: Break into parts.
+    // Steps 4-6: IFFT → stride/trim → LDE FFT pipeline.
     let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
     if number_of_parts == 0 {
         return Err(ProvingError::WrongParameter(
@@ -930,29 +993,77 @@ where
         ));
     }
 
-    // Step 5a: GPU stride — break coefficients into parts entirely on GPU.
-    // IMPORTANT: Stride only the first `composition_poly_degree_bound` coefficients,
-    // not the full IFFT output. The IFFT produces `constraint_eval_len` values, but
-    // the composition polynomial has degree < `composition_poly_degree_bound`, so the
-    // trailing coefficients are zeros. Striding over the full buffer would produce parts
-    // with extra zeros, leading to a larger FFT domain and different Merkle root.
-    let t_stride = std::time::Instant::now();
+    let coset_offset = air.coset_offset();
     let meaningful_coeffs = air.composition_poly_degree_bound();
-    let part_buffers = gpu_break_in_parts_buffer_to_buffers(
-        &coeffs_buffer,
-        meaningful_coeffs,
-        number_of_parts,
-        state.inner(),
-    )
-    .map_err(|e| {
-        ProvingError::FieldOperationError(format!("GPU stride (break_in_parts) error: {e}"))
-    })?;
+    let part_len = meaningful_coeffs / number_of_parts;
 
-    eprintln!("    2e GPU stride:     {:>10.2?}", t_stride.elapsed());
+    let t_pipeline = std::time::Instant::now();
+    let (coeffs_buffer, lde_buffers, lde_domain_size) = if number_of_parts == 1 {
+        // Fast path: fuse IFFT→scale→decoset→trim→coset→FFT in a single command buffer.
+        // This reduces 6 command buffer commits (3 for IFFT, 1 for trim, 2 for LDE) to 1.
+        gpu_composition_ifft_and_lde_fused(
+            &constraint_eval_buffer,
+            constraint_eval_len,
+            meaningful_coeffs,
+            blowup_factor,
+            &coset_offset,
+            coset_state,
+            state.inner(),
+        )
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU fused IFFT+LDE error: {e}")))?
+    } else {
+        // Multi-part path: separate IFFT, stride, and LDE FFT.
+        let t_ifft = std::time::Instant::now();
+        let coeffs_buf = gpu_interpolate_offset_fft_buffer_to_buffer(
+            &constraint_eval_buffer,
+            constraint_eval_len,
+            &coset_offset,
+            coset_state,
+            state.inner(),
+        )
+        .map_err(|e| {
+            ProvingError::FieldOperationError(format!("GPU composition IFFT error: {e}"))
+        })?;
+        eprintln!("    2d GPU IFFT:       {:>10.2?}", t_ifft.elapsed());
 
-    // Step 5b: Read back coefficients to CPU for OOD eval in Phase 3.
-    // Uses UMA zero-copy: reads directly from Metal buffer shared memory,
-    // avoiding the intermediate Vec<u64> allocation from retrieve_contents.
+        let t_stride = std::time::Instant::now();
+        let part_bufs = gpu_break_in_parts_buffer_to_buffers(
+            &coeffs_buf,
+            meaningful_coeffs,
+            number_of_parts,
+            state.inner(),
+        )
+        .map_err(|e| {
+            ProvingError::FieldOperationError(format!("GPU stride (break_in_parts) error: {e}"))
+        })?;
+        eprintln!("    2e GPU stride:     {:>10.2?}", t_stride.elapsed());
+
+        let t_lde = std::time::Instant::now();
+        let buffer_results = gpu_evaluate_offset_fft_buffer_to_buffers_batch(
+            &part_bufs,
+            part_len,
+            blowup_factor,
+            &coset_offset,
+            coset_state,
+            state.inner(),
+        )
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
+
+        let mut lde_bufs: Vec<metal::Buffer> = Vec::with_capacity(number_of_parts);
+        let mut ds = 0;
+        for (buffer, d) in buffer_results {
+            ds = d;
+            lde_bufs.push(buffer);
+        }
+        eprintln!("    2f LDE FFT:        {:>10.2?}", t_lde.elapsed());
+
+        (coeffs_buf, lde_bufs, ds)
+    };
+
+    eprintln!("    2d-f pipeline:     {:>10.2?}", t_pipeline.elapsed());
+
+    // Read back coefficients to CPU for OOD eval in Phase 3.
+    // Uses UMA zero-copy: reads directly from Metal buffer shared memory.
     let t_readback = std::time::Instant::now();
     let ptr = coeffs_buffer.contents() as *const u64;
     let coeffs_fe: Vec<FpE> = (0..meaningful_coeffs)
@@ -962,29 +1073,6 @@ where
     let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
     eprintln!("    2e' OOD readback:  {:>10.2?}", t_readback.elapsed());
-
-    // Step 6: Evaluate each part on LDE domain via GPU buffer-to-buffer FFT.
-    let t_lde = std::time::Instant::now();
-    let part_len = meaningful_coeffs / number_of_parts;
-    let buffer_results = gpu_evaluate_offset_fft_buffer_to_buffers_batch(
-        &part_buffers,
-        part_len,
-        blowup_factor,
-        &coset_offset,
-        coset_state,
-        state.inner(),
-    )
-    .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
-
-    let mut lde_buffers: Vec<metal::Buffer> = Vec::with_capacity(number_of_parts);
-    let mut lde_domain_size = 0;
-
-    for (buffer, ds) in buffer_results {
-        lde_domain_size = ds;
-        lde_buffers.push(buffer);
-    }
-
-    eprintln!("    2f LDE FFT:        {:>10.2?}", t_lde.elapsed());
 
     // Step 7: GPU Merkle commit with paired-row layout directly from FFT buffers.
     let t_commit = std::time::Instant::now();
