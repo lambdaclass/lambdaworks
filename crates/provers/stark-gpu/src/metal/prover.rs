@@ -121,7 +121,7 @@ where
     use crate::metal::constraint_eval::{FibRapConstraintState, FusedConstraintState};
     use crate::metal::deep_composition::{DeepCompositionState, DomainInversionState};
     use crate::metal::fft::CosetShiftState;
-    use crate::metal::phases::fri::{FriDomainInvState, FriFoldEvalState};
+    use crate::metal::phases::fri::{FriDomainInvState, FriFoldEvalState, FriSquareInvState};
 
     let state =
         StarkMetalState::new().map_err(|e| ProvingError::FieldOperationError(e.to_string()))?;
@@ -152,6 +152,11 @@ where
         FriDomainInvState::from_device_and_queue(&state.inner().device, &state.inner().queue)
             .map_err(|e| {
                 ProvingError::FieldOperationError(format!("FRI domain inv shader: {e}"))
+            })?;
+    let fri_square_inv_state =
+        FriSquareInvState::from_device_and_queue(&state.inner().device, &state.inner().queue)
+            .map_err(|e| {
+                ProvingError::FieldOperationError(format!("FRI square inv shader: {e}"))
             })?;
     let domain_inv_state = DomainInversionState::new()
         .map_err(|e| ProvingError::FieldOperationError(format!("Domain inversions shader: {e}")))?;
@@ -203,6 +208,7 @@ where
         &keccak_state,
         &fold_eval_state,
         &fri_domain_inv_state,
+        &fri_square_inv_state,
         Some(&domain_inv_state),
     )?;
     eprintln!("  Phase 4 (FRI):         {:>10.2?}", t.elapsed());

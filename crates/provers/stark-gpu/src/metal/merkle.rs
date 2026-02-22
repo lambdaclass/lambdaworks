@@ -21,7 +21,10 @@ where
 // =============================================================================
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::DynamicMetalState};
+use lambdaworks_gpu::metal::abstractions::{
+    errors::MetalError,
+    state::{void_ptr, DynamicMetalState},
+};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -47,6 +50,8 @@ pub struct GpuMerkleState {
     hash_leaves_max_threads: u64,
     hash_pairs_max_threads: u64,
     transpose_max_threads: u64,
+    fused_leaves_max_threads: u64,
+    fused_leaves_paired_max_threads: u64,
     grind_max_threads: u64,
     /// Cached transpose+bitrev state for buffer-based operations.
     transpose_bitrev_state: Option<TransposeBitrevState>,
@@ -54,6 +59,10 @@ pub struct GpuMerkleState {
     leaf_kernel: &'static str,
     /// Kernel name for pair hashing.
     pair_kernel: &'static str,
+    /// Kernel name for fused transpose+hash (unpaired).
+    fused_leaf_kernel: &'static str,
+    /// Kernel name for fused transpose+hash (paired).
+    fused_leaf_paired_kernel: &'static str,
     /// Kernel name for nonce grinding (None for backends without GPU grinding).
     grind_kernel: Option<&'static str>,
     /// CPU fallback pair hasher for small tree levels.
@@ -97,6 +106,10 @@ impl GpuMerkleState {
         let hash_leaves_max_threads = state.prepare_pipeline("keccak256_hash_leaves")?;
         let hash_pairs_max_threads = state.prepare_pipeline("keccak256_hash_pairs")?;
         let transpose_max_threads = state.prepare_pipeline("transpose_bitrev_goldilocks")?;
+        let fused_leaves_max_threads =
+            state.prepare_pipeline("keccak256_hash_leaves_from_columns")?;
+        let fused_leaves_paired_max_threads =
+            state.prepare_pipeline("keccak256_hash_leaves_from_columns_paired")?;
         let grind_max_threads = state.prepare_pipeline("keccak256_grind_nonce")?;
 
         let transpose_bitrev_state = TransposeBitrevState::new().ok();
@@ -106,10 +119,14 @@ impl GpuMerkleState {
             hash_leaves_max_threads,
             hash_pairs_max_threads,
             transpose_max_threads,
+            fused_leaves_max_threads,
+            fused_leaves_paired_max_threads,
             grind_max_threads,
             transpose_bitrev_state,
             leaf_kernel: "keccak256_hash_leaves",
             pair_kernel: "keccak256_hash_pairs",
+            fused_leaf_kernel: "keccak256_hash_leaves_from_columns",
+            fused_leaf_paired_kernel: "keccak256_hash_leaves_from_columns_paired",
             grind_kernel: Some("keccak256_grind_nonce"),
             cpu_pair_hasher: cpu_keccak_pair,
         })
@@ -121,6 +138,10 @@ impl GpuMerkleState {
         state.load_library(POSEIDON_SHADER)?;
         let hash_leaves_max_threads = state.prepare_pipeline("poseidon_hash_leaves")?;
         let hash_pairs_max_threads = state.prepare_pipeline("poseidon_hash_pairs")?;
+        let fused_leaves_max_threads =
+            state.prepare_pipeline("poseidon_hash_leaves_from_columns")?;
+        let fused_leaves_paired_max_threads =
+            state.prepare_pipeline("poseidon_hash_leaves_from_columns_paired")?;
         // The Poseidon shader doesn't include transpose_bitrev_goldilocks, so use 0.
         // Transpose is handled by the separate TransposeBitrevState.
         let transpose_max_threads = 0;
@@ -133,10 +154,14 @@ impl GpuMerkleState {
             hash_leaves_max_threads,
             hash_pairs_max_threads,
             transpose_max_threads,
+            fused_leaves_max_threads,
+            fused_leaves_paired_max_threads,
             grind_max_threads,
             transpose_bitrev_state,
             leaf_kernel: "poseidon_hash_leaves",
             pair_kernel: "poseidon_hash_pairs",
+            fused_leaf_kernel: "poseidon_hash_leaves_from_columns",
+            fused_leaf_paired_kernel: "poseidon_hash_leaves_from_columns_paired",
             grind_kernel: None,
             cpu_pair_hasher: cpu_poseidon_pair,
         })
@@ -571,19 +596,17 @@ pub fn gpu_build_merkle_tree(
         let children_byte_offset = (level_begin * 32) as u64;
         let parents_byte_offset = (new_level_begin * 32) as u64;
 
-        // Allocate a tiny buffer for num_pairs parameter
         let num_pairs_u32 = num_pairs as u32;
-        let param_buf = keccak_state.state.device().new_buffer_with_data(
-            &num_pairs_u32 as *const u32 as *const _,
-            std::mem::size_of::<u32>() as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
 
         let encoder = command_buffer.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(pipeline);
         encoder.set_buffer(0, Some(&tree_buf), children_byte_offset);
         encoder.set_buffer(1, Some(&tree_buf), parents_byte_offset);
-        encoder.set_buffer(2, Some(&param_buf), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            void_ptr(&num_pairs_u32),
+        );
 
         let thread_groups_count = (num_pairs as u64).div_ceil(threads_per_group);
         encoder.dispatch_thread_groups(
@@ -788,17 +811,16 @@ fn gpu_hash_and_build_tree(
         let children_byte_offset = (level_begin * 32) as u64;
         let parents_byte_offset = (new_level_begin * 32) as u64;
         let num_pairs_u32 = num_pairs as u32;
-        let param_buf = keccak_state.state.device().new_buffer_with_data(
-            &num_pairs_u32 as *const u32 as *const _,
-            std::mem::size_of::<u32>() as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
 
         let encoder = command_buffer.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(pair_hash_pipeline);
         encoder.set_buffer(0, Some(&tree_buf), children_byte_offset);
         encoder.set_buffer(1, Some(&tree_buf), parents_byte_offset);
-        encoder.set_buffer(2, Some(&param_buf), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            void_ptr(&num_pairs_u32),
+        );
         let thread_groups_count = (num_pairs as u64).div_ceil(threads_per_group);
         encoder.dispatch_thread_groups(
             MTLSize::new(thread_groups_count, 1, 1),
@@ -940,17 +962,16 @@ fn gpu_hash_and_build_tree_from_buffer(
         let children_byte_offset = (level_begin * 32) as u64;
         let parents_byte_offset = (new_level_begin * 32) as u64;
         let num_pairs_u32 = num_pairs as u32;
-        let param_buf = keccak_state.state.device().new_buffer_with_data(
-            &num_pairs_u32 as *const u32 as *const _,
-            std::mem::size_of::<u32>() as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
 
         let encoder = command_buffer.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(pair_hash_pipeline);
         encoder.set_buffer(0, Some(&tree_buf), children_byte_offset);
         encoder.set_buffer(1, Some(&tree_buf), parents_byte_offset);
-        encoder.set_buffer(2, Some(&param_buf), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            void_ptr(&num_pairs_u32),
+        );
         let thread_groups_count = (num_pairs as u64).div_ceil(threads_per_group);
         encoder.dispatch_thread_groups(
             MTLSize::new(thread_groups_count, 1, 1),
@@ -1061,15 +1082,14 @@ pub fn gpu_batch_commit_paired_from_column_buffers(
     Some((tree, root))
 }
 
-/// Merged single-command-buffer pipeline: blit + transpose + hash leaves + build tree.
+/// Fused single-command-buffer pipeline: blit + fused hash-from-columns + build tree.
 ///
-/// Combines the work of `gpu_transpose_bitrev[_paired]_to_buffer` and
-/// `gpu_hash_and_build_tree_from_buffer` into ONE Metal command buffer with
-/// a single `wait_until_completed()` call. This eliminates the CPU-GPU sync
-/// barrier that previously existed between transpose and hashing.
+/// Uses a fused kernel that reads column-major data with bit-reversed indexing
+/// and hashes leaves in a single dispatch, eliminating the intermediate transpose
+/// buffer and the standalone transpose kernel entirely.
 ///
-/// When `paired` is true, uses the `transpose_bitrev_paired` kernel and adjusts
-/// the leaf layout accordingly (num_rows/2 merged rows, 2*num_cols per row).
+/// When `paired` is true, uses the paired fused kernel that merges two consecutive
+/// bit-reversed rows into each leaf (num_rows/2 leaves, 2*num_cols per leaf).
 ///
 /// All tree levels are built on GPU, including small ones (no CPU fallback).
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -1079,76 +1099,44 @@ fn gpu_transpose_hash_and_build_tree(
     num_cols: usize,
     paired: bool,
     keccak_state: &GpuKeccakMerkleState,
-    transpose_state: &TransposeBitrevState,
+    _transpose_state: &TransposeBitrevState,
 ) -> Result<(Vec<[u8; 32]>, [u8; 32]), MetalError> {
     use metal::{MTLCommandBufferStatus, MTLResourceOptions, MTLSize};
 
     let log_n = num_rows.trailing_zeros();
 
     // Compute effective leaf dimensions
-    let (leaf_rows, leaf_cols) = if paired {
-        (num_rows / 2, 2 * num_cols)
-    } else {
-        (num_rows, num_cols)
-    };
+    let leaf_rows = if paired { num_rows / 2 } else { num_rows };
     let leaves_len = leaf_rows.next_power_of_two();
     let total_nodes = 2 * leaves_len - 1;
 
-    // Allocate all buffers upfront
+    // Allocate buffers: flat column-major input + tree output (no transpose buffer)
     let flat_cols_size = (num_rows * num_cols * std::mem::size_of::<u64>()) as u64;
     let flat_cols = keccak_state
         .state
         .device()
         .new_buffer(flat_cols_size, MTLResourceOptions::StorageModeShared);
-    let output_size = if paired {
-        ((num_rows / 2) * 2 * num_cols * std::mem::size_of::<u64>()) as u64
-    } else {
-        flat_cols_size
-    };
-    let transpose_out = keccak_state
-        .state
-        .device()
-        .new_buffer(output_size, MTLResourceOptions::StorageModeShared);
     let tree_buf = keccak_state.state.device().new_buffer(
         (total_nodes * 32) as u64,
         MTLResourceOptions::StorageModeShared,
     );
 
-    // Parameter buffers
-    let num_cols_u32 = num_cols as u32;
-    let num_rows_u32 = num_rows as u32;
-    let leaf_cols_u32 = leaf_cols as u32;
-    let leaf_rows_u32 = leaf_rows as u32;
-    let buf_num_cols = keccak_state
-        .state
-        .alloc_buffer_with_data(std::slice::from_ref(&num_cols_u32))?;
-    let buf_num_rows = keccak_state
-        .state
-        .alloc_buffer_with_data(std::slice::from_ref(&num_rows_u32))?;
-    let buf_log_n = keccak_state
-        .state
-        .alloc_buffer_with_data(std::slice::from_ref(&log_n))?;
-    let buf_leaf_cols = keccak_state
-        .state
-        .alloc_buffer_with_data(std::slice::from_ref(&leaf_cols_u32))?;
-    let buf_leaf_rows = keccak_state
-        .state
-        .alloc_buffer_with_data(std::slice::from_ref(&leaf_rows_u32))?;
-
-    // Get pipeline references
-    let transpose_kernel_name = if paired {
-        "transpose_bitrev_paired"
+    // Select fused kernel
+    let (fused_kernel, fused_max_threads) = if paired {
+        (
+            keccak_state.fused_leaf_paired_kernel,
+            keccak_state.fused_leaves_paired_max_threads,
+        )
     } else {
-        "transpose_bitrev"
+        (
+            keccak_state.fused_leaf_kernel,
+            keccak_state.fused_leaves_max_threads,
+        )
     };
-    let transpose_pipeline = transpose_state
+    let fused_pipeline = keccak_state
         .state
-        .get_pipeline_ref(transpose_kernel_name)
-        .ok_or_else(|| MetalError::FunctionError(transpose_kernel_name.to_string()))?;
-    let leaf_hash_pipeline = keccak_state
-        .state
-        .get_pipeline_ref(keccak_state.leaf_kernel)
-        .ok_or_else(|| MetalError::FunctionError(keccak_state.leaf_kernel.to_string()))?;
+        .get_pipeline_ref(fused_kernel)
+        .ok_or_else(|| MetalError::FunctionError(fused_kernel.to_string()))?;
     let pair_hash_pipeline = keccak_state
         .state
         .get_pipeline_ref(keccak_state.pair_kernel)
@@ -1170,47 +1158,29 @@ fn gpu_transpose_hash_and_build_tree(
     }
     blit.end_encoding();
 
-    // Phase 2: Transpose + bit-reverse compute kernel
-    {
-        let transpose_threads = if paired {
-            transpose_state.paired_max_threads
-        } else {
-            transpose_state.unpaired_max_threads
-        };
-        let threads_per_group = transpose_threads.min(256);
-        let dispatch_count = if paired {
-            num_rows as u64 / 2
-        } else {
-            num_rows as u64
-        };
-        let thread_groups = dispatch_count.div_ceil(threads_per_group);
-
-        let encoder = command_buffer.new_compute_command_encoder();
-        encoder.set_compute_pipeline_state(transpose_pipeline);
-        encoder.set_buffer(0, Some(&flat_cols), 0);
-        encoder.set_buffer(1, Some(&transpose_out), 0);
-        encoder.set_buffer(2, Some(&buf_num_cols), 0);
-        encoder.set_buffer(3, Some(&buf_num_rows), 0);
-        encoder.set_buffer(4, Some(&buf_log_n), 0);
-        encoder.dispatch_thread_groups(
-            MTLSize::new(thread_groups, 1, 1),
-            MTLSize::new(threads_per_group, 1, 1),
-        );
-        encoder.end_encoding();
-    }
-
-    // Phase 3: Hash leaves
+    // Phase 2: Fused transpose+hash — reads column-major with bitrev, outputs leaf hashes
     {
         let leaf_byte_offset = ((leaves_len - 1) * 32) as u64;
-        let threads_per_group = keccak_state.hash_leaves_max_threads.min(256);
+        let threads_per_group = fused_max_threads.min(256);
         let thread_groups = (leaf_rows as u64).div_ceil(threads_per_group);
+        let num_cols_u32 = num_cols as u32;
+        let num_rows_u32 = num_rows as u32;
 
         let encoder = command_buffer.new_compute_command_encoder();
-        encoder.set_compute_pipeline_state(leaf_hash_pipeline);
-        encoder.set_buffer(0, Some(&transpose_out), 0);
+        encoder.set_compute_pipeline_state(fused_pipeline);
+        encoder.set_buffer(0, Some(&flat_cols), 0);
         encoder.set_buffer(1, Some(&tree_buf), leaf_byte_offset);
-        encoder.set_buffer(2, Some(&buf_leaf_cols), 0);
-        encoder.set_buffer(3, Some(&buf_leaf_rows), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            void_ptr(&num_cols_u32),
+        );
+        encoder.set_bytes(
+            3,
+            std::mem::size_of::<u32>() as u64,
+            void_ptr(&num_rows_u32),
+        );
+        encoder.set_bytes(4, std::mem::size_of::<u32>() as u64, void_ptr(&log_n));
         encoder.dispatch_thread_groups(
             MTLSize::new(thread_groups, 1, 1),
             MTLSize::new(threads_per_group, 1, 1),
@@ -1218,7 +1188,7 @@ fn gpu_transpose_hash_and_build_tree(
         encoder.end_encoding();
     }
 
-    // Phase 4: Build tree levels (ALL on GPU, no CPU fallback)
+    // Phase 3: Build tree levels (ALL on GPU, no CPU fallback)
     let threads_per_group = keccak_state.hash_pairs_max_threads.min(256);
     let mut level_begin = leaves_len - 1;
     let mut level_end = 2 * level_begin;
@@ -1230,17 +1200,16 @@ fn gpu_transpose_hash_and_build_tree(
         let children_byte_offset = (level_begin * 32) as u64;
         let parents_byte_offset = (new_level_begin * 32) as u64;
         let num_pairs_u32 = num_pairs as u32;
-        let param_buf = keccak_state.state.device().new_buffer_with_data(
-            &num_pairs_u32 as *const u32 as *const _,
-            std::mem::size_of::<u32>() as u64,
-            MTLResourceOptions::StorageModeShared,
-        );
 
         let encoder = command_buffer.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(pair_hash_pipeline);
         encoder.set_buffer(0, Some(&tree_buf), children_byte_offset);
         encoder.set_buffer(1, Some(&tree_buf), parents_byte_offset);
-        encoder.set_buffer(2, Some(&param_buf), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            void_ptr(&num_pairs_u32),
+        );
         let thread_groups_count = (num_pairs as u64).div_ceil(threads_per_group);
         encoder.dispatch_thread_groups(
             MTLSize::new(thread_groups_count, 1, 1),
@@ -1258,7 +1227,7 @@ fn gpu_transpose_hash_and_build_tree(
 
     if command_buffer.status() == MTLCommandBufferStatus::Error {
         return Err(MetalError::ExecutionError(
-            "GPU transpose+hash+tree command error".to_string(),
+            "GPU fused-hash+tree command error".to_string(),
         ));
     }
 

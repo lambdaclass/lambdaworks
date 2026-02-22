@@ -24,25 +24,25 @@ using namespace metal;
 constant uint64_t GL_EPSILON = 0xFFFFFFFF;
 constant uint64_t GL_PRIME   = 0xFFFFFFFF00000001UL;
 
-// Field addition: (a + b) mod p
+// Field addition: (a + b) mod p  — branchless
 inline uint64_t gl_add(uint64_t a, uint64_t b) {
     uint64_t sum = a + b;
-    bool over = sum < a;
-    uint64_t sum2 = sum + (over ? GL_EPSILON : 0);
-    bool over2 = over && (sum2 < sum);
-    return sum2 + (over2 ? GL_EPSILON : 0);
+    uint64_t over = select(uint64_t(0), GL_EPSILON, sum < a);
+    uint64_t sum2 = sum + over;
+    uint64_t over2 = select(uint64_t(0), GL_EPSILON, (over != 0) & (sum2 < sum));
+    return sum2 + over2;
 }
 
-// Field subtraction: (a - b) mod p
+// Field subtraction: (a - b) mod p  — branchless
 inline uint64_t gl_sub(uint64_t a, uint64_t b) {
     uint64_t diff = a - b;
-    bool under = a < b;
-    uint64_t diff2 = diff - (under ? GL_EPSILON : 0);
-    bool under2 = under && (diff2 > diff);
-    return diff2 - (under2 ? GL_EPSILON : 0);
+    uint64_t under = select(uint64_t(0), GL_EPSILON, a < b);
+    uint64_t diff2 = diff - under;
+    uint64_t under2 = select(uint64_t(0), GL_EPSILON, (under != 0) & (diff2 > diff));
+    return diff2 - under2;
 }
 
-// Field multiplication: (a * b) mod p using 128-bit intermediate
+// Field multiplication: (a * b) mod p  — branchless, 128-bit intermediate
 inline uint64_t gl_mul(uint64_t a, uint64_t b) {
     uint64_t lo = a * b;
     uint64_t hi = metal::mulhi(a, b);
@@ -51,52 +51,48 @@ inline uint64_t gl_mul(uint64_t a, uint64_t b) {
     uint64_t hi_hi = hi >> 32;
     uint64_t hi_lo = hi & GL_EPSILON;
 
-    // t0 = lo - hi_hi
+    // t0 = lo - hi_hi, with branchless borrow correction
     uint64_t t0 = lo - hi_hi;
-    bool borrow = lo < hi_hi;
-    t0 = borrow ? t0 - GL_EPSILON : t0;
+    t0 -= select(uint64_t(0), GL_EPSILON, lo < hi_hi);
 
     // t1 = hi_lo * EPSILON = (hi_lo << 32) - hi_lo
     uint64_t t1 = (hi_lo << 32) - hi_lo;
 
-    // result = t0 + t1
+    // result = t0 + t1, with branchless carry correction
     uint64_t result = t0 + t1;
-    bool carry = result < t0;
-    result = carry ? result + GL_EPSILON : result;
+    result += select(uint64_t(0), GL_EPSILON, result < t0);
 
     return result;
 }
 
-// Canonicalize to [0, p)
+// Canonicalize to [0, p)  — branchless
 inline uint64_t gl_canon(uint64_t a) {
-    return a >= GL_PRIME ? a - GL_PRIME : a;
+    return a - select(uint64_t(0), GL_PRIME, a >= GL_PRIME);
 }
 
-// Reduce (hi:lo) mod Goldilocks
+// Reduce (hi:lo) mod Goldilocks  — branchless
 inline uint64_t gl_reduce_u128(uint64_t lo, uint64_t hi) {
     uint64_t hi_hi = hi >> 32;
     uint64_t hi_lo = hi & GL_EPSILON;
 
     uint64_t t0 = lo - hi_hi;
-    bool borrow = lo < hi_hi;
-    t0 = borrow ? t0 - GL_EPSILON : t0;
+    t0 -= select(uint64_t(0), GL_EPSILON, lo < hi_hi);
 
     uint64_t t1 = (hi_lo << 32) - hi_lo;
 
     uint64_t result = t0 + t1;
-    bool carry = result < t0;
-    result = carry ? result + GL_EPSILON : result;
+    result += select(uint64_t(0), GL_EPSILON, result < t0);
 
     return gl_canon(result);
 }
 
-// Accumulate a*b into (lo, hi) with carry tracking
+// Accumulate a*b into (lo, hi) with branchless carry tracking
 inline void acc_mul(thread uint64_t& lo, thread uint64_t& hi, uint64_t a, uint64_t b) {
     uint64_t prod_lo = a * b;
     uint64_t prod_hi = metal::mulhi(a, b);
     uint64_t old_lo = lo;
     lo += prod_lo;
-    if (lo < old_lo) hi++;
+    hi += select(uint64_t(0), uint64_t(1), lo < old_lo);
     hi += prod_hi;
 }
 
@@ -472,7 +468,7 @@ constant uint64_t FP_INIT_MAT[121] = {
 // Poseidon permutation — operates on a 12-element Goldilocks state
 // =============================================================================
 
-// S-box: x^7 = x * x^2 * x^4  (3 multiplications)
+// S-box: x^7 = x^3 * x^4  (4 multiplications, optimal addition chain for exp 7)
 inline uint64_t poseidon_sbox(uint64_t x) {
     uint64_t x2 = gl_mul(x, x);
     uint64_t x4 = gl_mul(x2, x2);
@@ -689,6 +685,117 @@ inline void poseidon_permute(thread uint64_t* state) {
     // Write parent node: state[0] in first 8 bytes (LE), zero rest
     uint64_t hash_val = gl_canon(state[0]);
     device ulong* out64 = (device ulong*)(parents + gid * 32);
+    out64[0] = hash_val;
+    out64[1] = 0;
+    out64[2] = 0;
+    out64[3] = 0;
+}
+
+// =============================================================================
+// Kernel 3: Fused column-transpose + hash (unpaired)
+//
+// Reads directly from column-major layout with bit-reversed indexing,
+// eliminating the intermediate transpose buffer.
+// =============================================================================
+
+inline uint poseidon_reverse_bits(uint val, uint bits) {
+    uint result = 0;
+    for (uint i = 0; i < bits; i++) {
+        result = (result << 1) | (val & 1);
+        val >>= 1;
+    }
+    return result;
+}
+
+[[kernel]] void poseidon_hash_leaves_from_columns(
+    device const ulong* columns    [[ buffer(0) ]],
+    device uchar*       output     [[ buffer(1) ]],
+    constant uint&      num_cols   [[ buffer(2) ]],
+    constant uint&      num_rows   [[ buffer(3) ]],
+    constant uint&      log_n      [[ buffer(4) ]],
+    uint gid                       [[ thread_position_in_grid ]]
+) {
+    if (gid >= num_rows) return;
+
+    uint src_row = poseidon_reverse_bits(gid, log_n);
+
+    uint64_t state[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+    uint col = 0;
+    while (col + SPONGE_RATE <= num_cols) {
+        for (uint i = 0; i < SPONGE_RATE; i++) {
+            state[i] = gl_add(state[i], columns[(col + i) * num_rows + src_row]);
+        }
+        poseidon_permute(state);
+        col += SPONGE_RATE;
+    }
+
+    uint remaining = num_cols - col;
+    if (remaining > 0) {
+        for (uint i = 0; i < remaining; i++) {
+            state[i] = gl_add(state[i], columns[(col + i) * num_rows + src_row]);
+        }
+        poseidon_permute(state);
+    }
+
+    uint64_t hash_val = gl_canon(state[0]);
+    device ulong* out64 = (device ulong*)(output + gid * 32);
+    out64[0] = hash_val;
+    out64[1] = 0;
+    out64[2] = 0;
+    out64[3] = 0;
+}
+
+// =============================================================================
+// Kernel 4: Fused column-transpose + hash (paired)
+//
+// Merges two consecutive bit-reversed rows into one leaf:
+//   leaf[gid] = hash(row[bitrev(2*gid)] ++ row[bitrev(2*gid+1)])
+// =============================================================================
+
+[[kernel]] void poseidon_hash_leaves_from_columns_paired(
+    device const ulong* columns    [[ buffer(0) ]],
+    device uchar*       output     [[ buffer(1) ]],
+    constant uint&      num_cols   [[ buffer(2) ]],
+    constant uint&      num_rows   [[ buffer(3) ]],
+    constant uint&      log_n      [[ buffer(4) ]],
+    uint gid                       [[ thread_position_in_grid ]]
+) {
+    if (gid >= num_rows / 2) return;
+
+    uint src_row0 = poseidon_reverse_bits(2 * gid, log_n);
+    uint src_row1 = poseidon_reverse_bits(2 * gid + 1, log_n);
+
+    uint64_t state[12] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    uint lane = 0;
+
+    // Row 0 columns
+    for (uint c = 0; c < num_cols; c++) {
+        state[lane] = gl_add(state[lane], columns[c * num_rows + src_row0]);
+        lane++;
+        if (lane == SPONGE_RATE) {
+            poseidon_permute(state);
+            lane = 0;
+        }
+    }
+
+    // Row 1 columns
+    for (uint c = 0; c < num_cols; c++) {
+        state[lane] = gl_add(state[lane], columns[c * num_rows + src_row1]);
+        lane++;
+        if (lane == SPONGE_RATE) {
+            poseidon_permute(state);
+            lane = 0;
+        }
+    }
+
+    // Final permute if there's leftover
+    if (lane > 0) {
+        poseidon_permute(state);
+    }
+
+    uint64_t hash_val = gl_canon(state[0]);
+    device ulong* out64 = (device ulong*)(output + gid * 32);
     out64[0] = hash_val;
     out64[1] = 0;
     out64[2] = 0;

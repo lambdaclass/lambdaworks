@@ -351,3 +351,144 @@ inline void keccak_f1600(thread uint64_t* s) {
         rows[out_base + c] = columns[c * num_rows + src_row];
     }
 }
+
+// =============================================================================
+// Kernel 5: Fused column-transpose + hash (unpaired)
+//
+// Reads directly from column-major layout with bit-reversed indexing,
+// eliminating the intermediate transpose buffer.
+//
+// Thread gid = output leaf index.
+// Source row = bitrev(gid, log_n).
+// Reads num_cols values from column-major buffer and hashes them.
+// =============================================================================
+
+[[kernel]] void keccak256_hash_leaves_from_columns(
+    device const ulong* columns    [[ buffer(0) ]],
+    device uchar*       output     [[ buffer(1) ]],
+    constant uint&      num_cols   [[ buffer(2) ]],
+    constant uint&      num_rows   [[ buffer(3) ]],
+    constant uint&      log_n      [[ buffer(4) ]],
+    uint gid                       [[ thread_position_in_grid ]]
+) {
+    if (gid >= num_rows) return;
+
+    // Bit-reverse gid to get source row
+    uint src_row = 0;
+    {
+        uint val = gid;
+        for (uint i = 0; i < log_n; i++) {
+            src_row = (src_row << 1) | (val & 1);
+            val >>= 1;
+        }
+    }
+
+    uint64_t state[25] = {0};
+
+    // Absorb columns in rate-sized chunks (17 lanes per block).
+    // Each column value is read from column-major layout.
+    uint col = 0;
+
+    while (col + 17 <= num_cols) {
+        for (uint i = 0; i < 17; i++) {
+            state[i] ^= bswap64(columns[(col + i) * num_rows + src_row]);
+        }
+        keccak_f1600(state);
+        col += 17;
+    }
+
+    // Remaining columns (partial block)
+    uint remaining = num_cols - col;
+    for (uint i = 0; i < remaining; i++) {
+        state[i] ^= bswap64(columns[(col + i) * num_rows + src_row]);
+    }
+
+    // Keccak padding
+    state[remaining] ^= (uint64_t)0x01;
+    state[16] ^= (uint64_t)0x80 << 56;
+
+    keccak_f1600(state);
+
+    // Squeeze 32 bytes
+    device ulong* out64 = (device ulong*)(output + gid * 32);
+    out64[0] = state[0];
+    out64[1] = state[1];
+    out64[2] = state[2];
+    out64[3] = state[3];
+}
+
+// =============================================================================
+// Kernel 6: Fused column-transpose + hash (paired)
+//
+// Like kernel 5 but merges two consecutive bit-reversed rows into one leaf:
+//   leaf[gid] = hash(row[bitrev(2*gid)] ++ row[bitrev(2*gid+1)])
+//
+// Thread gid = output merged leaf index (0..num_rows/2).
+// Leaf width = 2 * num_cols field elements.
+// =============================================================================
+
+[[kernel]] void keccak256_hash_leaves_from_columns_paired(
+    device const ulong* columns    [[ buffer(0) ]],
+    device uchar*       output     [[ buffer(1) ]],
+    constant uint&      num_cols   [[ buffer(2) ]],
+    constant uint&      num_rows   [[ buffer(3) ]],
+    constant uint&      log_n      [[ buffer(4) ]],
+    uint gid                       [[ thread_position_in_grid ]]
+) {
+    if (gid >= num_rows / 2) return;
+
+    // Bit-reverse 2*gid and 2*gid+1 to get the two source rows
+    uint row0_idx = 2 * gid;
+    uint row1_idx = 2 * gid + 1;
+    uint src_row0 = 0, src_row1 = 0;
+    {
+        uint v0 = row0_idx, v1 = row1_idx;
+        for (uint i = 0; i < log_n; i++) {
+            src_row0 = (src_row0 << 1) | (v0 & 1);
+            src_row1 = (src_row1 << 1) | (v1 & 1);
+            v0 >>= 1;
+            v1 >>= 1;
+        }
+    }
+
+    uint64_t state[25] = {0};
+    uint total_cols = 2 * num_cols;  // paired leaf width
+
+    // Absorb all columns in rate-sized chunks.
+    // First num_cols from src_row0, then num_cols from src_row1.
+    uint col = 0;
+    uint lane = 0;  // current lane in Keccak state
+
+    // --- Row 0 columns ---
+    for (uint c = 0; c < num_cols; c++) {
+        state[lane] ^= bswap64(columns[c * num_rows + src_row0]);
+        lane++;
+        if (lane == 17) {
+            keccak_f1600(state);
+            lane = 0;
+        }
+    }
+
+    // --- Row 1 columns ---
+    for (uint c = 0; c < num_cols; c++) {
+        state[lane] ^= bswap64(columns[c * num_rows + src_row1]);
+        lane++;
+        if (lane == 17) {
+            keccak_f1600(state);
+            lane = 0;
+        }
+    }
+
+    // Keccak padding
+    state[lane] ^= (uint64_t)0x01;
+    state[16] ^= (uint64_t)0x80 << 56;
+
+    keccak_f1600(state);
+
+    // Squeeze 32 bytes
+    device ulong* out64 = (device ulong*)(output + gid * 32);
+    out64[0] = state[0];
+    out64[1] = state[1];
+    out64[2] = state[2];
+    out64[3] = state[3];
+}

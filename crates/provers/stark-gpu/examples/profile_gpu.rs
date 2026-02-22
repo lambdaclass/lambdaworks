@@ -93,7 +93,7 @@ fn profile_gpu_optimized(
     use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
     use lambdaworks_stark_gpu::metal::phases::composition::gpu_round_2_goldilocks_merkle;
     use lambdaworks_stark_gpu::metal::phases::fri::{
-        gpu_round_4_goldilocks, FriDomainInvState, FriFoldEvalState,
+        gpu_round_4_goldilocks, FriDomainInvState, FriFoldEvalState, FriSquareInvState,
     };
     use lambdaworks_stark_gpu::metal::phases::ood::gpu_round_3;
     use lambdaworks_stark_gpu::metal::phases::rap::gpu_round_1_goldilocks;
@@ -114,6 +114,7 @@ fn profile_gpu_optimized(
     let coset_state = CosetShiftState::new().unwrap();
     let fold_eval_state = FriFoldEvalState::new().unwrap();
     let fri_domain_inv_state = FriDomainInvState::new().unwrap();
+    let fri_square_inv_state = FriSquareInvState::new().unwrap();
     let domain_inv_state = DomainInversionState::new().unwrap();
     let domain = Domain::new(&air);
     println!("  Setup (shaders):   {:>10.2?}", t.elapsed());
@@ -170,6 +171,7 @@ fn profile_gpu_optimized(
         &keccak_state,
         &fold_eval_state,
         &fri_domain_inv_state,
+        &fri_square_inv_state,
         Some(&domain_inv_state),
     )
     .unwrap();
@@ -517,7 +519,7 @@ fn profile_phase4(
     use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
     use lambdaworks_stark_gpu::metal::phases::composition::gpu_round_2_goldilocks_merkle;
     use lambdaworks_stark_gpu::metal::phases::fri::{
-        gpu_fri_commit_phase_eval_domain, FriDomainInvState, FriFoldEvalState,
+        gpu_fri_commit_phase_eval_domain, FriDomainInvState, FriFoldEvalState, FriSquareInvState,
     };
     use lambdaworks_stark_gpu::metal::phases::ood::gpu_round_3;
     use lambdaworks_stark_gpu::metal::phases::rap::gpu_round_1_goldilocks;
@@ -535,6 +537,7 @@ fn profile_phase4(
     let coset_state = CosetShiftState::new().unwrap();
     let fold_eval_state = FriFoldEvalState::new().unwrap();
     let fri_domain_inv_state = FriDomainInvState::new().unwrap();
+    let fri_square_inv_state = FriSquareInvState::new().unwrap();
     let domain_inv_state = DomainInversionState::new().unwrap();
     let domain = Domain::new(&air);
     let mut transcript = DefaultTranscript::<F>::new(&[]);
@@ -610,6 +613,7 @@ fn profile_phase4(
         &keccak_state,
         &fold_eval_state,
         &fri_domain_inv_state,
+        &fri_square_inv_state,
     )
     .unwrap();
     println!(

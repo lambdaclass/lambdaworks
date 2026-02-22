@@ -447,7 +447,8 @@ pub fn gpu_fold_evaluations(
 /// command buffer submission, eliminating one `wait_until_completed()` per FRI layer.
 /// The domain inverse output feeds directly into the fold kernel without CPU sync.
 ///
-/// Returns `(folded_buffer, half_len)`.
+/// Returns `(folded_buffer, half_len, inv_x_buffer)` — the `inv_x_buffer` can be
+/// stride-2 squared for subsequent FRI layers via [`gpu_fold_with_squared_inv`].
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_fold_evaluations_with_domain_inv(
     evals_buffer: &metal::Buffer,
@@ -457,7 +458,7 @@ pub fn gpu_fold_evaluations_with_domain_inv(
     omega_inv: &FieldElement<Goldilocks64Field>,
     fold_eval_state: &FriFoldEvalState,
     domain_inv_state: &FriDomainInvState,
-) -> Result<(metal::Buffer, usize), MetalError> {
+) -> Result<(metal::Buffer, usize, metal::Buffer), MetalError> {
     use metal::MTLSize;
 
     assert!(
@@ -563,7 +564,120 @@ pub fn gpu_fold_evaluations_with_domain_inv(
         ));
     }
 
-    Ok((buf_output, half_len))
+    Ok((buf_output, half_len, buf_inv_x))
+}
+
+/// Fused stride-2-square-inverse + eval-domain fold in a single GPU command buffer.
+///
+/// For FRI layers 2+: derives domain inverses from the previous layer's `inv_x` buffer
+/// via stride-2 squaring (`inv_x_next[j] = inv_x_prev[2*j]^2`, 1 mul/element) instead
+/// of recomputing from scratch via exponentiation-by-squaring (log₂(N) muls/element).
+///
+/// Returns `(folded_buffer, half_len, new_inv_x_buffer)`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_fold_with_squared_inv(
+    evals_buffer: &metal::Buffer,
+    num_evals: usize,
+    beta: &FieldElement<Goldilocks64Field>,
+    prev_inv_x: &metal::Buffer,
+    fold_eval_state: &FriFoldEvalState,
+    square_inv_state: &FriSquareInvState,
+) -> Result<(metal::Buffer, usize, metal::Buffer), MetalError> {
+    use metal::MTLSize;
+
+    assert!(
+        num_evals >= 2 && num_evals.is_multiple_of(2),
+        "eval-domain fold requires even number of evaluations"
+    );
+
+    let half_len = num_evals / 2;
+
+    // --- Stride-2 square inverse output buffer ---
+    let buf_inv_x = square_inv_state
+        .state
+        .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
+    let sq_params = FriSquareInvParams {
+        len: half_len as u32,
+    };
+    let buf_sq_params = square_inv_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&sq_params))?;
+
+    // --- Fold parameters ---
+    let beta_u64 = Goldilocks64Field::canonical(beta.value());
+    let buf_output = fold_eval_state
+        .state
+        .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
+    let buf_beta = fold_eval_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&beta_u64))?;
+    let fold_params = FriFoldEvalParams {
+        half_len: half_len as u32,
+    };
+    let buf_fold_params = fold_eval_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&fold_params))?;
+
+    // --- Get pipelines ---
+    let sq_pipeline = square_inv_state
+        .state
+        .get_pipeline_ref("fri_square_inverses")
+        .ok_or_else(|| MetalError::FunctionError("fri_square_inverses".to_string()))?;
+
+    let fold_pipeline = fold_eval_state
+        .state
+        .get_pipeline_ref("goldilocks_fri_fold_eval")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_fri_fold_eval".to_string()))?;
+
+    // --- Single command buffer: stride-2 square inverses then fold ---
+    let command_buffer = square_inv_state.state.command_queue().new_command_buffer();
+
+    // Encoder 1: Stride-2 square previous layer's inverses
+    {
+        let threads_per_group = square_inv_state.max_threads.min(256);
+        let thread_groups = (half_len as u64).div_ceil(threads_per_group);
+
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(sq_pipeline);
+        encoder.set_buffer(0, Some(prev_inv_x), 0);
+        encoder.set_buffer(1, Some(&buf_inv_x), 0);
+        encoder.set_buffer(2, Some(&buf_sq_params), 0);
+        encoder.dispatch_thread_groups(
+            MTLSize::new(thread_groups, 1, 1),
+            MTLSize::new(threads_per_group, 1, 1),
+        );
+        encoder.end_encoding();
+    }
+
+    // Encoder 2: Fold (reads stride-2 squared inv_x from encoder 1)
+    {
+        let fold_threads_per_group = fold_eval_state.max_threads.min(256);
+        let fold_thread_groups = (half_len as u64).div_ceil(fold_threads_per_group);
+
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(fold_pipeline);
+        encoder.set_buffer(0, Some(evals_buffer), 0);
+        encoder.set_buffer(1, Some(&buf_output), 0);
+        encoder.set_buffer(2, Some(&buf_beta), 0);
+        encoder.set_buffer(3, Some(&buf_inv_x), 0);
+        encoder.set_buffer(4, Some(&buf_fold_params), 0);
+        encoder.dispatch_thread_groups(
+            MTLSize::new(fold_thread_groups, 1, 1),
+            MTLSize::new(fold_threads_per_group, 1, 1),
+        );
+        encoder.end_encoding();
+    }
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU fused stride-2-square-inv+fold error".to_string(),
+        ));
+    }
+
+    Ok((buf_output, half_len, buf_inv_x))
 }
 
 /// Pre-compiled Metal state for FRI domain inverse precomputation.
@@ -703,23 +817,29 @@ impl FriSquareInvState {
     }
 }
 
-/// Square FRI domain inverses on GPU for the next FRI layer.
+/// Stride-2 square FRI domain inverses on GPU for the next FRI layer.
 ///
-/// Given `inv_x[i] = 1/x_i` from the previous layer, computes
-/// `inv_x_next[i] = inv_x[i]^2 = 1/(x_i^2)`.
+/// Given `inv_x_prev[i]` from the previous layer (length `2 * output_len`),
+/// computes `inv_x_next[j] = inv_x_prev[2*j]^2` for `j = 0..output_len-1`.
 ///
-/// This works because after FRI folding, the next layer's domain points
-/// are `x_i^2`, so their inverses are `(1/x_i)^2`.
+/// Why stride-2: The fold kernel pairs `evals[2*i]` and `evals[2*i+1]`, using
+/// `inv_x[i] = 1/x[2*i]`. After folding, `result[i]` sits at `x[2*i]^2`.
+/// The next fold pairs `result[2*j]` and `result[2*j+1]`, needing
+/// `1/(x[4*j]^2) = inv_x_prev[2*j]^2`.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_square_fri_inverses(
     inv_x_buffer: &metal::Buffer,
-    len: usize,
+    output_len: usize,
     state: &FriSquareInvState,
 ) -> Result<metal::Buffer, MetalError> {
     use metal::MTLSize;
 
-    let buf_output = state.state.alloc_buffer(len * std::mem::size_of::<u64>())?;
-    let params = FriSquareInvParams { len: len as u32 };
+    let buf_output = state
+        .state
+        .alloc_buffer(output_len * std::mem::size_of::<u64>())?;
+    let params = FriSquareInvParams {
+        len: output_len as u32,
+    };
     let buf_params = state
         .state
         .alloc_buffer_with_data(std::slice::from_ref(&params))?;
@@ -730,7 +850,7 @@ pub fn gpu_square_fri_inverses(
         .ok_or_else(|| MetalError::FunctionError("fri_square_inverses".to_string()))?;
 
     let threads_per_group = state.max_threads.min(256);
-    let thread_groups = (len as u64).div_ceil(threads_per_group);
+    let thread_groups = (output_len as u64).div_ceil(threads_per_group);
 
     let command_buffer = state.state.command_queue().new_command_buffer();
     let encoder = command_buffer.new_compute_command_encoder();
@@ -1937,6 +2057,7 @@ pub fn gpu_fri_commit_phase_eval_domain(
     keccak_state: &GpuMerkleState,
     fold_eval_state: &FriFoldEvalState,
     domain_inv_state: &FriDomainInvState,
+    square_inv_state: &FriSquareInvState,
 ) -> Result<
     (
         FieldElement<Goldilocks64Field>,
@@ -1966,29 +2087,43 @@ pub fn gpu_fri_commit_phase_eval_domain(
     let omega_inv = omega.inv().unwrap();
     let h_inv = coset_offset.inv().unwrap();
 
-    // These track h_inv^{2^k} and omega_inv^{2^k} across layers.
-    let mut h_inv_k = h_inv;
-    let mut omega_inv_k = omega_inv;
+    // Layer 0 uses from-scratch domain inverse computation + fold.
+    // Layers 1+ use stride-2 squaring of the previous layer's inv_x.
+    let mut prev_inv_x: Option<metal::Buffer> = None;
 
-    for _ in 1..number_layers {
+    for layer_idx in 1..number_layers {
         let zeta = transcript.sample_field_element();
         coset_offset = coset_offset.square();
         domain_size /= 2;
 
-        // Fused domain inverse + eval-domain fold in a single command buffer.
-        // This eliminates one wait_until_completed() per layer.
-        let (folded_buf, folded_len) = gpu_fold_evaluations_with_domain_inv(
-            &current_evals,
-            current_len,
-            &zeta,
-            &h_inv_k,
-            &omega_inv_k,
-            fold_eval_state,
-            domain_inv_state,
-        )
-        .map_err(|e| {
-            ProvingError::FieldOperationError(format!("GPU fused domain-inv+fold: {e}"))
-        })?;
+        let (folded_buf, folded_len, inv_x) = if layer_idx == 1 {
+            // Layer 0: compute domain inverses from scratch (exp-by-squaring).
+            gpu_fold_evaluations_with_domain_inv(
+                &current_evals,
+                current_len,
+                &zeta,
+                &h_inv,
+                &omega_inv,
+                fold_eval_state,
+                domain_inv_state,
+            )
+            .map_err(|e| {
+                ProvingError::FieldOperationError(format!("GPU fused domain-inv+fold: {e}"))
+            })?
+        } else {
+            // Layers 1+: stride-2 square previous inv_x (1 mul/element).
+            gpu_fold_with_squared_inv(
+                &current_evals,
+                current_len,
+                &zeta,
+                prev_inv_x.as_ref().unwrap(),
+                fold_eval_state,
+                square_inv_state,
+            )
+            .map_err(|e| {
+                ProvingError::FieldOperationError(format!("GPU fused stride2-square+fold: {e}"))
+            })?
+        };
 
         // Merkle commit from the folded evaluations.
         // The folded evaluations are already in bit-reversed order.
@@ -2010,25 +2145,39 @@ pub fn gpu_fri_commit_phase_eval_domain(
         // Update for next layer.
         current_evals = folded_buf;
         current_len = folded_len;
-        h_inv_k = h_inv_k * h_inv_k;
-        omega_inv_k = omega_inv_k * omega_inv_k;
+        prev_inv_x = Some(inv_x);
     }
 
-    // Final fold to get the last value (also fused).
+    // Final fold to get the last value.
     let zeta = transcript.sample_field_element();
 
-    let (last_buf, _last_len) = gpu_fold_evaluations_with_domain_inv(
-        &current_evals,
-        current_len,
-        &zeta,
-        &h_inv_k,
-        &omega_inv_k,
-        fold_eval_state,
-        domain_inv_state,
-    )
-    .map_err(|e| {
-        ProvingError::FieldOperationError(format!("GPU fused domain-inv+fold (final): {e}"))
-    })?;
+    let (last_buf, _last_len, _last_inv_x) = if let Some(ref inv_x) = prev_inv_x {
+        gpu_fold_with_squared_inv(
+            &current_evals,
+            current_len,
+            &zeta,
+            inv_x,
+            fold_eval_state,
+            square_inv_state,
+        )
+        .map_err(|e| {
+            ProvingError::FieldOperationError(format!("GPU fused stride2-square+fold (final): {e}"))
+        })?
+    } else {
+        // Edge case: only 1 layer total, no previous inv_x.
+        gpu_fold_evaluations_with_domain_inv(
+            &current_evals,
+            current_len,
+            &zeta,
+            &h_inv,
+            &omega_inv,
+            fold_eval_state,
+            domain_inv_state,
+        )
+        .map_err(|e| {
+            ProvingError::FieldOperationError(format!("GPU fused domain-inv+fold (final): {e}"))
+        })?
+    };
 
     let last_u64: Vec<u64> = MetalState::retrieve_contents(&last_buf);
     let last_value = if last_u64.is_empty() {
@@ -2062,6 +2211,7 @@ pub fn gpu_round_4_goldilocks<A>(
     keccak_state: &GpuMerkleState,
     fold_eval_state: &FriFoldEvalState,
     fri_domain_inv_state: &FriDomainInvState,
+    fri_square_inv_state: &FriSquareInvState,
     domain_inv_state: Option<&DomainInversionState>,
 ) -> Result<GpuRound4Result<Goldilocks64Field>, ProvingError>
 where
@@ -2117,6 +2267,7 @@ where
         keccak_state,
         fold_eval_state,
         fri_domain_inv_state,
+        fri_square_inv_state,
     )?;
     eprintln!("    4b FRI commit:     {:>10.2?}", t4_fri.elapsed());
 
@@ -2877,16 +3028,32 @@ mod tests {
         let inv_x_sq_u64: Vec<u64> = MetalState::retrieve_contents(&inv_x_sq_buffer);
         assert_eq!(inv_x_sq_u64.len(), next_half);
 
-        // Verify: inv_x_sq[i] = inv_x[i]^2
+        // Verify: inv_x_sq[i] = inv_x[2*i]^2 (stride-2 gather + square)
         let inv_x_u64: Vec<u64> = MetalState::retrieve_contents(&inv_x_buffer);
         for i in 0..next_half {
-            let v = FE::from(inv_x_u64[i]);
+            let v = FE::from(inv_x_u64[2 * i]);
             let expected = v * v;
             let expected_u64 = F::canonical(expected.value());
             assert_eq!(
                 inv_x_sq_u64[i], expected_u64,
-                "Square inverse mismatch at index {}: GPU={}, expected={}",
+                "Stride-2 square inverse mismatch at index {}: GPU={}, expected={}",
                 i, inv_x_sq_u64[i], expected_u64
+            );
+        }
+
+        // Also verify these match the from-scratch domain inverses for the next layer.
+        let h_inv_1 = h_inv * h_inv;
+        let omega_inv_1 = omega_inv * omega_inv;
+        let next_domain_size = domain_size / 2;
+        let from_scratch =
+            gpu_compute_fri_domain_inverses(&h_inv_1, &omega_inv_1, next_domain_size, &inv_state)
+                .unwrap();
+        let from_scratch_u64: Vec<u64> = MetalState::retrieve_contents(&from_scratch);
+        for i in 0..next_half {
+            assert_eq!(
+                inv_x_sq_u64[i], from_scratch_u64[i],
+                "Stride-2 squared inv_x[{}] != from-scratch inv_x[{}]: {} vs {}",
+                i, i, inv_x_sq_u64[i], from_scratch_u64[i]
             );
         }
     }
