@@ -83,7 +83,9 @@ fn profile_gpu_optimized(
     pub_inputs: &FibonacciRAPPublicInputs<F>,
     proof_options: &ProofOptions,
 ) {
-    use lambdaworks_stark_gpu::metal::constraint_eval::FibRapConstraintState;
+    use lambdaworks_stark_gpu::metal::constraint_eval::{
+        FibRapConstraintState, FusedConstraintState,
+    };
     use lambdaworks_stark_gpu::metal::deep_composition::{
         DeepCompositionState, DomainInversionState,
     };
@@ -106,6 +108,7 @@ fn profile_gpu_optimized(
     let t = Instant::now();
     let state = StarkMetalState::new().unwrap();
     let constraint_state = FibRapConstraintState::new().unwrap();
+    let fused_state = FusedConstraintState::new().unwrap();
     let deep_comp_state = DeepCompositionState::new().unwrap();
     let keccak_state = GpuKeccakMerkleState::new().unwrap();
     let coset_state = CosetShiftState::new().unwrap();
@@ -139,6 +142,7 @@ fn profile_gpu_optimized(
         &mut transcript,
         &state,
         Some(&constraint_state),
+        Some(&fused_state),
         &keccak_state,
         &coset_state,
     )
@@ -503,7 +507,9 @@ fn profile_phase4(
     pub_inputs: &FibonacciRAPPublicInputs<F>,
     proof_options: &ProofOptions,
 ) {
-    use lambdaworks_stark_gpu::metal::constraint_eval::FibRapConstraintState;
+    use lambdaworks_stark_gpu::metal::constraint_eval::{
+        FibRapConstraintState, FusedConstraintState,
+    };
     use lambdaworks_stark_gpu::metal::deep_composition::{
         gpu_compute_deep_composition_evals_to_buffer, DeepCompositionState, DomainInversionState,
     };
@@ -523,6 +529,7 @@ fn profile_phase4(
     let air = FibonacciRAP::new(trace.num_rows(), pub_inputs, proof_options);
     let state = StarkMetalState::new().unwrap();
     let constraint_state = FibRapConstraintState::new().unwrap();
+    let fused_state = FusedConstraintState::new().unwrap();
     let deep_comp_state = DeepCompositionState::new().unwrap();
     let keccak_state = GpuKeccakMerkleState::new().unwrap();
     let coset_state = CosetShiftState::new().unwrap();
@@ -549,6 +556,7 @@ fn profile_phase4(
         &mut transcript,
         &state,
         Some(&constraint_state),
+        Some(&fused_state),
         &keccak_state,
         &coset_state,
     )

@@ -118,7 +118,7 @@ where
         FieldExtension = lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
     >,
 {
-    use crate::metal::constraint_eval::FibRapConstraintState;
+    use crate::metal::constraint_eval::{FibRapConstraintState, FusedConstraintState};
     use crate::metal::deep_composition::{DeepCompositionState, DomainInversionState};
     use crate::metal::fft::CosetShiftState;
     use crate::metal::phases::fri::{FriDomainInvState, FriFoldEvalState};
@@ -130,6 +130,8 @@ where
     // Pre-compile GPU shaders once for the entire prove call.
     let constraint_state = FibRapConstraintState::new()
         .map_err(|e| ProvingError::FieldOperationError(format!("Constraint shader: {e}")))?;
+    let fused_state = FusedConstraintState::new()
+        .map_err(|e| ProvingError::FieldOperationError(format!("Fused constraint shader: {e}")))?;
     let deep_comp_state = DeepCompositionState::new()
         .map_err(|e| ProvingError::FieldOperationError(format!("DEEP composition shader: {e}")))?;
     #[cfg(not(feature = "poseidon-goldilocks"))]
@@ -176,6 +178,7 @@ where
         transcript,
         &state,
         Some(&constraint_state),
+        Some(&fused_state),
         &keccak_state,
         &coset_state,
     )?;

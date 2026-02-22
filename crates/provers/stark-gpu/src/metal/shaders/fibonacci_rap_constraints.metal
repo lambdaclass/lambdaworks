@@ -194,3 +194,93 @@ struct BoundaryEvalParams {
 
     output[tid] = acc;
 }
+
+// Parameters for a single boundary constraint in the fused kernel.
+struct FusedBoundaryParam {
+    GlFp g_pow_step;    // g^step (trace primitive root raised to the step)
+    GlFp value;         // expected trace value at that step
+    GlFp coefficient;   // alpha_k (random coefficient)
+    uint32_t col;       // which trace column (0=main_col_0, 1=main_col_1, 2=aux_col_0)
+    uint32_t _pad;
+};
+
+// Parameters for the fused transition + boundary kernel.
+struct FusedParams {
+    uint32_t lde_step_size;   // = step_size * blowup_factor
+    uint32_t num_rows;        // total LDE domain size
+    uint32_t zerofier_0_len;  // length of transition zerofier 0
+    uint32_t zerofier_1_len;  // length of transition zerofier 1
+    GlFp gamma;               // RAP challenge
+    GlFp transition_coeff_0;  // coefficient for Fibonacci constraint
+    GlFp transition_coeff_1;  // coefficient for permutation constraint
+    uint32_t num_boundary_constraints;
+    uint32_t _pad2;
+};
+
+// Fused transition + boundary constraint evaluation kernel.
+//
+// Combines both evaluation steps into a single GPU dispatch, eliminating:
+// - Separate boundary kernel launch overhead
+// - Intermediate boundary_evals buffer (num_rows * 8 bytes)
+// - Redundant trace column reads (shared between transition + boundary)
+//
+// Boundary zerofier inversions are computed inline via Fermat's little theorem.
+[[kernel]] void fibonacci_rap_fused_eval(
+    device const GlFp* main_col_0       [[ buffer(0) ]],
+    device const GlFp* main_col_1       [[ buffer(1) ]],
+    device const GlFp* aux_col_0        [[ buffer(2) ]],
+    device const GlFp* zerofier_0       [[ buffer(3) ]],
+    device const GlFp* zerofier_1       [[ buffer(4) ]],
+    constant FusedParams& params        [[ buffer(5) ]],
+    device const FusedBoundaryParam* bc_params [[ buffer(6) ]],
+    device const GlFp* lde_coset_points [[ buffer(7) ]],  // x_i for each LDE point
+    device GlFp* output                 [[ buffer(8) ]],
+    uint tid                            [[ thread_position_in_grid ]]
+) {
+    if (tid >= params.num_rows) return;
+
+    uint row0 = tid;
+    uint row1 = (tid + params.lde_step_size) % params.num_rows;
+    uint row2 = (tid + 2 * params.lde_step_size) % params.num_rows;
+
+    // Read trace values at the three offsets (shared between transition + boundary)
+    GlFp a0 = main_col_0[row0];
+    GlFp a1 = main_col_0[row1];
+    GlFp a2 = main_col_0[row2];
+    GlFp b0 = main_col_1[row0];
+    GlFp z0 = aux_col_0[row0];
+    GlFp z1 = aux_col_0[row1];
+
+    // Transition constraint 0 (Fibonacci): a[i+2] - a[i+1] - a[i] = 0
+    GlFp fib_eval = a2 - a1 - a0;
+
+    // Transition constraint 1 (Permutation): z[i+1]*(b[i]+gamma) - z[i]*(a[i]+gamma) = 0
+    GlFp perm_eval = z1 * (b0 + params.gamma) - z0 * (a0 + params.gamma);
+
+    // Multiply each constraint evaluation by its zerofier and coefficient
+    GlFp z0_val = zerofier_0[tid % params.zerofier_0_len];
+    GlFp z1_val = zerofier_1[tid % params.zerofier_1_len];
+
+    GlFp acc = fib_eval * z0_val * params.transition_coeff_0
+             + perm_eval * z1_val * params.transition_coeff_1;
+
+    // Boundary constraints: inline Fermat inversion on GPU.
+    // Reuses trace values already loaded above.
+    GlFp x_i = lde_coset_points[tid];
+
+    for (uint k = 0; k < params.num_boundary_constraints; k++) {
+        FusedBoundaryParam bc = bc_params[k];
+
+        GlFp denom = x_i - bc.g_pow_step;
+        GlFp inv_denom = denom.inv();
+
+        GlFp trace_val;
+        if (bc.col == 0)      trace_val = a0;
+        else if (bc.col == 1) trace_val = b0;
+        else                  trace_val = z0;
+
+        acc = acc + bc.coefficient * (trace_val - bc.value) * inv_denom;
+    }
+
+    output[tid] = acc;
+}

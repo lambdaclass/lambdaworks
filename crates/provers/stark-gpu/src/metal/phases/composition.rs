@@ -37,8 +37,8 @@ use std::collections::HashMap;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::constraint_eval::{
-    gpu_evaluate_fibonacci_rap_constraints, gpu_evaluate_fibonacci_rap_constraints_all_buffers,
-    gpu_evaluate_fibonacci_rap_constraints_to_buffer, FibRapConstraintState,
+    gpu_evaluate_fibonacci_rap_constraints, gpu_evaluate_fibonacci_rap_constraints_to_buffer,
+    gpu_evaluate_fused_constraints, FibRapConstraintState, FusedConstraintState,
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{
@@ -121,7 +121,7 @@ fn gpu_transition_zerofier_evaluations_to_buffers<A>(
     domain: &Domain<Goldilocks64Field>,
     state: &StarkMetalState,
     coset_state: &CosetShiftState,
-) -> Vec<Vec<FieldElement<Goldilocks64Field>>>
+) -> Vec<(metal::Buffer, usize)>
 where
     A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
 {
@@ -207,10 +207,14 @@ where
         .zip(end_exemptions_buffers)
         .collect();
 
-    // Step 4: Combine base × end_exemptions using GPU cyclic_mul, then readback
+    // Step 4: Combine base × end_exemptions using GPU cyclic_mul.
+    // Returns GPU buffers directly — no CPU readback.
     type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);
-    let mut evals = vec![Vec::new(); air.num_transition_constraints()];
-    let mut full_zerofier_cache: HashMap<ZerofierGroupKey, Vec<FpE>> = HashMap::new();
+    let num_constraints = air.num_transition_constraints();
+    let mut buf_evals: Vec<Option<(metal::Buffer, usize)>> =
+        (0..num_constraints).map(|_| None).collect();
+    // Cache stores constraint index → (buffer, length) for sharing across constraints.
+    let mut full_zerofier_cache: HashMap<ZerofierGroupKey, usize> = HashMap::new();
 
     for c in constraints.iter() {
         let period = c.period();
@@ -227,8 +231,11 @@ where
             end_exemptions,
         );
 
-        if let Some(cached) = full_zerofier_cache.get(&full_key) {
-            evals[c.constraint_idx()] = cached.clone();
+        if let Some(&cached_idx) = full_zerofier_cache.get(&full_key) {
+            // Retain the existing buffer (cheap ObjC refcount increment).
+            if let Some((ref buf, len)) = buf_evals[cached_idx] {
+                buf_evals[c.constraint_idx()] = Some((buf.to_owned(), len));
+            }
             continue;
         }
 
@@ -256,17 +263,11 @@ where
         // GPU cyclic multiply: output[i] = end_exemptions[i] * base_zerofier[i % base_len]
         match gpu_cyclic_mul_buffer(end_buf, *end_len, &base_u64, coset_state) {
             Ok(result_buf) => {
-                // UMA readback
-                let raw: Vec<u64> =
-                    lambdaworks_gpu::metal::abstractions::state::MetalState::retrieve_contents(
-                        &result_buf,
-                    );
-                let final_zerofier: Vec<FpE> = raw.into_iter().map(FieldElement::from).collect();
-                full_zerofier_cache.insert(full_key, final_zerofier.clone());
-                evals[c.constraint_idx()] = final_zerofier;
+                full_zerofier_cache.insert(full_key, c.constraint_idx());
+                buf_evals[c.constraint_idx()] = Some((result_buf, *end_len));
             }
             Err(_) => {
-                // Fallback: CPU cyclic multiply
+                // Fallback: CPU cyclic multiply, then upload result to GPU buffer.
                 let cycled_base = base_zerofier.iter().cycle().take(*end_len);
                 let end_evals_cpu: Vec<FpE> = {
                     let raw: Vec<u64> =
@@ -275,16 +276,29 @@ where
                         );
                     raw.into_iter().map(FieldElement::from).collect()
                 };
-                let final_zerofier: Vec<FpE> = std::iter::zip(cycled_base, end_evals_cpu.iter())
-                    .map(|(base, exemption)| base * exemption)
-                    .collect();
-                full_zerofier_cache.insert(full_key, final_zerofier.clone());
-                evals[c.constraint_idx()] = final_zerofier;
+                let final_zerofier_u64: Vec<u64> =
+                    std::iter::zip(cycled_base, end_evals_cpu.iter())
+                        .map(|(base, exemption)| {
+                            Goldilocks64Field::canonical((base * exemption).value())
+                        })
+                        .collect();
+                // Upload to GPU via device shared buffer.
+                let buf = state.inner().device.new_buffer_with_data(
+                    final_zerofier_u64.as_ptr().cast(),
+                    (final_zerofier_u64.len() * std::mem::size_of::<u64>()) as u64,
+                    metal::MTLResourceOptions::StorageModeShared,
+                );
+                full_zerofier_cache.insert(full_key, c.constraint_idx());
+                buf_evals[c.constraint_idx()] = Some((buf, *end_len));
             }
         }
     }
 
-    evals
+    // Unwrap the Option — every constraint should have been populated.
+    buf_evals
+        .into_iter()
+        .map(|opt| opt.expect("every constraint must have a zerofier buffer"))
+        .collect()
 }
 
 /// Compute end exemptions polynomial evaluations as a GPU buffer.
@@ -713,6 +727,7 @@ pub fn gpu_round_2_goldilocks_merkle<A>(
     transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
     state: &StarkMetalState,
     precompiled_constraint: Option<&FibRapConstraintState>,
+    precompiled_fused: Option<&FusedConstraintState>,
     keccak_state: &GpuMerkleState,
     coset_state: &CosetShiftState,
 ) -> Result<GpuRound2Result<Goldilocks64Field>, ProvingError>
@@ -758,10 +773,11 @@ where
             .as_ref()
             .is_some_and(|b| !b.is_empty());
 
-    let t_boundary = std::time::Instant::now();
     let t_constraint = std::time::Instant::now();
     let (constraint_eval_buffer, constraint_eval_len) = if has_gpu_bufs {
-        // Fast path: GPU boundary eval + GPU constraint eval with retained buffers.
+        // Fast path: fused boundary + constraint eval in a single GPU dispatch.
+        // Boundary inverse zerofiers are pre-computed on CPU using batch inversion,
+        // eliminating per-element GPU field inversions (~73 muls each).
         let main_bufs = round_1_result
             .main_lde_gpu_buffers
             .as_ref()
@@ -771,7 +787,6 @@ where
             .as_ref()
             .expect("aux_lde_gpu_buffers must be Some in fast path (checked by has_gpu_bufs)");
 
-        // GPU boundary evaluation: per-element inverse via addition chain.
         let bc_descriptors: Vec<(usize, usize, FpE)> = boundary_constraints
             .constraints
             .iter()
@@ -781,35 +796,22 @@ where
             })
             .collect();
 
-        let (boundary_buf, _) = crate::metal::constraint_eval::gpu_evaluate_boundary_constraints(
-            &domain.lde_roots_of_unity_coset,
+        gpu_evaluate_fused_constraints(
             &main_bufs[0],
             &main_bufs[1],
             &aux_bufs[0],
-            &bc_descriptors,
-            &boundary_coefficients,
-            &domain.trace_primitive_root,
-            num_lde_rows,
-            None,
-        )
-        .map_err(|e| ProvingError::FieldOperationError(format!("GPU boundary eval error: {e}")))?;
-
-        eprintln!("    2a boundary GPU:   {:>10.2?}", t_boundary.elapsed());
-
-        // Pass boundary buffer directly to constraint eval (no GPU→CPU→GPU round-trip).
-        gpu_evaluate_fibonacci_rap_constraints_all_buffers(
-            &main_bufs[0],
-            &main_bufs[1],
-            &aux_bufs[0],
-            &boundary_buf,
             num_lde_rows,
             &zerofier_evals,
             &round_1_result.rap_challenges[0],
             &transition_coefficients,
             lde_step_size,
-            precompiled_constraint,
+            &bc_descriptors,
+            &boundary_coefficients,
+            &domain.lde_roots_of_unity_coset,
+            &domain.trace_primitive_root,
+            precompiled_fused,
         )
-        .map_err(|e| ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}")))?
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU fused eval error: {e}")))?
     } else {
         // Fallback: CPU boundary eval + GPU constraint eval with column re-upload.
         // Build LDE trace table from CPU data (only needed in this fallback path).
@@ -870,7 +872,7 @@ where
                     })
             })
             .collect();
-        eprintln!("    2a boundary CPU:   {:>10.2?}", t_boundary.elapsed());
+        eprintln!("    2a boundary CPU:   (fallback)");
 
         let main_col_0: Vec<FpE> = (0..num_lde_rows)
             .map(|r| *lde_trace.get_main(r, 0))
@@ -881,11 +883,20 @@ where
         let aux_col_0: Vec<FpE> = (0..num_lde_rows)
             .map(|r| *lde_trace.get_aux(r, 0))
             .collect();
+        // Fallback: read zerofier GPU buffers back to CPU for the CPU-upload constraint eval.
+        let zerofier_cpu: Vec<Vec<FpE>> = zerofier_evals
+            .iter()
+            .map(|(buf, _len)| {
+                let raw: Vec<u64> =
+                    lambdaworks_gpu::metal::abstractions::state::MetalState::retrieve_contents(buf);
+                raw.into_iter().map(FieldElement::from).collect()
+            })
+            .collect();
         gpu_evaluate_fibonacci_rap_constraints_to_buffer(
             &main_col_0,
             &main_col_1,
             &aux_col_0,
-            &zerofier_evals,
+            &zerofier_cpu,
             &boundary_evals,
             &round_1_result.rap_challenges[0],
             &transition_coefficients,
@@ -895,7 +906,7 @@ where
         .map_err(|e| ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}")))?
     };
 
-    eprintln!("    2c constraint GPU: {:>10.2?}", t_constraint.elapsed());
+    eprintln!("    2c fused eval:     {:>10.2?}", t_constraint.elapsed());
 
     // Step 4: GPU coset IFFT — interpolate constraint evaluations entirely on GPU.
     let t_ifft = std::time::Instant::now();
@@ -1161,18 +1172,27 @@ mod tests {
             let cpu_zerofier: Vec<Vec<FieldElement<F>>> =
                 air.transition_zerofier_evaluations(&domain);
 
-            // GPU path (uses cyclic_mul kernel internally, returns CPU vecs)
-            let gpu_zerofier =
+            // GPU path (returns GPU buffers, read back for comparison)
+            let gpu_zerofier_bufs =
                 gpu_transition_zerofier_evaluations_to_buffers(&air, &domain, &state, &coset_state);
 
             assert_eq!(
                 cpu_zerofier.len(),
-                gpu_zerofier.len(),
+                gpu_zerofier_bufs.len(),
                 "trace_length={trace_length}: number of zerofier vectors mismatch"
             );
 
-            for (c_idx, (cpu_z, gpu_z)) in cpu_zerofier.iter().zip(gpu_zerofier.iter()).enumerate()
+            for (c_idx, (cpu_z, (gpu_buf, _gpu_len))) in cpu_zerofier
+                .iter()
+                .zip(gpu_zerofier_bufs.iter())
+                .enumerate()
             {
+                let gpu_z_raw: Vec<u64> =
+                    lambdaworks_gpu::metal::abstractions::state::MetalState::retrieve_contents(
+                        gpu_buf,
+                    );
+                let gpu_z: Vec<FieldElement<F>> =
+                    gpu_z_raw.into_iter().map(FieldElement::from).collect();
                 assert_eq!(
                     cpu_z.len(),
                     gpu_z.len(),

@@ -21,8 +21,6 @@ use crate::metal::phases::rap::GpuRound1Result;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
-#[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_math::polynomial::barycentric::barycentric_evaluate_on_coset;
 
 /// Result of GPU Phase 3 (OOD evaluation round).
 ///
@@ -205,6 +203,10 @@ where
 /// Instead, this takes the original trace evaluations `P(omega^i)` and evaluates at
 /// OOD points using the barycentric formula with coset_offset = 1.
 ///
+/// Optimized to share denominator computation across columns: for each eval_point,
+/// the denominators `(z - omega^i)` are batch-inverted once and reused for all columns,
+/// avoiding redundant O(N) batch inversions per column.
+///
 /// Produces the same `Table<F>` layout as `get_trace_evaluations`.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 fn get_trace_evaluations_barycentric(
@@ -238,15 +240,26 @@ fn get_trace_evaluations_barycentric(
     };
 
     // Primitive root of the trace domain (N-th root of unity).
-    // The trace evaluations are on the standard roots-of-unity domain {omega^i},
-    // which is a coset with offset = 1.
     let trace_order = n.trailing_zeros() as u64;
     let omega = F::get_primitive_root_of_unity(trace_order)
         .expect("primitive root must exist for trace domain size");
 
-    let coset_offset = FpE::one();
+    // Pre-compute omega powers {1, omega, omega^2, ..., omega^{N-1}} once.
+    // These are the barycentric weights (numerator part) shared across all eval_points.
+    let mut omega_powers: Vec<FpE> = Vec::with_capacity(n);
+    {
+        let mut w = FpE::one();
+        for _ in 0..n {
+            omega_powers.push(w);
+            w *= omega;
+        }
+    }
 
-    // Build table data in row-major order: [eval_point_0: [col0, col1, ..., aux0, ...], ...]
+    // For h=1 (standard domain): bf_scalar = 1/N, vanishing(z) = z^N - 1.
+    let n_inv = FpE::from(n as u64)
+        .inv()
+        .expect("N is a power of two in an FFT field, always invertible");
+
     let main_width = main_trace_evals.len();
     let aux_width = aux_trace_evals.len();
     let total_width = main_width + aux_width;
@@ -254,15 +267,39 @@ fn get_trace_evaluations_barycentric(
     let mut table_data: Vec<FpE> = Vec::with_capacity(evaluation_points.len() * total_width);
 
     for eval_point in &evaluation_points {
+        // Compute denominators (z_j - omega^i) and batch-invert ONCE per eval_point.
+        let mut denoms: Vec<FpE> = Vec::with_capacity(n);
+        for w_i in &omega_powers {
+            denoms.push(eval_point - w_i);
+        }
+        FieldElement::inplace_batch_inverse(&mut denoms)
+            .expect("z should not coincide with any domain point");
+
+        // Pre-multiply: weighted_inv[i] = omega^i * denom_inv[i], shared across all columns.
+        let weighted_inv: Vec<FpE> = omega_powers
+            .iter()
+            .zip(denoms.iter())
+            .map(|(w, d)| *w * *d)
+            .collect();
+
+        // Prefactor: (z^N - 1) / N
+        let vanishing = eval_point.pow(n) - FpE::one();
+        let prefactor = n_inv * vanishing;
+
+        // Accumulate for each column using the shared weighted inverses.
         for col_evals in main_trace_evals {
-            let val =
-                barycentric_evaluate_on_coset::<F, F>(col_evals, &coset_offset, &omega, eval_point);
-            table_data.push(val);
+            let mut acc = FpE::zero();
+            for (wd, yi) in weighted_inv.iter().zip(col_evals.iter()) {
+                acc += *wd * *yi;
+            }
+            table_data.push(prefactor * acc);
         }
         for col_evals in aux_trace_evals {
-            let val =
-                barycentric_evaluate_on_coset::<F, F>(col_evals, &coset_offset, &omega, eval_point);
-            table_data.push(val);
+            let mut acc = FpE::zero();
+            for (wd, yi) in weighted_inv.iter().zip(col_evals.iter()) {
+                acc += *wd * *yi;
+            }
+            table_data.push(prefactor * acc);
         }
     }
 

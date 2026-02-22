@@ -470,6 +470,73 @@ pub fn gpu_evaluate_fibonacci_rap_constraints_all_buffers(
     Ok((buf_output, num_rows))
 }
 
+/// Zero-copy variant: zerofier data is already on GPU as Metal buffers.
+///
+/// Eliminates the GPU→CPU→GPU round-trip where zerofier evaluations were previously
+/// read back from GPU to `Vec<FpE>`, then re-uploaded as `Vec<u64>` buffers.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_evaluate_fibonacci_rap_constraints_zero_copy(
+    main_col_0_buf: &metal::Buffer,
+    main_col_1_buf: &metal::Buffer,
+    aux_col_0_buf: &metal::Buffer,
+    boundary_buf: &metal::Buffer,
+    num_rows: usize,
+    zerofier_bufs: &[(metal::Buffer, usize)],
+    gamma: &FieldElement<Goldilocks64Field>,
+    transition_coefficients: &[FieldElement<Goldilocks64Field>],
+    lde_step_size: usize,
+    precompiled: Option<&FibRapConstraintState>,
+) -> Result<(metal::Buffer, usize), MetalError> {
+    assert!(zerofier_bufs.len() >= 2, "need at least 2 zerofier buffers");
+    assert!(
+        transition_coefficients.len() >= 2,
+        "need at least 2 transition coefficients"
+    );
+
+    let params = FibRapParams {
+        lde_step_size: lde_step_size as u32,
+        num_rows: num_rows as u32,
+        zerofier_0_len: zerofier_bufs[0].1 as u32,
+        zerofier_1_len: zerofier_bufs[1].1 as u32,
+        gamma: Goldilocks64Field::canonical(gamma.value()),
+        transition_coeff_0: Goldilocks64Field::canonical(transition_coefficients[0].value()),
+        transition_coeff_1: Goldilocks64Field::canonical(transition_coefficients[1].value()),
+    };
+
+    let mut owned_state;
+    let (dyn_state, max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            owned_state = DynamicMetalState::new()?;
+            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
+            let mt = owned_state.prepare_pipeline("fibonacci_rap_constraint_eval")?;
+            (&owned_state, mt)
+        }
+    };
+
+    let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
+    let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
+
+    dyn_state.execute_compute(
+        "fibonacci_rap_constraint_eval",
+        &[
+            main_col_0_buf,
+            main_col_1_buf,
+            aux_col_0_buf,
+            &zerofier_bufs[0].0,
+            &zerofier_bufs[1].0,
+            &buf_params,
+            boundary_buf,
+            &buf_output,
+        ],
+        num_rows as u64,
+        max_threads,
+    )?;
+
+    Ok((buf_output, num_rows))
+}
+
 /// Parameters for a single boundary constraint, matching the Metal shader struct.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[repr(C)]
@@ -627,6 +694,173 @@ pub fn gpu_evaluate_boundary_constraints_to_vec(
     let raw: Vec<u64> =
         lambdaworks_gpu::metal::abstractions::state::MetalState::retrieve_contents(&buf);
     Ok(raw.into_iter().map(FieldElement::from).collect())
+}
+
+/// Parameters for a single boundary constraint in the fused kernel.
+/// Matches the Metal `FusedBoundaryParam` struct.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct FusedBoundaryParam {
+    g_pow_step: u64,
+    value: u64,
+    coefficient: u64,
+    col: u32,
+    _pad: u32,
+}
+
+/// Parameters for the fused transition + boundary kernel.
+/// Matches the Metal `FusedParams` struct.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct FusedParams {
+    lde_step_size: u32,
+    num_rows: u32,
+    zerofier_0_len: u32,
+    zerofier_1_len: u32,
+    gamma: u64,
+    transition_coeff_0: u64,
+    transition_coeff_1: u64,
+    num_boundary_constraints: u32,
+    _pad2: u32,
+}
+
+/// Pre-compiled Metal state for the fused constraint evaluation kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct FusedConstraintState {
+    state: DynamicMetalState,
+    max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl FusedConstraintState {
+    /// Compile the fused constraint shader and prepare the pipeline.
+    pub fn new() -> Result<Self, MetalError> {
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(FIBONACCI_RAP_SHADER)?;
+        let max_threads = state.prepare_pipeline("fibonacci_rap_fused_eval")?;
+        Ok(Self { state, max_threads })
+    }
+
+    /// Compile sharing a device and queue with an existing Metal state.
+    pub fn from_device_and_queue(
+        device: &metal::Device,
+        queue: &metal::CommandQueue,
+    ) -> Result<Self, MetalError> {
+        let mut state = DynamicMetalState::from_device_and_queue(device, queue);
+        state.load_library(FIBONACCI_RAP_SHADER)?;
+        let max_threads = state.prepare_pipeline("fibonacci_rap_fused_eval")?;
+        Ok(Self { state, max_threads })
+    }
+}
+
+/// Fused boundary + transition constraint evaluation on GPU.
+///
+/// Combines both steps into a single kernel dispatch, eliminating:
+/// - Separate boundary kernel launch overhead
+/// - Intermediate boundary_evals buffer (num_rows × 8 bytes)
+/// - Redundant trace column reads (shared between transition + boundary)
+///
+/// Boundary zerofier inversions are computed inline on GPU via Fermat's little theorem.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_evaluate_fused_constraints(
+    main_col_0_buf: &metal::Buffer,
+    main_col_1_buf: &metal::Buffer,
+    aux_col_0_buf: &metal::Buffer,
+    num_rows: usize,
+    zerofier_bufs: &[(metal::Buffer, usize)],
+    gamma: &FieldElement<Goldilocks64Field>,
+    transition_coefficients: &[FieldElement<Goldilocks64Field>],
+    lde_step_size: usize,
+    boundary_constraints: &[(usize, usize, FieldElement<Goldilocks64Field>)], // (col, step, value)
+    boundary_coefficients: &[FieldElement<Goldilocks64Field>],
+    lde_coset_points: &[FieldElement<Goldilocks64Field>],
+    trace_primitive_root: &FieldElement<Goldilocks64Field>,
+    precompiled: Option<&FusedConstraintState>,
+) -> Result<(metal::Buffer, usize), MetalError> {
+    assert!(zerofier_bufs.len() >= 2, "need at least 2 zerofier buffers");
+    assert!(
+        transition_coefficients.len() >= 2,
+        "need at least 2 transition coefficients"
+    );
+    assert_eq!(
+        boundary_constraints.len(),
+        boundary_coefficients.len(),
+        "boundary constraints and coefficients must have same length"
+    );
+
+    let mut owned_state;
+    let (dyn_state, max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            owned_state = DynamicMetalState::new()?;
+            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
+            let mt = owned_state.prepare_pipeline("fibonacci_rap_fused_eval")?;
+            (&owned_state, mt)
+        }
+    };
+
+    // Upload LDE coset points to GPU for boundary zerofier computation.
+    let coset_raw: Vec<u64> = lde_coset_points
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+    let buf_coset = dyn_state.alloc_buffer_with_data(&coset_raw)?;
+
+    // Build boundary param array with g^step for each constraint.
+    let bc_params: Vec<FusedBoundaryParam> = boundary_constraints
+        .iter()
+        .zip(boundary_coefficients.iter())
+        .map(|(&(col, step, ref value), coeff)| {
+            let g_pow_step = trace_primitive_root.pow(step as u64);
+            FusedBoundaryParam {
+                g_pow_step: Goldilocks64Field::canonical(g_pow_step.value()),
+                value: Goldilocks64Field::canonical(value.value()),
+                coefficient: Goldilocks64Field::canonical(coeff.value()),
+                col: col as u32,
+                _pad: 0,
+            }
+        })
+        .collect();
+
+    // Build fused params.
+    let params = FusedParams {
+        lde_step_size: lde_step_size as u32,
+        num_rows: num_rows as u32,
+        zerofier_0_len: zerofier_bufs[0].1 as u32,
+        zerofier_1_len: zerofier_bufs[1].1 as u32,
+        gamma: Goldilocks64Field::canonical(gamma.value()),
+        transition_coeff_0: Goldilocks64Field::canonical(transition_coefficients[0].value()),
+        transition_coeff_1: Goldilocks64Field::canonical(transition_coefficients[1].value()),
+        num_boundary_constraints: bc_params.len() as u32,
+        _pad2: 0,
+    };
+
+    // Dispatch the fused kernel.
+    let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
+    let buf_bc_params = dyn_state.alloc_buffer_with_data(&bc_params)?;
+    let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
+
+    dyn_state.execute_compute(
+        "fibonacci_rap_fused_eval",
+        &[
+            main_col_0_buf,
+            main_col_1_buf,
+            aux_col_0_buf,
+            &zerofier_bufs[0].0,
+            &zerofier_bufs[1].0,
+            &buf_params,
+            &buf_bc_params,
+            &buf_coset,
+            &buf_output,
+        ],
+        num_rows as u64,
+        max_threads,
+    )?;
+
+    Ok((buf_output, num_rows))
 }
 
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
