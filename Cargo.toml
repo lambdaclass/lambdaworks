@@ -5,6 +5,7 @@ members = [
     "crates/crypto",
     "crates/gpu",
     "crates/math",
+    "crates/provers/binius",
     "crates/provers/groth16",
     "crates/provers/groth16/arkworks-adapter",
     "crates/provers/groth16/circom-adapter",
@@ -46,6 +47,7 @@ lambdaworks-circom-adapter = { path = "./crates/provers/groth16/circom-adapter" 
 lambdaworks-sumcheck = { path = "./crates/provers/sumcheck" }
 lambdaworks-sumcheck-gkr = { path = "./crates/provers/gkr" }
 lambdaworks-winterfell-adapter = { path = "./crates/provers/winterfell_adapter" }
+lambdaworks-binius = { path = "./crates/provers/binius" }
 stark-platinum-prover = { path = "./crates/provers/stark" }
 iai-callgrind = "0.3.1"
 
