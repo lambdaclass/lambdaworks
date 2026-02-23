@@ -24,6 +24,8 @@
 //! in the base field. Only the final multiply with `y_i` crosses into the extension,
 //! making the inner loop BF×EF (cost ~d) instead of EF×EF (cost ~d²).
 
+use alloc::vec::Vec;
+
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 
