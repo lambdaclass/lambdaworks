@@ -15,9 +15,12 @@ use lambdaworks_math::{
     field::{
         element::FieldElement,
         fields::u64_goldilocks_field::Goldilocks64Field,
-        traits::{IsFFTField, IsPrimeField, IsSubFieldOf, RootsConfig},
+        traits::{IsFFTField, IsSubFieldOf, RootsConfig},
     },
 };
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::{canonical, to_raw_u64};
 
 /// Interpolates polynomial coefficients from evaluations via inverse FFT + 1/n normalization.
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -277,11 +280,8 @@ pub fn gpu_coset_shift_to_buffer(
     coset_state: &CosetShiftState,
 ) -> Result<metal::Buffer, MetalError> {
     let input_len = coeffs.len();
-    let coeffs_u64: Vec<u64> = coeffs
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let offset_u64 = Goldilocks64Field::canonical(offset.value());
+    let coeffs_u64 = to_raw_u64(coeffs);
+    let offset_u64 = canonical(offset);
 
     let buf_input = coset_state.state.alloc_buffer_with_data(&coeffs_u64)?;
     let buf_output = coset_state
@@ -316,7 +316,7 @@ pub fn gpu_scale_buffer(
     scalar: &FieldElement<Goldilocks64Field>,
     coset_state: &CosetShiftState,
 ) -> Result<metal::Buffer, MetalError> {
-    let scalar_u64 = Goldilocks64Field::canonical(scalar.value());
+    let scalar_u64 = canonical(scalar);
 
     let buf_output = coset_state
         .state
@@ -344,7 +344,7 @@ pub fn gpu_scale_buffer_inplace(
     scalar: &FieldElement<Goldilocks64Field>,
     coset_state: &CosetShiftState,
 ) -> Result<(), MetalError> {
-    let scalar_u64 = Goldilocks64Field::canonical(scalar.value());
+    let scalar_u64 = canonical(scalar);
 
     let buf_scalar = alloc_u64(coset_state, scalar_u64)?;
     let buf_len = alloc_u32(coset_state, len as u32)?;
@@ -368,7 +368,7 @@ pub fn gpu_coset_shift_buffer_to_buffer(
     output_len: usize,
     state: &CosetShiftState,
 ) -> Result<metal::Buffer, MetalError> {
-    let offset_u64 = Goldilocks64Field::canonical(offset.value());
+    let offset_u64 = canonical(offset);
 
     let buf_output = state
         .state
@@ -438,10 +438,7 @@ pub fn gpu_ifft_to_buffer(
         metal_state,
     )?;
 
-    let evals_u64: Vec<u64> = evaluations
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
+    let evals_u64 = to_raw_u64(evaluations);
     let eval_buffer = metal_state.alloc_buffer_data(&evals_u64);
 
     let result_buffer =
@@ -524,12 +521,9 @@ fn gpu_lde_column_fused(
         .alloc_buffer(domain_size * std::mem::size_of::<u64>())?;
     let lde_buffer = metal_state.alloc_buffer::<u64>(domain_size);
 
-    let buf_scalar = alloc_u64(coset_state, Goldilocks64Field::canonical(n_inv.value()))?;
+    let buf_scalar = alloc_u64(coset_state, canonical(n_inv))?;
     let buf_scale_len = alloc_u32(coset_state, trace_len as u32)?;
-    let buf_offset = alloc_u64(
-        coset_state,
-        Goldilocks64Field::canonical(coset_offset.value()),
-    )?;
+    let buf_offset = alloc_u64(coset_state, canonical(coset_offset))?;
     let buf_input_len = alloc_u32(coset_state, trace_len as u32)?;
     let buf_output_len = alloc_u32(coset_state, domain_size as u32)?;
 
@@ -656,16 +650,10 @@ pub fn gpu_composition_ifft_and_lde_fused(
         .expect("Power-of-two length is always invertible in an FFT field");
     let offset_inv = coset_offset.inv().expect("Coset offset must be invertible");
 
-    let buf_n_inv = alloc_u64(coset_state, Goldilocks64Field::canonical(n_inv.value()))?;
+    let buf_n_inv = alloc_u64(coset_state, canonical(&n_inv))?;
     let buf_eval_len = alloc_u32(coset_state, eval_len as u32)?;
-    let buf_offset_inv = alloc_u64(
-        coset_state,
-        Goldilocks64Field::canonical(offset_inv.value()),
-    )?;
-    let buf_offset_fwd = alloc_u64(
-        coset_state,
-        Goldilocks64Field::canonical(coset_offset.value()),
-    )?;
+    let buf_offset_inv = alloc_u64(coset_state, canonical(&offset_inv))?;
+    let buf_offset_fwd = alloc_u64(coset_state, canonical(coset_offset))?;
     let buf_meaningful_len = alloc_u32(coset_state, meaningful_coeffs as u32)?;
     let buf_lde_len = alloc_u32(coset_state, lde_domain_size as u32)?;
 
@@ -842,10 +830,7 @@ pub fn gpu_lde_from_evaluations(
 
     let mut lde_buffers = Vec::with_capacity(columns.len());
     for col in columns {
-        let evals_u64: Vec<u64> = col
-            .iter()
-            .map(|fe| Goldilocks64Field::canonical(fe.value()))
-            .collect();
+        let evals_u64 = to_raw_u64(col);
         let eval_buffer = metal_state.alloc_buffer_data(&evals_u64);
 
         let lde_buffer = gpu_lde_column_fused(
@@ -1062,10 +1047,7 @@ mod tests {
 
         let cpu_scaled: Vec<FpE> = values.iter().map(|v| v * scalar).collect();
 
-        let values_u64: Vec<u64> = values
-            .iter()
-            .map(|fe| Goldilocks64Field::canonical(fe.value()))
-            .collect();
+        let values_u64 = to_raw_u64(&values);
         let input_buffer = coset_state
             .state
             .alloc_buffer_with_data(&values_u64)
@@ -1090,10 +1072,7 @@ mod tests {
 
         let cpu_scaled: Vec<FpE> = values.iter().map(|v| v * scalar).collect();
 
-        let values_u64: Vec<u64> = values
-            .iter()
-            .map(|fe| Goldilocks64Field::canonical(fe.value()))
-            .collect();
+        let values_u64 = to_raw_u64(&values);
         let input_buffer = coset_state
             .state
             .alloc_buffer_with_data(&values_u64)
@@ -1137,10 +1116,7 @@ mod tests {
         let poly = Polynomial::new(&coeffs);
         let cpu_parts = poly.break_in_parts(4);
 
-        let coeffs_u64: Vec<u64> = coeffs
-            .iter()
-            .map(|fe| Goldilocks64Field::canonical(fe.value()))
-            .collect();
+        let coeffs_u64 = to_raw_u64(&coeffs);
         let gpu_buffer = state.inner().alloc_buffer_data(&coeffs_u64);
 
         let gpu_part_buffers =
@@ -1192,10 +1168,7 @@ mod tests {
             })
             .collect();
 
-        let coeffs_u64: Vec<u64> = coeffs
-            .iter()
-            .map(|fe| Goldilocks64Field::canonical(fe.value()))
-            .collect();
+        let coeffs_u64 = to_raw_u64(&coeffs);
         let gpu_buffer = state.inner().alloc_buffer_data(&coeffs_u64);
 
         let part_buffers =

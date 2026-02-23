@@ -9,7 +9,38 @@ pub mod prover;
 pub mod state;
 
 use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 use lambdaworks_math::field::traits::IsField;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::field::traits::IsPrimeField;
+
+type FpE = FieldElement<Goldilocks64Field>;
+
+/// Extract the canonical u64 representation from a Goldilocks field element.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[inline]
+pub(crate) fn canonical(fe: &FpE) -> u64 {
+    Goldilocks64Field::canonical(fe.value())
+}
+
+/// Convert a slice of Goldilocks field elements to canonical u64 values.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[inline]
+pub(crate) fn to_raw_u64(elems: &[FpE]) -> Vec<u64> {
+    elems.iter().map(canonical).collect()
+}
+
+/// Extract the raw u64 components from an Fp3 (degree-3 extension) element.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[inline]
+pub(crate) fn fp3_to_u64s(
+    e: &FieldElement<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+) -> [u64; 3] {
+    let comps = e.value();
+    [*comps[0].value(), *comps[1].value(), *comps[2].value()]
+}
 
 /// Compute `base^(2^log_power)` by repeated squaring.
 ///

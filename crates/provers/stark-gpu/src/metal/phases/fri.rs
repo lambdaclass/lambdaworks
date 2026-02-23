@@ -32,13 +32,15 @@ use crate::metal::merkle::{gpu_fri_layer_commit_from_buffer, gpu_generate_nonce,
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::{canonical, to_raw_u64};
+#[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::fft::gpu::metal::ops::{fft_buffer_to_buffer, gen_twiddles_to_buffer};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::{
     Degree3GoldilocksExtensionField, Goldilocks64Field,
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_math::field::traits::{IsPrimeField, RootsConfig};
+use lambdaworks_math::field::traits::RootsConfig;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 type Fp3 = Degree3GoldilocksExtensionField;
@@ -158,9 +160,7 @@ pub fn gpu_fold_polynomial(
         let val: u64 = if num_coeffs == 1 {
             let vals: Vec<u64> = MetalState::retrieve_contents(coeffs_buffer);
             let fe = FieldElement::<Goldilocks64Field>::from(vals.first().copied().unwrap_or(0));
-            Goldilocks64Field::canonical(
-                (FieldElement::<Goldilocks64Field>::from(2u64) * fe).value(),
-            )
+            canonical(&(FieldElement::<Goldilocks64Field>::from(2u64) * fe))
         } else {
             0u64
         };
@@ -197,7 +197,7 @@ pub fn gpu_fold_polynomial(
 
     let half_len = padded_len / 2;
 
-    let beta_u64 = Goldilocks64Field::canonical(beta.value());
+    let beta_u64 = canonical(beta);
 
     let buf_output = state
         .state
@@ -241,10 +241,7 @@ pub fn gpu_fold_polynomial_from_cpu(
 ) -> Result<(metal::Buffer, usize), MetalError> {
     let coeffs = poly.coefficients();
     let num_coeffs = coeffs.len();
-    let coeffs_u64: Vec<u64> = coeffs
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
+    let coeffs_u64 = to_raw_u64(coeffs);
 
     let buf_input = state.state.alloc_buffer_with_data(&coeffs_u64)?;
 
@@ -304,7 +301,7 @@ pub fn gpu_fold_evaluations(
     );
 
     let half_len = num_evals / 2;
-    let beta_u64 = Goldilocks64Field::canonical(beta.value());
+    let beta_u64 = canonical(beta);
 
     let buf_output = state
         .state
@@ -363,8 +360,8 @@ pub fn gpu_fold_evaluations_with_domain_inv(
 
     let half_len = num_evals / 2;
 
-    let h_inv_u64 = Goldilocks64Field::canonical(h_inv.value());
-    let omega_inv_u64 = Goldilocks64Field::canonical(omega_inv.value());
+    let h_inv_u64 = canonical(h_inv);
+    let omega_inv_u64 = canonical(omega_inv);
 
     let buf_h_inv = domain_inv_state
         .state
@@ -383,7 +380,7 @@ pub fn gpu_fold_evaluations_with_domain_inv(
         .state
         .alloc_buffer_with_data(std::slice::from_ref(&inv_params))?;
 
-    let beta_u64 = Goldilocks64Field::canonical(beta.value());
+    let beta_u64 = canonical(beta);
     let buf_output = fold_eval_state
         .state
         .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
@@ -481,7 +478,7 @@ pub fn gpu_fold_with_squared_inv(
         .state
         .alloc_buffer_with_data(std::slice::from_ref(&sq_params))?;
 
-    let beta_u64 = Goldilocks64Field::canonical(beta.value());
+    let beta_u64 = canonical(beta);
     let buf_output = fold_eval_state
         .state
         .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
@@ -589,7 +586,7 @@ pub fn gpu_fold_and_commit_fused(
         .state
         .alloc_buffer_with_data(std::slice::from_ref(&sq_params))?;
 
-    let beta_u64 = Goldilocks64Field::canonical(beta.value());
+    let beta_u64 = canonical(beta);
     let buf_output = fold_eval_state
         .state
         .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
@@ -703,8 +700,8 @@ pub fn gpu_compute_fri_domain_inverses(
     state: &FriDomainInvState,
 ) -> Result<metal::Buffer, MetalError> {
     let half_len = domain_size / 2;
-    let h_inv_u64 = Goldilocks64Field::canonical(h_inv.value());
-    let omega_inv_u64 = Goldilocks64Field::canonical(omega_inv.value());
+    let h_inv_u64 = canonical(h_inv);
+    let omega_inv_u64 = canonical(omega_inv);
 
     let buf_h_inv = state
         .state
@@ -883,9 +880,9 @@ pub fn gpu_fold_polynomial_fp3(
             let result = fe + fe; // 2 * fe
             let comps = result.value();
             [
-                Goldilocks64Field::canonical(comps[0].value()),
-                Goldilocks64Field::canonical(comps[1].value()),
-                Goldilocks64Field::canonical(comps[2].value()),
+                canonical(&comps[0]),
+                canonical(&comps[1]),
+                canonical(&comps[2]),
             ]
         } else {
             [0u64; 3]
@@ -925,9 +922,9 @@ pub fn gpu_fold_polynomial_fp3(
     // Pack beta as 3 u64s
     let beta_comps = beta.value();
     let beta_u64: [u64; 3] = [
-        Goldilocks64Field::canonical(beta_comps[0].value()),
-        Goldilocks64Field::canonical(beta_comps[1].value()),
-        Goldilocks64Field::canonical(beta_comps[2].value()),
+        canonical(&beta_comps[0]),
+        canonical(&beta_comps[1]),
+        canonical(&beta_comps[2]),
     ];
 
     let buf_output = state
@@ -975,9 +972,9 @@ pub fn gpu_fold_polynomial_fp3_from_cpu(
         .flat_map(|fe| {
             let comps = fe.value();
             [
-                Goldilocks64Field::canonical(comps[0].value()),
-                Goldilocks64Field::canonical(comps[1].value()),
-                Goldilocks64Field::canonical(comps[2].value()),
+                canonical(&comps[0]),
+                canonical(&comps[1]),
+                canonical(&comps[2]),
             ]
         })
         .collect();
@@ -2278,10 +2275,7 @@ mod tests {
         Fp3E::new([FpE::from(a), FpE::from(b), FpE::from(c)])
     }
 
-    fn fp3_to_u64s(e: &Fp3E) -> [u64; 3] {
-        let comps = e.value();
-        [*comps[0].value(), *comps[1].value(), *comps[2].value()]
-    }
+    use crate::metal::fp3_to_u64s;
 
     #[test]
     fn gpu_fp3_fold_matches_cpu() {
@@ -2407,7 +2401,7 @@ mod tests {
             let br_i = reverse_index(i, half_len as u64);
             let x = coset_offset * omega.pow(br_i as u64);
             let expected = x.inv().unwrap();
-            let expected_u64 = F::canonical(expected.value());
+            let expected_u64 = canonical(&expected);
             assert_eq!(
                 *inv_x_val, expected_u64,
                 "Domain inverse mismatch at index {} (bitrev={}): GPU={}, expected={}",
@@ -2451,7 +2445,7 @@ mod tests {
         for i in 0..next_half {
             let v = FE::from(inv_x_u64[2 * i]);
             let expected = v * v;
-            let expected_u64 = F::canonical(expected.value());
+            let expected_u64 = canonical(&expected);
             assert_eq!(
                 inv_x_sq_u64[i], expected_u64,
                 "Stride-2 square inverse mismatch at index {}: GPU={}, expected={}",
@@ -2482,7 +2476,7 @@ mod tests {
         use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
         use lambdaworks_math::field::element::FieldElement;
         use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
-        use lambdaworks_math::field::traits::{IsFFTField, IsPrimeField};
+        use lambdaworks_math::field::traits::IsFFTField;
         use lambdaworks_math::polynomial::Polynomial;
 
         type F = Goldilocks64Field;
@@ -2543,7 +2537,7 @@ mod tests {
         let fold_state = FriFoldEvalState::new().unwrap();
         let inv_state = FriDomainInvState::new().unwrap();
 
-        let evals_u64: Vec<u64> = evals.iter().map(|e| F::canonical(e.value())).collect();
+        let evals_u64: Vec<u64> = to_raw_u64(&evals);
         let evals_buffer = fold_state.state.alloc_buffer_with_data(&evals_u64).unwrap();
 
         let h_inv = coset_offset.inv().unwrap();
@@ -2566,7 +2560,7 @@ mod tests {
         assert_eq!(result_u64.len(), half_domain_size);
 
         for i in 0..half_domain_size {
-            let expected_u64 = F::canonical(expected_evals[i].value());
+            let expected_u64 = canonical(&expected_evals[i]);
             assert_eq!(
                 result_u64[i], expected_u64,
                 "Eval-domain fold mismatch at index {}: GPU={}, expected={}",

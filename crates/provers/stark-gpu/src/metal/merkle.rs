@@ -26,8 +26,11 @@ use lambdaworks_gpu::metal::abstractions::{
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+
+#[cfg(all(test, target_os = "macos", feature = "metal"))]
+use crate::metal::canonical;
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_math::field::traits::IsPrimeField;
+use crate::metal::to_raw_u64;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 const KECCAK256_SHADER: &str = include_str!("shaders/keccak256.metal");
@@ -371,10 +374,7 @@ fn gpu_hash_leaves_goldilocks(
     let num_cols = rows[0].len();
     let flat_data: Vec<u64> = rows
         .iter()
-        .flat_map(|row| {
-            row.iter()
-                .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        })
+        .flat_map(|row| row.iter().map(canonical))
         .collect();
     gpu_hash_leaves_flat(&flat_data, num_rows, num_cols, keccak_state)
 }
@@ -856,10 +856,7 @@ pub fn gpu_fri_layer_commit(
     keccak_state: &GpuKeccakMerkleState,
 ) -> Result<(BatchedMerkleTree<Goldilocks64Field>, Commitment), MetalError> {
     let num_leaves = evaluation.len() / 2;
-    let flat_data: Vec<u64> = evaluation
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
+    let flat_data: Vec<u64> = to_raw_u64(evaluation);
     let buf_data = keccak_state.state.alloc_buffer_with_data(&flat_data)?;
     let (nodes, root) =
         gpu_hash_and_build_tree_from_buffer(&buf_data, num_leaves, 2, keccak_state)?;
@@ -889,7 +886,7 @@ fn gpu_batch_commit_goldilocks(
     for i in 0..num_rows {
         let src_idx = i.reverse_bits() >> (usize::BITS - log_n);
         for col in lde_columns {
-            flat_data.push(Goldilocks64Field::canonical(col[src_idx].value()));
+            flat_data.push(canonical(&col[src_idx]));
         }
     }
 
@@ -919,10 +916,10 @@ fn gpu_batch_commit_paired_goldilocks(
         let idx0 = (2 * i).reverse_bits() >> (usize::BITS - log_n);
         let idx1 = (2 * i + 1).reverse_bits() >> (usize::BITS - log_n);
         for col in lde_evaluations {
-            flat_data.push(Goldilocks64Field::canonical(col[idx0].value()));
+            flat_data.push(canonical(&col[idx0]));
         }
         for col in lde_evaluations {
-            flat_data.push(Goldilocks64Field::canonical(col[idx1].value()));
+            flat_data.push(canonical(&col[idx1]));
         }
     }
 
@@ -956,10 +953,7 @@ fn gpu_transpose_bitrev(
 
     let flat_cols: Vec<u64> = columns
         .iter()
-        .flat_map(|col| {
-            col.iter()
-                .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        })
+        .flat_map(|col| col.iter().map(canonical))
         .collect();
 
     let buf_cols = keccak_state.state.alloc_buffer_with_data(&flat_cols)?;
@@ -1149,15 +1143,11 @@ mod gpu_tests {
         columns: &[Vec<FpE>],
         device: &metal::DeviceRef,
     ) -> Vec<metal::Buffer> {
-        use lambdaworks_math::field::traits::IsPrimeField;
         use metal::MTLResourceOptions;
         columns
             .iter()
             .map(|col| {
-                let data: Vec<u64> = col
-                    .iter()
-                    .map(|fe| Goldilocks64Field::canonical(fe.value()))
-                    .collect();
+                let data: Vec<u64> = to_raw_u64(col);
                 device.new_buffer_with_data(
                     data.as_ptr() as *const _,
                     (data.len() * std::mem::size_of::<u64>()) as u64,
@@ -1307,8 +1297,6 @@ mod gpu_tests {
 
     #[test]
     fn gpu_transpose_bitrev_buffer_matches_cpu() {
-        use lambdaworks_math::field::traits::IsPrimeField;
-
         let keccak_state = GpuKeccakMerkleState::new().unwrap();
         let transpose_state = keccak_state.transpose_state().expect("transpose state");
         let columns = make_columns(3, 256);
@@ -1326,7 +1314,7 @@ mod gpu_tests {
         for (row_idx, cpu_row) in cpu_rows.iter().enumerate() {
             for (col_idx, cpu_val) in cpu_row.iter().enumerate() {
                 let gpu_val = gpu_raw[row_idx * 3 + col_idx];
-                let expected = Goldilocks64Field::canonical(cpu_val.value());
+                let expected = canonical(cpu_val);
                 assert_eq!(
                     gpu_val, expected,
                     "Buffer transpose mismatch at row {row_idx}, col {col_idx}"
@@ -1338,7 +1326,6 @@ mod gpu_tests {
     #[test]
     fn gpu_transpose_bitrev_paired_buffer_matches_cpu() {
         use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
-        use lambdaworks_math::field::traits::IsPrimeField;
 
         let keccak_state = GpuKeccakMerkleState::new().unwrap();
         let transpose_state = keccak_state.transpose_state().expect("transpose state");
@@ -1373,7 +1360,7 @@ mod gpu_tests {
         for (row_idx, cpu_row) in merged_rows.iter().enumerate() {
             for (col_idx, cpu_val) in cpu_row.iter().enumerate() {
                 let gpu_val = gpu_raw[row_idx * cols_per_merged + col_idx];
-                let expected = Goldilocks64Field::canonical(cpu_val.value());
+                let expected = canonical(cpu_val);
                 assert_eq!(
                     gpu_val, expected,
                     "Paired buffer transpose mismatch at row {row_idx}, col {col_idx}"
@@ -1384,8 +1371,6 @@ mod gpu_tests {
 
     #[test]
     fn gpu_transpose_bitrev_buffer_small() {
-        use lambdaworks_math::field::traits::IsPrimeField;
-
         let keccak_state = GpuKeccakMerkleState::new().unwrap();
         let transpose_state = keccak_state.transpose_state().expect("transpose state");
 
@@ -1407,7 +1392,7 @@ mod gpu_tests {
         for (row_idx, cpu_row) in cpu_rows.iter().enumerate() {
             for (col_idx, cpu_val) in cpu_row.iter().enumerate() {
                 let gpu_val = gpu_raw[row_idx * 2 + col_idx];
-                let expected = Goldilocks64Field::canonical(cpu_val.value());
+                let expected = canonical(cpu_val);
                 assert_eq!(
                     gpu_val, expected,
                     "Small buffer transpose mismatch at row {row_idx}, col {col_idx}"

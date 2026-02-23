@@ -5,7 +5,7 @@
 
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
+use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::AsBytes;
 
@@ -27,6 +27,8 @@ use crate::metal::merkle::cpu_batch_commit;
 use crate::metal::phases::rap::GpuRound1Result;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::{canonical, to_raw_u64};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use std::collections::HashMap;
 
@@ -354,10 +356,7 @@ where
             .get(&end_key)
             .expect("end_key was inserted into map in previous step");
 
-        let base_u64: Vec<u64> = base_zerofier
-            .iter()
-            .map(|fe| Goldilocks64Field::canonical(fe.value()))
-            .collect();
+        let base_u64: Vec<u64> = to_raw_u64(base_zerofier);
 
         match gpu_cyclic_mul_buffer(end_buf, *end_len, &base_u64, coset_state) {
             Ok(result_buf) => {
@@ -376,9 +375,7 @@ where
                 };
                 let final_zerofier_u64: Vec<u64> =
                     std::iter::zip(cycled_base, end_evals_cpu.iter())
-                        .map(|(base, exemption)| {
-                            Goldilocks64Field::canonical((base * exemption).value())
-                        })
+                        .map(|(base, exemption)| canonical(&(base * exemption)))
                         .collect();
                 let buf = state.inner().device.new_buffer_with_data(
                     final_zerofier_u64.as_ptr().cast(),
@@ -439,7 +436,7 @@ fn gpu_compute_end_exemptions_to_buffer(
         let val = if coeffs.is_empty() {
             0u64
         } else {
-            Goldilocks64Field::canonical(coeffs[0].value())
+            canonical(&coeffs[0])
         };
         let data = vec![val; eval_domain_size];
         let buf = state.inner().alloc_buffer_data(&data);
@@ -515,7 +512,7 @@ fn cpu_direct_poly_eval_on_coset(
                 for c in coeffs.iter().rev().skip(1) {
                     result = result * x + c;
                 }
-                let val = F::canonical(result.value());
+                let val = canonical(&result);
                 x *= omega;
                 val
             })

@@ -7,7 +7,7 @@
 use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::DynamicMetalState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::{
-    element::FieldElement, fields::u64_goldilocks_field::Goldilocks64Field, traits::IsPrimeField,
+    element::FieldElement, fields::u64_goldilocks_field::Goldilocks64Field,
 };
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -27,20 +27,7 @@ struct FibRapParams {
     transition_coeff_1: u64,
 }
 
-/// Converts a slice of field elements to their canonical u64 representations.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-fn to_raw_u64(elems: &[FieldElement<Goldilocks64Field>]) -> Vec<u64> {
-    elems
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect()
-}
-
-/// Shorthand for extracting a single canonical u64 value.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-fn canonical(fe: &FieldElement<Goldilocks64Field>) -> u64 {
-    Goldilocks64Field::canonical(fe.value())
-}
+use crate::metal::{canonical, to_raw_u64};
 
 /// Builds `FibRapParams` from common arguments.
 #[cfg(all(target_os = "macos", feature = "metal"))]

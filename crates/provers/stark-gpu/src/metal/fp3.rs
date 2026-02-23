@@ -112,11 +112,7 @@ kernel void fp3_test(
 }
 "#;
 
-    /// Extract the raw u64 components from a Fp3E (for sending to GPU buffers).
-    fn fp3_to_u64s(e: &Fp3E) -> [u64; 3] {
-        let comps = e.value();
-        [*comps[0].value(), *comps[1].value(), *comps[2].value()]
-    }
+    use crate::metal::fp3_to_u64s;
 
     /// Create a Fp3E from u64 components via `FpE::from()` (applies modular reduction).
     fn fp3_from_u64s(vals: [u64; 3]) -> Fp3E {

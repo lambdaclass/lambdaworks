@@ -1,7 +1,7 @@
 //! GPU Phase 1: RAP (trace interpolation + LDE + commit).
 
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
+use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::AsBytes;
 
@@ -21,6 +21,8 @@ use crate::metal::fft::{
 use crate::metal::merkle::cpu_batch_commit;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::to_raw_u64;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::merkle::{gpu_batch_commit_from_column_buffers, GpuMerkleState};
@@ -198,11 +200,7 @@ where
         };
 
     // Pre-compute LDE coset points as a GPU buffer once (reused by Phase 2 and Phase 4).
-    let coset_raw: Vec<u64> = _domain
-        .lde_roots_of_unity_coset
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
+    let coset_raw: Vec<u64> = to_raw_u64(&_domain.lde_roots_of_unity_coset);
     let lde_coset_gpu_buffer = state.inner().device.new_buffer_with_data(
         coset_raw.as_ptr().cast(),
         (coset_raw.len() * std::mem::size_of::<u64>()) as u64,
