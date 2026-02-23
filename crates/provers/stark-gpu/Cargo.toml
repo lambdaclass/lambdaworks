@@ -31,6 +31,14 @@ required-features = ["metal"]
 name = "profile_gpu"
 required-features = ["metal"]
 
+[[example]]
+name = "quick_bench"
+required-features = ["metal"]
+
+[[example]]
+name = "phase_breakdown"
+required-features = ["metal"]
+
 [[bench]]
 name = "gpu_vs_cpu"
 harness = false
