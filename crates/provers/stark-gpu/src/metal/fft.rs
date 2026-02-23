@@ -243,14 +243,10 @@ fn dispatch_kernel(
     );
     encoder.end_encoding();
 
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
-
-    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
-        return Err(MetalError::ExecutionError(format!(
-            "GPU {pipeline_name} command buffer error"
-        )));
-    }
+    crate::metal::merkle::commit_and_wait(
+        command_buffer,
+        &format!("GPU {pipeline_name} command buffer error"),
+    )?;
 
     Ok(())
 }
@@ -279,33 +275,9 @@ pub fn gpu_coset_shift_to_buffer(
     output_len: usize,
     coset_state: &CosetShiftState,
 ) -> Result<metal::Buffer, MetalError> {
-    let input_len = coeffs.len();
     let coeffs_u64 = to_raw_u64(coeffs);
-    let offset_u64 = canonical(offset);
-
     let buf_input = coset_state.state.alloc_buffer_with_data(&coeffs_u64)?;
-    let buf_output = coset_state
-        .state
-        .alloc_buffer(output_len * std::mem::size_of::<u64>())?;
-    let buf_offset = alloc_u64(coset_state, offset_u64)?;
-    let buf_input_len = alloc_u32(coset_state, input_len as u32)?;
-    let buf_output_len = alloc_u32(coset_state, output_len as u32)?;
-
-    dispatch_kernel(
-        coset_state,
-        "goldilocks_coset_shift",
-        coset_state.coset_shift_max_threads,
-        &[
-            &buf_input,
-            &buf_output,
-            &buf_offset,
-            &buf_input_len,
-            &buf_output_len,
-        ],
-        output_len,
-    )?;
-
-    Ok(buf_output)
+    gpu_coset_shift_buffer_to_buffer(&buf_input, coeffs.len(), offset, output_len, coset_state)
 }
 
 /// Scale all elements of a GPU buffer: `output[k] = input[k] * scalar`.
@@ -599,14 +571,10 @@ fn gpu_lde_column_fused(
             metal_state,
         )?;
 
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-
-        if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
-            return Err(MetalError::ExecutionError(
-                "GPU fused LDE command buffer error".to_string(),
-            ));
-        }
+        crate::metal::merkle::commit_and_wait(
+            command_buffer,
+            "GPU fused LDE command buffer error",
+        )?;
 
         Ok::<(), MetalError>(())
     })?;
@@ -773,14 +741,10 @@ pub fn gpu_composition_ifft_and_lde_fused(
             metal_state,
         )?;
 
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-
-        if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
-            return Err(MetalError::ExecutionError(
-                "GPU fused composition IFFT+LDE command buffer error".to_string(),
-            ));
-        }
+        crate::metal::merkle::commit_and_wait(
+            command_buffer,
+            "GPU fused composition IFFT+LDE command buffer error",
+        )?;
 
         Ok::<(), MetalError>(())
     })?;

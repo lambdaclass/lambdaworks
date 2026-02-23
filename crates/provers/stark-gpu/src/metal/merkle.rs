@@ -230,7 +230,7 @@ fn encode_tree_levels(
 
 /// Submit a command buffer, wait for completion, and check for errors.
 #[cfg(all(target_os = "macos", feature = "metal"))]
-fn commit_and_wait(
+pub(crate) fn commit_and_wait(
     command_buffer: &metal::CommandBufferRef,
     error_msg: &str,
 ) -> Result<(), MetalError> {
@@ -680,22 +680,7 @@ pub fn gpu_batch_commit_from_column_buffers(
     num_rows: usize,
     keccak_state: &GpuKeccakMerkleState,
 ) -> Option<(BatchedMerkleTree<Goldilocks64Field>, Commitment)> {
-    if column_buffers.is_empty() || num_rows == 0 {
-        return None;
-    }
-    let num_cols = column_buffers.len();
-    let transpose_state = keccak_state.transpose_state()?;
-    let (nodes, root) = gpu_transpose_hash_and_build_tree(
-        column_buffers,
-        num_rows,
-        num_cols,
-        false,
-        keccak_state,
-        transpose_state,
-    )
-    .ok()?;
-    let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)?;
-    Some((tree, root))
+    gpu_batch_commit_columns_impl(column_buffers, num_rows, false, keccak_state)
 }
 
 /// GPU Merkle commit from column GPU buffers with paired-row layout (composition poly).
@@ -705,16 +690,27 @@ pub fn gpu_batch_commit_paired_from_column_buffers(
     lde_len: usize,
     keccak_state: &GpuKeccakMerkleState,
 ) -> Option<(BatchedMerkleTree<Goldilocks64Field>, Commitment)> {
-    if column_buffers.is_empty() || lde_len == 0 {
+    gpu_batch_commit_columns_impl(column_buffers, lde_len, true, keccak_state)
+}
+
+/// Shared implementation for column-buffer Merkle commits.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn gpu_batch_commit_columns_impl(
+    column_buffers: &[&metal::Buffer],
+    num_rows: usize,
+    paired: bool,
+    keccak_state: &GpuKeccakMerkleState,
+) -> Option<(BatchedMerkleTree<Goldilocks64Field>, Commitment)> {
+    if column_buffers.is_empty() || num_rows == 0 {
         return None;
     }
     let num_cols = column_buffers.len();
     let transpose_state = keccak_state.transpose_state()?;
     let (nodes, root) = gpu_transpose_hash_and_build_tree(
         column_buffers,
-        lde_len,
+        num_rows,
         num_cols,
-        true,
+        paired,
         keccak_state,
         transpose_state,
     )
@@ -855,14 +851,9 @@ pub fn gpu_fri_layer_commit(
     evaluation: &[FieldElement<Goldilocks64Field>],
     keccak_state: &GpuKeccakMerkleState,
 ) -> Result<(BatchedMerkleTree<Goldilocks64Field>, Commitment), MetalError> {
-    let num_leaves = evaluation.len() / 2;
     let flat_data: Vec<u64> = to_raw_u64(evaluation);
     let buf_data = keccak_state.state.alloc_buffer_with_data(&flat_data)?;
-    let (nodes, root) =
-        gpu_hash_and_build_tree_from_buffer(&buf_data, num_leaves, 2, keccak_state)?;
-    let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)
-        .ok_or_else(|| MetalError::ExecutionError("Failed to build FRI Merkle tree".into()))?;
-    Ok((tree, root))
+    gpu_fri_layer_commit_from_buffer(&buf_data, evaluation.len(), keccak_state)
 }
 
 // =============================================================================

@@ -18,6 +18,8 @@ use crate::metal::phases::composition::GpuRound2Result;
 use crate::metal::phases::ood::GpuRound3Result;
 use crate::metal::phases::rap::GpuRound1Result;
 
+use crate::metal::{canonical, fp3_to_u64s, to_raw_u64};
+
 #[cfg(all(target_os = "macos", feature = "metal"))]
 const DEEP_COMPOSITION_SHADER: &str = include_str!("shaders/deep_composition.metal");
 
@@ -132,6 +134,49 @@ fn pack_scalars_base(
     for col in trace_ood_columns {
         for eval in col {
             scalars.push(canonical(eval));
+        }
+    }
+    scalars
+}
+
+/// Pack Fp3 scalar data (gammas + OOD evals) as raw u64 triples for the GPU kernel.
+///
+/// Layout mirrors [`pack_scalars_base`] but each element is 3 consecutive u64s.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn pack_scalars_fp3(
+    composition_gammas: &[FieldElement<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >],
+    trace_term_coeffs: &[Vec<
+        FieldElement<
+            lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        >,
+    >],
+    composition_ood_evals: &[FieldElement<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >],
+    trace_ood_columns: &[Vec<
+        FieldElement<
+            lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        >,
+    >],
+    num_comp_parts: usize,
+) -> Vec<u64> {
+    let mut scalars = Vec::new();
+    for gamma in composition_gammas.iter().take(num_comp_parts) {
+        scalars.extend_from_slice(&fp3_to_u64s(gamma));
+    }
+    for gammas in trace_term_coeffs {
+        for g in gammas {
+            scalars.extend_from_slice(&fp3_to_u64s(g));
+        }
+    }
+    for eval in composition_ood_evals {
+        scalars.extend_from_slice(&fp3_to_u64s(eval));
+    }
+    for col in trace_ood_columns {
+        for eval in col {
+            scalars.extend_from_slice(&fp3_to_u64s(eval));
         }
     }
     scalars
@@ -307,10 +352,11 @@ pub fn gpu_compute_deep_composition_poly(
 
 /// Compute DEEP composition evaluations on GPU, returning the raw evaluations buffer.
 ///
-/// Shared by `gpu_compute_deep_composition_evals_to_buffer` (eval-domain FRI path).
+/// Skips the IFFT step, returning evaluations in natural (LDE coset) order.
+/// Used by the eval-domain FRI path which operates directly on evaluations.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::too_many_arguments)]
-fn gpu_compute_deep_composition_evals_internal(
+pub fn gpu_compute_deep_composition_evals_to_buffer(
     round_1_result: &GpuRound1Result<Goldilocks64Field>,
     round_2_result: &GpuRound2Result<Goldilocks64Field>,
     round_3_result: &GpuRound3Result<Goldilocks64Field>,
@@ -464,36 +510,6 @@ fn gpu_compute_deep_composition_evals_internal(
     Ok((buf_output, num_rows))
 }
 
-/// Compute DEEP composition evaluations on GPU, returning raw evaluations as a Metal Buffer.
-///
-/// Skips the IFFT step, returning evaluations in natural (LDE coset) order.
-/// Used by the eval-domain FRI path which operates directly on evaluations.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(clippy::too_many_arguments)]
-pub fn gpu_compute_deep_composition_evals_to_buffer(
-    round_1_result: &GpuRound1Result<Goldilocks64Field>,
-    round_2_result: &GpuRound2Result<Goldilocks64Field>,
-    round_3_result: &GpuRound3Result<Goldilocks64Field>,
-    domain: &stark_platinum_prover::domain::Domain<Goldilocks64Field>,
-    composition_gammas: &[FieldElement<Goldilocks64Field>],
-    trace_term_coeffs: &[Vec<FieldElement<Goldilocks64Field>>],
-    precompiled: Option<&DeepCompositionState>,
-    domain_inv_state: Option<&DomainInversionState>,
-    lde_coset_buf: Option<&metal::Buffer>,
-) -> Result<(metal::Buffer, usize), stark_platinum_prover::prover::ProvingError> {
-    gpu_compute_deep_composition_evals_internal(
-        round_1_result,
-        round_2_result,
-        round_3_result,
-        domain,
-        composition_gammas,
-        trace_term_coeffs,
-        precompiled,
-        domain_inv_state,
-        lde_coset_buf,
-    )
-}
-
 /// Dispatch GPU batch Montgomery inversions for the base field.
 ///
 /// Returns 4 Metal Buffers: inv(x-z^N), inv(x-z*g^0), inv(x-z*g^1), inv(x-z*g^2).
@@ -608,16 +624,6 @@ impl DomainInversionFp3State {
     }
 }
 
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[repr(C)]
-#[derive(Copy, Clone)]
-struct DeepCompFp3Params {
-    num_rows: u32,
-    num_trace_polys: u32,
-    num_offsets: u32,
-    num_comp_parts: u32,
-}
-
 /// Pre-compiled Metal state for the Fp3 DEEP composition kernel.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub struct DeepCompositionFp3State {
@@ -635,8 +641,6 @@ impl DeepCompositionFp3State {
         Ok(Self { state, max_threads })
     }
 }
-
-use crate::metal::{canonical, fp3_to_u64s, to_raw_u64};
 
 /// Dispatch GPU domain inversions for Fp3 extension field.
 ///
@@ -787,24 +791,13 @@ pub fn gpu_compute_deep_composition_poly_fp3(
     )
     .map_err(metal_err)?;
 
-    // Pack scalar data (gammas + OOD evals) as raw u64 triples
-    let mut scalars: Vec<u64> = Vec::new();
-    for gamma in composition_gammas_fp3.iter().take(num_comp_parts) {
-        scalars.extend_from_slice(&fp3_to_u64s(gamma));
-    }
-    for gammas in trace_term_coeffs_fp3 {
-        for g in gammas {
-            scalars.extend_from_slice(&fp3_to_u64s(g));
-        }
-    }
-    for eval in composition_ood_evaluations_fp3 {
-        scalars.extend_from_slice(&fp3_to_u64s(eval));
-    }
-    for col in trace_ood_evaluations_fp3 {
-        for eval in col {
-            scalars.extend_from_slice(&fp3_to_u64s(eval));
-        }
-    }
+    let scalars = pack_scalars_fp3(
+        composition_gammas_fp3,
+        trace_term_coeffs_fp3,
+        composition_ood_evaluations_fp3,
+        trace_ood_evaluations_fp3,
+        num_comp_parts,
+    );
 
     // Convert trace LDE data to raw u64 (base field)
     let mut all_trace_lde = round_1_result.main_lde_evaluations.clone();
@@ -817,7 +810,7 @@ pub fn gpu_compute_deep_composition_poly_fp3(
         .map(|col| col.iter().flat_map(fp3_to_u64s).collect())
         .collect();
 
-    let params = DeepCompFp3Params {
+    let params = DeepCompParams {
         num_rows: num_rows as u32,
         num_trace_polys: num_trace_polys as u32,
         num_offsets: num_offsets as u32,
