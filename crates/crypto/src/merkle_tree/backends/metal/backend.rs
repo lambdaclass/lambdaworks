@@ -215,6 +215,16 @@ impl IsMerkleTreeBackend for MetalPoseidonBackend {
         // Single pair - use CPU for efficiency
         PoseidonCairoStark252::hash(left, right)
     }
+
+    fn hash_level(children: &[Self::Node]) -> Vec<Self::Node> {
+        match Self::hash_level_gpu(children) {
+            Ok(parents) => parents,
+            Err(_) => children
+                .chunks_exact(2)
+                .map(|pair| PoseidonCairoStark252::hash(&pair[0], &pair[1]))
+                .collect(),
+        }
+    }
 }
 
 #[cfg(test)]
