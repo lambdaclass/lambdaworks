@@ -56,7 +56,7 @@ fn range_check(values: &[u64], n_bits: u32, label: &str) -> bool {
 
     // --- Batch prove ---
     let mut prover_ch = DefaultTranscript::<F>::new(&[]);
-    let (proof, _) = prove_batch(&mut prover_ch, vec![access_layer, table_layer]);
+    let (proof, _) = prove_batch(&mut prover_ch, vec![access_layer, table_layer]).unwrap();
 
     // --- Batch verify ---
     let mut verifier_ch = DefaultTranscript::<F>::new(&[]);

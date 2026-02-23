@@ -198,7 +198,9 @@ where
         let mask = &layer_masks[layer];
         let gate_output = gate.eval(mask)?;
 
-        // Compute eq_eval(ood_point, sumcheck_ood_point)
+        // Compute eq_eval(ood_point, sumcheck_ood_point).
+        // On the first layer there is no prior out-of-domain point, so the
+        // equality polynomial evaluates to 1 (empty product).
         let eq_eval = if ood_point.is_empty() {
             FieldElement::<F>::one()
         } else if sumcheck_ood_point.len() < ood_point.len() {
@@ -388,6 +390,8 @@ where
             let gate_output = gates[instance].eval(mask)?;
 
             // eq evaluation uses the relevant suffix of the OOD point.
+            // When ood_point.len() <= n_unused the instance hasn't accumulated
+            // any OOD coordinates yet, so eq evaluates to 1 (empty product).
             let eq_eval = if ood_point.len() <= n_unused {
                 FieldElement::<F>::one()
             } else if sumcheck_ood_point.len() < ood_point.len() {

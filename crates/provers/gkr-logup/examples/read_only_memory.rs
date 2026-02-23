@@ -77,7 +77,8 @@ fn main() {
     // -------------------------------------------------------
     println!("--- Proving ---");
     let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-    let (proof, _artifact) = prove_batch(&mut prover_channel, vec![access_layer, table_layer]);
+    let (proof, _artifact) =
+        prove_batch(&mut prover_channel, vec![access_layer, table_layer]).unwrap();
 
     println!(
         "Batch proof: {} sumcheck layers, {} instances",
@@ -151,7 +152,7 @@ fn main() {
     };
 
     let mut p_ch = DefaultTranscript::<F>::new(&[]);
-    let (bad_proof, _) = prove_batch(&mut p_ch, vec![bad_access_layer, table_layer2]);
+    let (bad_proof, _) = prove_batch(&mut p_ch, vec![bad_access_layer, table_layer2]).unwrap();
 
     let mut v_ch = DefaultTranscript::<F>::new(&[]);
     let bad_result = verify_batch(&[Gate::LogUp, Gate::LogUp], &bad_proof, &mut v_ch);

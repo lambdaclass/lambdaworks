@@ -13,6 +13,7 @@ pub mod utils;
 pub mod verifier;
 
 pub use fraction::Fraction;
+pub use lambdaworks_sumcheck::ProverError;
 pub use layer::Layer;
 pub use prover::{prove, prove_batch};
 pub use verifier::{
