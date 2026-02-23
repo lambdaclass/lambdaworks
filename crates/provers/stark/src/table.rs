@@ -133,8 +133,8 @@ impl<'t, F: IsField> Table<F> {
             .map(|initial_row_idx| {
                 let end_row_idx = initial_row_idx + step_size;
 
-                let mut step_main_data: Vec<&'t [FieldElement<F>]> = Vec::new();
-                let mut step_aux_data: Vec<&'t [FieldElement<F>]> = Vec::new();
+                let mut step_main_data: Vec<&'t [FieldElement<F>]> = Vec::with_capacity(step_size);
+                let mut step_aux_data: Vec<&'t [FieldElement<F>]> = Vec::with_capacity(step_size);
 
                 (initial_row_idx..end_row_idx).for_each(|row_idx| {
                     let row = self.get_row(row_idx);

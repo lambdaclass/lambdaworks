@@ -24,7 +24,7 @@ pub type FrElement = FieldElement<FrField>;
 
 impl IsFFTField for FrField {
     const TWO_ADICITY: u64 = 32;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = UnsignedInteger::from_hex_unchecked(
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: Self::BaseType = UnsignedInteger::from_hex_unchecked(
         "2ab00961a08a499d84dd396c349d9b3cc5e433d6fa78eb2b54cc39d9bb30bbb7",
     );
 }

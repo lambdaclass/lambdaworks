@@ -63,10 +63,42 @@ impl HasMetalExtensionKernel for Degree3GoldilocksExtensionField {
     }
 }
 
+/// Minimum log2 size for GPU to be faster than CPU for standard FFT.
+/// Below this threshold, fft() falls back to CPU implementation.
+const FFT_GPU_MIN_LOG_SIZE: u32 = 14;
+
+/// Threadgroup memory budget in bytes (32KB).
+const FFT_TG_MEM_BUDGET: usize = 32768;
+
+/// Threadgroup size for kernels that use threadgroup memory.
+const FFT_TG_THREADGROUP_SIZE: u64 = 256;
+
+/// Maximum fused stages cap (avoids excessive register pressure).
+const FFT_MAX_FUSED_STAGES: u32 = 12;
+
+/// Computes the optimal number of fused stages based on field element size
+/// and the 32KB threadgroup memory budget.
+///
+/// Returns the number of stages to fuse (min of budget-derived max, order, and cap).
+fn optimal_fused_stages(input_elem_size: usize, order: u32) -> u32 {
+    let max_block = FFT_TG_MEM_BUDGET / input_elem_size;
+    let max_fused = max_block.ilog2();
+    max_fused.min(order).min(FFT_MAX_FUSED_STAGES)
+}
+
 /// Executes parallel ordered FFT over a slice of field elements using Metal GPU.
 ///
 /// "Ordered" means that the input is in natural order, and the output will be
 /// in natural order too. Twiddle factors must be in bit-reverse order.
+///
+/// Falls back to CPU for inputs smaller than 2^FFT_GPU_MIN_LOG_SIZE where
+/// GPU dispatch overhead exceeds computation time.
+///
+/// Uses three kernel variants for optimal performance:
+/// 1. **Basic kernel**: per-stage dispatch for stages with too many twiddles to cache.
+/// 2. **Threadgroup-cached kernel**: twiddles loaded into shared memory for early stages.
+/// 3. **Fused kernel**: last FFT_FUSED_STAGES stages processed in a single dispatch
+///    using threadgroup memory for the data block.
 ///
 /// # Type Parameters
 ///
@@ -97,54 +129,115 @@ where
         return Err(MetalError::InputError(input.len()));
     }
 
-    let butterfly_pipeline =
-        state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
-    let bitrev_pipeline =
-        state.setup_pipeline(&format!("bitrev_permutation_{}", F::field_name()))?;
+    // Fall back to CPU for small inputs where GPU overhead dominates
+    let order = input.len().trailing_zeros();
+    if order < FFT_GPU_MIN_LOG_SIZE {
+        return crate::fft::cpu::ops::fft(input, twiddles)
+            .map_err(|e| MetalError::FunctionError(format!("{}", e)));
+    }
+
+    let field_name = F::field_name();
+    let pipeline_basic = state.get_pipeline(&format!("radix2_dit_butterfly_{}", field_name))?;
+    let pipeline_tg = state.get_pipeline(&format!("radix2_dit_butterfly_tg_{}", field_name))?;
+    let pipeline_fused =
+        state.get_pipeline(&format!("radix2_dit_butterfly_fused_{}", field_name))?;
+    let pipeline_bitrev = state.get_pipeline(&format!("bitrev_permutation_{}", field_name))?;
+
+    let tw_elem_size = mem::size_of::<F::BaseType>();
+    let input_elem_size = mem::size_of::<E::BaseType>();
+    let max_tg_twiddles = FFT_TG_MEM_BUDGET / tw_elem_size;
+
+    // Compute optimal fused stage count based on element size and memory budget
+    let fused_stages = optimal_fused_stages(input_elem_size, order);
+    let fused_block_size: u32 = 1 << fused_stages;
+
+    let n = input.len();
 
     let input_buffer = state.alloc_buffer_data(input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
-    let result_buffer = state.alloc_buffer::<E::BaseType>(input.len());
+    let result_buffer = state.alloc_buffer::<E::BaseType>(n);
 
     objc::rc::autoreleasepool(|| {
-        let command_buffer = state.queue.new_command_buffer();
+        let (command_buffer, command_encoder) = state.setup_command(
+            &pipeline_basic,
+            Some(&[(0, &input_buffer), (1, &twiddles_buffer)]),
+        );
 
-        // Encoder 1: Butterfly stages (in-place on input_buffer)
-        {
-            let encoder = command_buffer.new_compute_command_encoder();
-            encoder.set_compute_pipeline_state(&butterfly_pipeline);
-            encoder.set_buffer(0, Some(&input_buffer), 0);
-            encoder.set_buffer(1, Some(&twiddles_buffer), 0);
+        // Determine how many per-stage dispatches before the fused tail
+        let per_stage_count = if order >= fused_stages {
+            order - fused_stages
+        } else {
+            order
+        };
 
-            let order = input.len().trailing_zeros();
-            for stage in 0..order {
-                encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
-                let grid_size = MTLSize::new(input.len() as u64 / 2, 1, 1);
-                let threadgroup_size =
-                    MTLSize::new(butterfly_pipeline.thread_execution_width(), 1, 1);
-                encoder.dispatch_threads(grid_size, threadgroup_size);
+        // Phase 1: Per-stage dispatches for early stages (large strides)
+        for stage in 0..per_stage_count {
+            let tw_count: u32 = 1u32 << stage; // 2^stage groups at this stage
+
+            if (tw_count as usize) <= max_tg_twiddles {
+                // Threadgroup-cached variant
+                command_encoder.set_compute_pipeline_state(&pipeline_tg);
+                command_encoder.set_bytes(2, mem::size_of::<u32>() as u64, void_ptr(&stage));
+                command_encoder.set_bytes(3, mem::size_of::<u32>() as u64, void_ptr(&tw_count));
+
+                let tg_mem_bytes = tw_count as u64 * tw_elem_size as u64;
+                command_encoder.set_threadgroup_memory_length(0, tg_mem_bytes);
+
+                let grid_size = MTLSize::new(n as u64 / 2, 1, 1);
+                let threadgroup_size = MTLSize::new(
+                    FFT_TG_THREADGROUP_SIZE.min(pipeline_tg.max_total_threads_per_threadgroup()),
+                    1,
+                    1,
+                );
+                command_encoder.dispatch_threads(grid_size, threadgroup_size);
+            } else {
+                // Basic variant
+                command_encoder.set_compute_pipeline_state(&pipeline_basic);
+                command_encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
+
+                let grid_size = MTLSize::new(n as u64 / 2, 1, 1);
+                let threadgroup_size = MTLSize::new(pipeline_basic.thread_execution_width(), 1, 1);
+                command_encoder.dispatch_threads(grid_size, threadgroup_size);
             }
-            encoder.end_encoding();
         }
 
-        // Encoder 2: Bit-reverse permutation (input_buffer → result_buffer)
-        {
-            let encoder = command_buffer.new_compute_command_encoder();
-            encoder.set_compute_pipeline_state(&bitrev_pipeline);
-            encoder.set_buffer(0, Some(&input_buffer), 0);
-            encoder.set_buffer(1, Some(&result_buffer), 0);
+        // Phase 2: Fused tail — last fused_stages stages in one dispatch
+        if order >= fused_stages {
+            command_encoder.set_compute_pipeline_state(&pipeline_fused);
 
-            let grid_size = MTLSize::new(input.len() as u64, 1, 1);
-            let threadgroup_size =
-                MTLSize::new(bitrev_pipeline.max_total_threads_per_threadgroup(), 1, 1);
-            encoder.dispatch_threads(grid_size, threadgroup_size);
-            encoder.end_encoding();
+            let start_stage: u32 = order - fused_stages;
+            command_encoder.set_bytes(2, mem::size_of::<u32>() as u64, void_ptr(&start_stage));
+            command_encoder.set_bytes(3, mem::size_of::<u32>() as u64, void_ptr(&fused_stages));
+
+            let tg_mem_bytes = fused_block_size as u64 * input_elem_size as u64;
+            command_encoder.set_threadgroup_memory_length(0, tg_mem_bytes);
+
+            let thread_groups = MTLSize::new(n as u64 / fused_block_size as u64, 1, 1);
+            let threads_per_tg = MTLSize::new(
+                FFT_TG_THREADGROUP_SIZE.min(pipeline_fused.max_total_threads_per_threadgroup()),
+                1,
+                1,
+            );
+            command_encoder.dispatch_thread_groups(thread_groups, threads_per_tg);
         }
+
+        // Phase 3: Bit-reverse permutation in the same command buffer
+        // Avoids an extra GPU roundtrip and intermediate CPU memcpy.
+        command_encoder.set_compute_pipeline_state(&pipeline_bitrev);
+        command_encoder.set_buffer(0, Some(&input_buffer), 0);
+        command_encoder.set_buffer(1, Some(&result_buffer), 0);
+        let grid_size = MTLSize::new(n as u64, 1, 1);
+        let threadgroup_size =
+            MTLSize::new(pipeline_bitrev.max_total_threads_per_threadgroup(), 1, 1);
+        command_encoder.dispatch_threads(grid_size, threadgroup_size);
+
+        command_encoder.end_encoding();
 
         command_buffer.commit();
         command_buffer.wait_until_completed();
     });
 
+    // Single retrieve — no intermediate copy
     let result = MetalState::retrieve_contents(&result_buffer);
     Ok(result.into_iter().map(FieldElement::from_raw).collect())
 }
@@ -201,57 +294,120 @@ where
         return Err(MetalError::InputError(input.len()));
     }
 
-    let butterfly_kernel = format!(
+    let order = input.len().trailing_zeros();
+
+    // Fall back to CPU for small inputs where GPU overhead dominates
+    if order < FFT_GPU_MIN_LOG_SIZE {
+        return crate::fft::cpu::ops::fft(input, twiddles)
+            .map_err(|e| MetalError::FunctionError(format!("{}", e)));
+    }
+
+    let field_name = <E::BaseField>::field_name();
+    let ext_suffix = E::extension_kernel_suffix();
+
+    let pipeline_basic = state.get_pipeline(&format!(
         "radix2_dit_butterfly_{}_{}",
-        E::BaseField::field_name(),
-        E::extension_kernel_suffix()
-    );
-    let bitrev_kernel = format!(
-        "bitrev_permutation_{}_{}",
-        E::BaseField::field_name(),
-        E::extension_kernel_suffix()
-    );
-    let butterfly_pipeline = state.setup_pipeline(&butterfly_kernel)?;
-    let bitrev_pipeline = state.setup_pipeline(&bitrev_kernel)?;
+        field_name, ext_suffix
+    ))?;
+    let pipeline_tg = state.get_pipeline(&format!(
+        "radix2_dit_butterfly_tg_{}_{}",
+        field_name, ext_suffix
+    ))?;
+    let pipeline_fused = state.get_pipeline(&format!(
+        "radix2_dit_butterfly_fused_{}_{}",
+        field_name, ext_suffix
+    ))?;
+    let pipeline_bitrev =
+        state.get_pipeline(&format!("bitrev_permutation_{}_{}", field_name, ext_suffix))?;
+
+    let tw_elem_size = mem::size_of::<<E::BaseField as IsField>::BaseType>();
+    let input_elem_size = mem::size_of::<E::BaseType>();
+    let max_tg_twiddles = FFT_TG_MEM_BUDGET / tw_elem_size;
+
+    let fused_stages = optimal_fused_stages(input_elem_size, order);
+    let fused_block_size: u32 = 1 << fused_stages;
+
+    let n = input.len();
 
     let input_buffer = state.alloc_buffer_data(input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
-    let result_buffer = state.alloc_buffer::<E::BaseType>(input.len());
+    let result_buffer = state.alloc_buffer::<E::BaseType>(n);
 
     objc::rc::autoreleasepool(|| {
-        let command_buffer = state.queue.new_command_buffer();
+        let (command_buffer, command_encoder) = state.setup_command(
+            &pipeline_basic,
+            Some(&[(0, &input_buffer), (1, &twiddles_buffer)]),
+        );
 
-        // Encoder 1: Butterfly stages (in-place on input_buffer)
-        {
-            let encoder = command_buffer.new_compute_command_encoder();
-            encoder.set_compute_pipeline_state(&butterfly_pipeline);
-            encoder.set_buffer(0, Some(&input_buffer), 0);
-            encoder.set_buffer(1, Some(&twiddles_buffer), 0);
+        // Determine how many per-stage dispatches before the fused tail
+        let per_stage_count = if order >= fused_stages {
+            order - fused_stages
+        } else {
+            order
+        };
 
-            let order = input.len().trailing_zeros();
-            for stage in 0..order {
-                encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
-                let grid_size = MTLSize::new(input.len() as u64 / 2, 1, 1);
-                let threadgroup_size =
-                    MTLSize::new(butterfly_pipeline.max_total_threads_per_threadgroup(), 1, 1);
-                encoder.dispatch_threads(grid_size, threadgroup_size);
+        // Phase 1: Per-stage dispatches for early stages (large strides)
+        for stage in 0..per_stage_count {
+            let tw_count: u32 = 1u32 << stage;
+
+            if (tw_count as usize) <= max_tg_twiddles {
+                // Threadgroup-cached variant: base-field twiddles in shared mem
+                command_encoder.set_compute_pipeline_state(&pipeline_tg);
+                command_encoder.set_bytes(2, mem::size_of::<u32>() as u64, void_ptr(&stage));
+                command_encoder.set_bytes(3, mem::size_of::<u32>() as u64, void_ptr(&tw_count));
+
+                let tg_mem_bytes = tw_count as u64 * tw_elem_size as u64;
+                command_encoder.set_threadgroup_memory_length(0, tg_mem_bytes);
+
+                let grid_size = MTLSize::new(n as u64 / 2, 1, 1);
+                let threadgroup_size = MTLSize::new(
+                    FFT_TG_THREADGROUP_SIZE.min(pipeline_tg.max_total_threads_per_threadgroup()),
+                    1,
+                    1,
+                );
+                command_encoder.dispatch_threads(grid_size, threadgroup_size);
+            } else {
+                // Basic variant
+                command_encoder.set_compute_pipeline_state(&pipeline_basic);
+                command_encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
+
+                let grid_size = MTLSize::new(n as u64 / 2, 1, 1);
+                let threadgroup_size = MTLSize::new(pipeline_basic.thread_execution_width(), 1, 1);
+                command_encoder.dispatch_threads(grid_size, threadgroup_size);
             }
-            encoder.end_encoding();
         }
 
-        // Encoder 2: Bit-reverse permutation (input_buffer → result_buffer)
-        {
-            let encoder = command_buffer.new_compute_command_encoder();
-            encoder.set_compute_pipeline_state(&bitrev_pipeline);
-            encoder.set_buffer(0, Some(&input_buffer), 0);
-            encoder.set_buffer(1, Some(&result_buffer), 0);
+        // Phase 2: Fused tail — last fused_stages stages in one dispatch
+        if order >= fused_stages {
+            command_encoder.set_compute_pipeline_state(&pipeline_fused);
 
-            let grid_size = MTLSize::new(input.len() as u64, 1, 1);
-            let threadgroup_size =
-                MTLSize::new(bitrev_pipeline.max_total_threads_per_threadgroup(), 1, 1);
-            encoder.dispatch_threads(grid_size, threadgroup_size);
-            encoder.end_encoding();
+            let start_stage: u32 = order - fused_stages;
+            command_encoder.set_bytes(2, mem::size_of::<u32>() as u64, void_ptr(&start_stage));
+            command_encoder.set_bytes(3, mem::size_of::<u32>() as u64, void_ptr(&fused_stages));
+
+            // Shared memory holds extension field elements
+            let tg_mem_bytes = fused_block_size as u64 * input_elem_size as u64;
+            command_encoder.set_threadgroup_memory_length(0, tg_mem_bytes);
+
+            let thread_groups = MTLSize::new(n as u64 / fused_block_size as u64, 1, 1);
+            let threads_per_tg = MTLSize::new(
+                FFT_TG_THREADGROUP_SIZE.min(pipeline_fused.max_total_threads_per_threadgroup()),
+                1,
+                1,
+            );
+            command_encoder.dispatch_thread_groups(thread_groups, threads_per_tg);
         }
+
+        // Phase 3: Bit-reverse permutation in the same command buffer
+        command_encoder.set_compute_pipeline_state(&pipeline_bitrev);
+        command_encoder.set_buffer(0, Some(&input_buffer), 0);
+        command_encoder.set_buffer(1, Some(&result_buffer), 0);
+        let grid_size = MTLSize::new(n as u64, 1, 1);
+        let threadgroup_size =
+            MTLSize::new(pipeline_bitrev.max_total_threads_per_threadgroup(), 1, 1);
+        command_encoder.dispatch_threads(grid_size, threadgroup_size);
+
+        command_encoder.end_encoding();
 
         command_buffer.commit();
         command_buffer.wait_until_completed();
@@ -405,10 +561,10 @@ pub fn bitrev_permutation<F: IsFFTField, T: Clone + Copy>(
     Ok(MetalState::retrieve_contents::<T>(&result_buffer))
 }
 
-/// Generates twiddle factors on GPU and returns the result as a Metal Buffer.
+/// Like [`gen_twiddles`] but returns the result as a Metal Buffer on the GPU.
 ///
-/// Unlike [`gen_twiddles`] which downloads the result to CPU, this function keeps
-/// the twiddle data on GPU for direct use in subsequent GPU operations.
+/// This avoids a GPU-to-CPU download when the twiddles feed directly into
+/// another GPU operation (e.g., [`fft_to_buffer`] or [`fft_buffer_to_buffer`]).
 pub fn gen_twiddles_to_buffer<F>(
     order: u64,
     config: RootsConfig,
@@ -466,8 +622,6 @@ where
 /// Unlike [`fft`] which downloads the result to CPU, this function keeps the
 /// bit-reversed FFT output on GPU. This is useful when the FFT result feeds directly
 /// into another GPU operation (e.g., Merkle tree hashing) without needing CPU access.
-///
-/// The returned buffer contains raw `F::BaseType` elements in bit-reversed order.
 pub fn fft_to_buffer<F>(
     input: &[FieldElement<F>],
     twiddles_buffer: &Buffer,
@@ -492,7 +646,7 @@ where
     objc::rc::autoreleasepool(|| {
         let command_buffer = state.queue.new_command_buffer();
 
-        // Encoder 1: Butterfly stages
+        // Butterfly stages
         {
             let encoder = command_buffer.new_compute_command_encoder();
             encoder.set_compute_pipeline_state(&butterfly_pipeline);
@@ -510,7 +664,7 @@ where
             encoder.end_encoding();
         }
 
-        // Encoder 2: Bit-reverse permutation
+        // Bit-reverse permutation
         {
             let encoder = command_buffer.new_compute_command_encoder();
             encoder.set_compute_pipeline_state(&bitrev_pipeline);
@@ -534,27 +688,7 @@ where
 /// Executes FFT on data already residing in a GPU Buffer, returning a new result Buffer.
 ///
 /// Unlike [`fft_to_buffer`] which uploads input from CPU, this function operates on data
-/// that is already on the GPU. This avoids a CPU-to-GPU transfer when the input was
-/// produced by a prior GPU operation (e.g., polynomial evaluation or interpolation).
-///
-/// The input buffer is NOT modified. A working copy is made internally so that the
-/// in-place butterfly stages do not destroy the caller's data.
-///
-/// # Type Parameters
-///
-/// - `F`: The FFT-compatible field (provides primitive roots of unity)
-///
-/// # Arguments
-///
-/// - `input_buffer`: Metal buffer containing `input_len` raw `F::BaseType` elements
-/// - `input_len`: Number of field elements in the buffer (must be power of 2)
-/// - `twiddles_buffer`: Pre-computed twiddle factors on GPU (bit-reverse order)
-/// - `state`: Metal state containing device and shader library
-///
-/// # Errors
-///
-/// Returns `MetalError::InputError` if `input_len` is not a power of two.
-/// Returns `MetalError::PipelineError` if kernel setup fails.
+/// that is already on the GPU. The input buffer is NOT modified.
 pub fn fft_buffer_to_buffer<F>(
     input_buffer: &Buffer,
     input_len: usize,
@@ -580,7 +714,7 @@ where
     objc::rc::autoreleasepool(|| {
         let command_buffer = state.queue.new_command_buffer();
 
-        // Copy input to working buffer so butterfly stages don't modify caller's data
+        // Copy input to working buffer
         {
             let blit_encoder = command_buffer.new_blit_command_encoder();
             blit_encoder.copy_from_buffer(
@@ -593,7 +727,7 @@ where
             blit_encoder.end_encoding();
         }
 
-        // Encoder 1: Butterfly stages (in-place on working_buffer)
+        // Butterfly stages (in-place on working_buffer)
         {
             let encoder = command_buffer.new_compute_command_encoder();
             encoder.set_compute_pipeline_state(&butterfly_pipeline);
@@ -611,7 +745,7 @@ where
             encoder.end_encoding();
         }
 
-        // Encoder 2: Bit-reverse permutation (working_buffer -> result_buffer)
+        // Bit-reverse permutation (working_buffer -> result_buffer)
         {
             let encoder = command_buffer.new_compute_command_encoder();
             encoder.set_compute_pipeline_state(&bitrev_pipeline);
@@ -633,23 +767,10 @@ where
 }
 
 /// Encode FFT compute dispatches into an existing Metal command buffer without
-/// committing or waiting.
-///
-/// This enables fusing FFT with other GPU operations (e.g., coset shift, scaling)
+/// committing or waiting. This enables fusing FFT with other GPU operations
 /// in a single command buffer submission.
 ///
-/// Encodes: blit (input → working) + butterfly stages + bitrev (working → result).
 /// The caller must commit and wait on the command buffer.
-///
-/// # Arguments
-///
-/// - `command_buffer`: The Metal command buffer to encode into
-/// - `input_buffer`: Source data (not modified)
-/// - `input_len`: Number of elements (must be power of two)
-/// - `twiddles_buffer`: Pre-computed twiddle factors
-/// - `working_buffer`: Caller-owned scratch buffer (capacity >= input_len)
-/// - `result_buffer`: Caller-owned output buffer (capacity >= input_len)
-/// - `state`: Metal state with compiled pipelines
 pub fn fft_encode_to_command_buffer<F>(
     command_buffer: &metal::CommandBufferRef,
     input_buffer: &Buffer,
@@ -685,7 +806,7 @@ where
         blit_encoder.end_encoding();
     }
 
-    // Compute encoder: butterfly stages (in-place on working_buffer)
+    // Butterfly stages (in-place on working_buffer)
     {
         let encoder = command_buffer.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(&butterfly_pipeline);
@@ -702,7 +823,7 @@ where
         encoder.end_encoding();
     }
 
-    // Compute encoder: bit-reverse permutation (working_buffer → result_buffer)
+    // Bit-reverse permutation (working_buffer -> result_buffer)
     {
         let encoder = command_buffer.new_compute_command_encoder();
         encoder.set_compute_pipeline_state(&bitrev_pipeline);
@@ -720,11 +841,8 @@ where
 }
 
 /// Like [`fft_buffer_to_buffer`] but takes a caller-owned working buffer instead of
-/// allocating a new one. The working buffer must have capacity for at least `input_len`
-/// elements of `F::BaseType`. This avoids repeated GPU memory allocation when performing
-/// multiple FFTs of the same size (e.g., in batch interpolation or LDE).
-///
-/// The working buffer contents are overwritten. The input buffer is NOT modified.
+/// allocating a new one. Avoids repeated GPU memory allocation when performing
+/// multiple FFTs of the same size.
 pub fn fft_buffer_to_buffer_reuse<F>(
     input_buffer: &Buffer,
     input_len: usize,
@@ -1236,6 +1354,55 @@ mod tests {
     }
 
     #[test]
+    fn test_metal_fft_extension_fp2_large_input() {
+        const ORDER: usize = 14; // 2^14 = 16384 elements — minimum size to hit GPU path
+        let input: Vec<Fp2E> = (0..(1 << ORDER))
+            .map(|i| {
+                Fp2E::new([
+                    GoldilocksFE::from(i as u64),
+                    GoldilocksFE::from(i as u64 + 1),
+                ])
+            })
+            .collect();
+
+        let metal_state = MetalState::new(None).expect("Metal device required for GPU tests");
+        let twiddles = get_twiddles::<GoldilocksF>(ORDER as u64, RootsConfig::BitReverse)
+            .expect("Goldilocks supports order 14");
+
+        let metal_result = fft_extension::<GoldilocksFp2>(&input, &twiddles, &metal_state)
+            .expect("Metal Fp2 FFT should succeed");
+        let cpu_result =
+            crate::fft::cpu::ops::fft(&input, &twiddles).expect("CPU FFT should succeed");
+
+        assert_eq!(metal_result, cpu_result);
+    }
+
+    #[test]
+    fn test_metal_fft_extension_fp3_large_input() {
+        const ORDER: usize = 14; // 2^14 = 16384 elements — minimum size to hit GPU path
+        let input: Vec<Fp3E> = (0..(1 << ORDER))
+            .map(|i| {
+                Fp3E::new([
+                    GoldilocksFE::from(i as u64),
+                    GoldilocksFE::from(i as u64 + 1),
+                    GoldilocksFE::from(i as u64 + 2),
+                ])
+            })
+            .collect();
+
+        let metal_state = MetalState::new(None).expect("Metal device required for GPU tests");
+        let twiddles = get_twiddles::<GoldilocksF>(ORDER as u64, RootsConfig::BitReverse)
+            .expect("Goldilocks supports order 14");
+
+        let metal_result = fft_extension::<GoldilocksFp3>(&input, &twiddles, &metal_state)
+            .expect("Metal Fp3 FFT should succeed");
+        let cpu_result =
+            crate::fft::cpu::ops::fft(&input, &twiddles).expect("CPU FFT should succeed");
+
+        assert_eq!(metal_result, cpu_result);
+    }
+
+    #[test]
     fn test_extension_field_fft_basic() {
         let metal_state = match MetalState::new(None) {
             Ok(state) => state,
@@ -1268,54 +1435,5 @@ mod tests {
         };
 
         assert_eq!(metal_result, cpu_result);
-    }
-
-    // ==================== Buffer-to-Buffer FFT Tests ====================
-
-    #[test]
-    fn test_fft_buffer_to_buffer_matches_fft_to_buffer() {
-        let state = MetalState::new(None).expect("Metal device required for GPU tests");
-
-        // Create input data: 2^4 = 16 elements
-        let input: Vec<GoldilocksFE> = (1..=16).map(|i| GoldilocksFE::from(i as u64)).collect();
-        let order = input.len().trailing_zeros();
-
-        // Generate twiddles on GPU
-        let twiddles_buffer =
-            gen_twiddles_to_buffer::<GoldilocksF>(order.into(), RootsConfig::BitReverse, &state)
-                .expect("Twiddle generation should succeed");
-
-        // Reference: fft_to_buffer (uploads from CPU)
-        let reference_buffer =
-            fft_to_buffer(&input, &twiddles_buffer, &state).expect("fft_to_buffer should succeed");
-
-        // Test: upload input manually, then call fft_buffer_to_buffer
-        let input_buffer = state.alloc_buffer_data(&input);
-        let result_buffer = fft_buffer_to_buffer::<GoldilocksF>(
-            &input_buffer,
-            input.len(),
-            &twiddles_buffer,
-            &state,
-        )
-        .expect("fft_buffer_to_buffer should succeed");
-
-        // Read both buffers back and compare
-        let reference_result =
-            MetalState::retrieve_contents::<<GoldilocksF as IsField>::BaseType>(&reference_buffer);
-        let test_result =
-            MetalState::retrieve_contents::<<GoldilocksF as IsField>::BaseType>(&result_buffer);
-
-        assert_eq!(
-            reference_result.len(),
-            test_result.len(),
-            "Result lengths should match"
-        );
-        for (i, (r, t)) in reference_result.iter().zip(test_result.iter()).enumerate() {
-            assert_eq!(
-                r, t,
-                "Mismatch at element {}: reference={:?}, buffer_to_buffer={:?}",
-                i, r, t
-            );
-        }
     }
 }

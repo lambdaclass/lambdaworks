@@ -98,7 +98,7 @@ impl IsFFTField for Degree2ExtensionField {
     // Values taken from stwo
     // https://github.com/starkware-libs/stwo/blob/dev/crates/prover/src/core/circle.rs#L203-L209
     const TWO_ADICITY: u64 = 31;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType =
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: Self::BaseType =
         [FpE::const_from_raw(2), FpE::const_from_raw(1268011823)];
 }
 
@@ -191,26 +191,25 @@ impl AsBytes for FieldElement<Degree2ExtensionField> {
     }
 }
 
+fn sample_mersenne31_element(rng: &mut impl rand::Rng) -> FpE {
+    const MODULUS: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
+    const MASK: u32 = 0x7FFF_FFFF;
+    let mut sample = [0u8; 4];
+    loop {
+        rng.fill(&mut sample);
+        let int_sample = u32::from_be_bytes(sample) & MASK;
+        if int_sample < MODULUS {
+            return FieldElement::from(&int_sample);
+        }
+    }
+}
+
 impl HasDefaultTranscript for Degree2ExtensionField {
     fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
-        const MODULUS: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
-        const MASK: u32 = 0x7FFF_FFFF;
-
-        let mut sample = [0u8; 4];
-        let mut coeffs = [FieldElement::zero(), FieldElement::zero()];
-
-        for coeff in &mut coeffs {
-            loop {
-                rng.fill(&mut sample);
-                let int_sample = u32::from_be_bytes(sample) & MASK;
-                if int_sample < MODULUS {
-                    *coeff = FieldElement::from(&int_sample);
-                    break;
-                }
-            }
-        }
-
-        FieldElement::<Self>::new(coeffs)
+        FieldElement::<Self>::new([
+            sample_mersenne31_element(rng),
+            sample_mersenne31_element(rng),
+        ])
     }
 }
 
@@ -435,26 +434,15 @@ impl AsBytes for FieldElement<Degree4ExtensionField> {
 
 impl HasDefaultTranscript for Degree4ExtensionField {
     fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
-        const MODULUS: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
-        const MASK: u32 = 0x7FFF_FFFF;
-
-        let mut sample = [0u8; 4];
-        let mut base_coeffs = [FpE::zero(), FpE::zero(), FpE::zero(), FpE::zero()];
-
-        for coeff in &mut base_coeffs {
-            loop {
-                rng.fill(&mut sample);
-                let int_sample = u32::from_be_bytes(sample) & MASK;
-                if int_sample < MODULUS {
-                    *coeff = FieldElement::from(&int_sample);
-                    break;
-                }
-            }
-        }
-
         FieldElement::<Self>::new([
-            Fp2E::new([base_coeffs[0], base_coeffs[1]]),
-            Fp2E::new([base_coeffs[2], base_coeffs[3]]),
+            Fp2E::new([
+                sample_mersenne31_element(rng),
+                sample_mersenne31_element(rng),
+            ]),
+            Fp2E::new([
+                sample_mersenne31_element(rng),
+                sample_mersenne31_element(rng),
+            ]),
         ])
     }
 }

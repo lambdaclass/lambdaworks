@@ -16,7 +16,7 @@ use rand::{Rng, SeedableRng};
 // Lambdaworks
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
-use lambdaworks_math::field::fields::u64_goldilocks_hybrid_field::Goldilocks64HybridField;
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 use lambdaworks_math::polynomial::Polynomial;
 
 // Plonky3
@@ -37,7 +37,7 @@ const BLOWUP_FACTORS: [usize; 3] = [2, 4, 8];
 pub fn bench_goldilocks_lambdaworks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Goldilocks Coset FFT Lambdaworks");
 
-    type F = Goldilocks64HybridField;
+    type F = Goldilocks64Field;
     type FE = FieldElement<F>;
 
     let mut rng = StdRng::seed_from_u64(SEED);

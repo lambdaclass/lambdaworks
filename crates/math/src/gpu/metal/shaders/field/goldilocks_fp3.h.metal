@@ -31,6 +31,33 @@ template [[ host_name("radix2_dit_butterfly_Goldilocks_fp3") ]]
     uint32_t
 );
 
+// Threadgroup-cached butterfly for extension field FFT
+template [[ host_name("radix2_dit_butterfly_tg_Goldilocks_fp3") ]]
+[[kernel]] void radix2_dit_butterfly_tg_ext<FpExtFp3, FpBaseGoldilocks>(
+    device FpExtFp3*,
+    constant FpBaseGoldilocks*,
+    constant uint32_t&,
+    constant uint32_t&,
+    uint32_t,
+    uint32_t,
+    uint32_t,
+    uint32_t,
+    threadgroup FpBaseGoldilocks*
+);
+
+// Fused multi-stage butterfly for extension field FFT
+template [[ host_name("radix2_dit_butterfly_fused_Goldilocks_fp3") ]]
+[[kernel]] void radix2_dit_butterfly_fused_ext<FpExtFp3, FpBaseGoldilocks>(
+    device FpExtFp3*,
+    constant FpBaseGoldilocks*,
+    constant uint32_t&,
+    constant uint32_t&,
+    uint32_t,
+    uint32_t,
+    uint32_t,
+    threadgroup FpExtFp3*
+);
+
 // Bit-reverse permutation for extension field elements
 template [[ host_name("bitrev_permutation_Goldilocks_fp3") ]]
 [[kernel]] void bitrev_permutation_ext<FpExtFp3>(

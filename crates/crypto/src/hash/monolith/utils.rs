@@ -38,7 +38,7 @@ pub fn get_random_y_i(
     for i in 0..width {
         let mut y_i = shake_random_u32(shake) & y_mask;
         let mut x_i = y_i & x_mask;
-        while res.iter().take(i).any(|r| r & x_mask == x_i) {
+        while res[..i].iter().any(|r| r & x_mask == x_i) {
             y_i = shake_random_u32(shake) & y_mask;
             x_i = y_i & x_mask;
         }

@@ -65,24 +65,20 @@ impl R1CS {
         num_inputs: usize,
         num_outputs: usize,
     ) -> Result<Self, CreationError> {
-        let mut constraints: Vec<Constraint> = Vec::with_capacity(a.len());
-        // TO DO:
-        // - Check if sizes match
-        // - Remove clones
-        for i in 0..a.len() {
-            constraints.push(Constraint::new(a[i].clone(), b[i].clone(), c[i].clone()).unwrap())
-        }
+        let constraints: Vec<Constraint> = a
+            .into_iter()
+            .zip(b)
+            .zip(c)
+            .map(|((ai, bi), ci)| Constraint::new(ai, bi, ci).unwrap())
+            .collect();
         R1CS::new(constraints, num_inputs, num_outputs)
     }
 
     #[allow(dead_code)]
     pub fn verify_solution(self, s: &[FE]) -> bool {
-        for constraint in self.constraints {
-            if !constraint.verify_solution(s) {
-                return false;
-            }
-        }
-        true
+        self.constraints
+            .into_iter()
+            .all(|constraint| constraint.verify_solution(s))
     }
 
     pub fn number_of_constraints(&self) -> usize {
@@ -120,7 +116,8 @@ pub fn inner_product(v1: &[FE], v2: &[FE]) -> FE {
     v1.iter()
         .zip(v2)
         .map(|(x, y)| x * y)
-        .fold(FE::from(0), |x, y| x + y)
+        .reduce(|x, y| x + y)
+        .unwrap_or(FE::zero())
 }
 
 #[cfg(test)]
