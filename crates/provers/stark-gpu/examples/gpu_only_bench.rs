@@ -1,11 +1,7 @@
-//! GPU-only benchmark: runs ONLY prove_gpu_optimized (no CPU warmup)
-//! for a clean comparison between Keccak and Poseidon Merkle backends.
+//! GPU-only benchmark: runs ONLY prove_gpu_optimized (no CPU warmup).
 //!
-//! Run Keccak:
+//! Run:
 //!   cargo run -p lambdaworks-stark-gpu --features metal --release --example gpu_only_bench -- "14,16,18,20"
-//!
-//! Run Poseidon:
-//!   cargo run -p lambdaworks-stark-gpu --features "metal,poseidon-goldilocks" --release --example gpu_only_bench -- "14,16,18,20"
 
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_math::field::{
@@ -32,12 +28,7 @@ fn main() {
 
     #[cfg(all(target_os = "macos", feature = "metal"))]
     {
-        let backend = if cfg!(feature = "poseidon-goldilocks") {
-            "Poseidon"
-        } else {
-            "Keccak256"
-        };
-        eprintln!("=== GPU-only benchmark ({backend} Merkle) ===\n");
+        eprintln!("=== GPU-only benchmark (Keccak256 Merkle) ===\n");
 
         let sizes: Vec<usize> = std::env::args()
             .nth(1)
@@ -60,8 +51,8 @@ fn main() {
             eprintln!("  (shader warmup done)\n");
         }
 
-        eprintln!("{:<8} {:>12}  {}", "Trace", "GPU_opt", "Backend");
-        eprintln!("{}", "-".repeat(48));
+        eprintln!("{:<8} {:>12}", "Trace", "GPU_opt");
+        eprintln!("{}", "-".repeat(24));
 
         for log_n in sizes {
             let trace_length: usize = 1 << log_n;
@@ -81,7 +72,7 @@ fn main() {
             let elapsed = start.elapsed();
 
             match result {
-                Ok(_) => eprintln!("2^{:<5} {:>12.2?}  {}", log_n, elapsed, backend),
+                Ok(_) => eprintln!("2^{:<5} {:>12.2?}", log_n, elapsed),
                 Err(e) => eprintln!("2^{:<5} ERROR: {}", log_n, e),
             }
         }

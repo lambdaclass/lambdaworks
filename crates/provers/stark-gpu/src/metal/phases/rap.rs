@@ -1,7 +1,4 @@
 //! GPU Phase 1: RAP (trace interpolation + LDE + commit).
-//!
-//! This module mirrors `round_1_randomized_air_with_preprocessing` from the CPU
-//! STARK prover but uses Metal GPU FFT for interpolation and LDE evaluation.
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
@@ -32,74 +29,38 @@ use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
 /// Result of GPU Phase 1 (RAP round).
 ///
-/// This is the GPU equivalent of `Round1<Field, FieldExtension>` from the CPU
-/// prover. We define our own struct because `Round1`'s fields are `pub(crate)`
-/// in the STARK crate and cannot be constructed from an external crate.
-///
-/// All data needed by subsequent prover phases (constraint evaluation, FRI) is
-/// stored here.
+/// GPU equivalent of `Round1<Field, FieldExtension>` from the CPU prover.
+/// We define our own struct because `Round1`'s fields are `pub(crate)`.
 pub struct GpuRound1Result<F: IsField>
 where
     FieldElement<F>: AsBytes,
 {
-    /// Polynomial coefficients from interpolating main trace columns.
     pub main_trace_polys: Vec<Polynomial<FieldElement<F>>>,
-    /// LDE evaluations of main trace (column-major: one Vec per column).
     pub main_lde_evaluations: Vec<Vec<FieldElement<F>>>,
-    /// Merkle tree for main trace LDE.
     pub main_merkle_tree: BatchedMerkleTree<F>,
-    /// Merkle root for main trace.
     pub main_merkle_root: Commitment,
-    /// Polynomial coefficients from interpolating auxiliary trace columns (if RAP).
     pub aux_trace_polys: Vec<Polynomial<FieldElement<F>>>,
-    /// LDE evaluations of auxiliary trace (column-major).
     pub aux_lde_evaluations: Vec<Vec<FieldElement<F>>>,
-    /// Merkle tree for auxiliary trace LDE (if RAP).
     pub aux_merkle_tree: Option<BatchedMerkleTree<F>>,
-    /// Merkle root for auxiliary trace.
     pub aux_merkle_root: Option<Commitment>,
-    /// RAP challenges sampled from the transcript.
     pub rap_challenges: Vec<FieldElement<F>>,
     /// Original main trace evaluations on roots-of-unity domain (for barycentric OOD).
-    /// Column-major: one Vec per main trace column.
     pub main_trace_evals: Vec<Vec<FieldElement<F>>>,
-    /// Original auxiliary trace evaluations on roots-of-unity domain (for barycentric OOD).
-    /// Column-major: one Vec per aux trace column.
+    /// Original aux trace evaluations on roots-of-unity domain (for barycentric OOD).
     pub aux_trace_evals: Vec<Vec<FieldElement<F>>>,
-    /// Retained GPU buffers for main trace LDE (used by DEEP composition to avoid re-upload).
+    /// Retained GPU buffers for main trace LDE (avoids re-upload in DEEP composition).
     #[cfg(all(target_os = "macos", feature = "metal"))]
     pub main_lde_gpu_buffers: Option<Vec<metal::Buffer>>,
-    /// Retained GPU buffers for auxiliary trace LDE (used by DEEP composition to avoid re-upload).
+    /// Retained GPU buffers for auxiliary trace LDE.
     #[cfg(all(target_os = "macos", feature = "metal"))]
     pub aux_lde_gpu_buffers: Option<Vec<metal::Buffer>>,
     /// Retained GPU buffer for LDE coset points (canonical u64 values).
-    /// Computed once in Phase 1 and reused in Phase 2 (fused constraint eval)
-    /// and Phase 4 (DEEP domain inversions) to avoid redundant 32MB uploads.
+    /// Computed once and reused in Phase 2 and Phase 4.
     #[cfg(all(target_os = "macos", feature = "metal"))]
     pub lde_coset_gpu_buffer: Option<metal::Buffer>,
 }
 
-/// Executes GPU Phase 1 of the STARK prover: RAP (trace interpolation + LDE + commit).
-///
-/// This mirrors `round_1_randomized_air_with_preprocessing` from the CPU prover:
-///
-/// 1. Extract columns from the main trace table
-/// 2. Interpolate each column via GPU FFT to get polynomial coefficients
-/// 3. Evaluate each polynomial on the LDE coset domain via GPU FFT
-/// 4. Bit-reverse + transpose evaluations (CPU) for Merkle commitment layout
-/// 5. Build Merkle tree and commit (CPU, Keccak256)
-/// 6. Append commitment root to the transcript
-/// 7. Sample RAP challenges from the transcript
-/// 8. If the AIR has trace interaction (auxiliary trace): build aux trace, repeat 1-6
-///
-/// # Type Parameters
-///
-/// - `F`: The base field (must equal the extension field for our GPU prover)
-/// - `A`: An AIR whose `Field` and `FieldExtension` are both `F`
-///
-/// # Errors
-///
-/// Returns `ProvingError` if FFT, Merkle commitment, or transcript operations fail.
+/// Generic GPU Phase 1: interpolate + LDE + Merkle commit via GPU FFT.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_round_1<F, A>(
     air: &A,
@@ -114,59 +75,32 @@ where
     FieldElement<F>: AsBytes + Sync + Send,
     A: AIR<Field = F, FieldExtension = F>,
 {
-    // --- Main trace ---
-
-    // Step 1: Extract main trace columns
     let main_columns = trace.columns_main();
-
-    // Step 2: Interpolate each column on GPU to get polynomial coefficients
     let main_trace_polys = interpolate_columns_gpu(&main_columns, state)?;
 
-    // Step 3: Evaluate each polynomial on the LDE coset domain using GPU
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
     let main_lde_evaluations =
         evaluate_polys_on_lde_gpu(&main_trace_polys, blowup_factor, &coset_offset, state)?;
 
-    // Step 4: Bit-reverse + transpose for Merkle commitment layout (CPU)
     let main_permuted_rows = columns2rows_bit_reversed(&main_lde_evaluations);
-
-    // Step 5: Build Merkle tree and commit (CPU)
     let (main_merkle_tree, main_merkle_root) =
         cpu_batch_commit(&main_permuted_rows).ok_or(ProvingError::EmptyCommitment)?;
 
-    // Step 6: Append root to transcript
     transcript.append_bytes(&main_merkle_root);
-
-    // Step 7: Sample RAP challenges
     let rap_challenges = air.build_rap_challenges(transcript);
 
-    // --- Auxiliary trace (if RAP) ---
     let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root) =
         if air.has_trace_interaction() {
-            // Build auxiliary trace columns based on RAP challenges
             air.build_auxiliary_trace(trace, &rap_challenges);
-
-            // Extract auxiliary trace columns
             let aux_columns = trace.columns_aux();
-
-            // Interpolate auxiliary columns on GPU
             let aux_polys = interpolate_columns_gpu(&aux_columns, state)?;
-
-            // Evaluate auxiliary polynomials on LDE domain using GPU
             let aux_lde_evals =
                 evaluate_polys_on_lde_gpu(&aux_polys, blowup_factor, &coset_offset, state)?;
-
-            // Bit-reverse + transpose for Merkle commitment
             let aux_permuted_rows = columns2rows_bit_reversed(&aux_lde_evals);
-
-            // Build Merkle tree and commit
             let (aux_tree, aux_root) =
                 cpu_batch_commit(&aux_permuted_rows).ok_or(ProvingError::EmptyCommitment)?;
-
-            // Append auxiliary root to transcript
             transcript.append_bytes(&aux_root);
-
             (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root))
         } else {
             (Vec::new(), Vec::new(), None, None)
@@ -190,14 +124,10 @@ where
     })
 }
 
-/// GPU-optimized Phase 1 for Goldilocks field with GPU Merkle commit.
+/// Goldilocks-optimized Phase 1 with fused LDE pipeline and GPU Merkle commit.
 ///
-/// This is a concrete version of [`gpu_round_1`] that uses the GPU Keccak256
-/// shader for Merkle tree construction instead of CPU hashing.
-///
-/// Uses the buffer pipeline: inverse twiddles are generated once and shared
-/// across all columns; interpolation, ÷N normalization, coset shift, and LDE FFT
-/// all stay on GPU — no CPU readback until Phase 3 (barycentric OOD).
+/// Uses buffer pipeline: IFFT + div-N + coset shift + FFT stay on GPU.
+/// No CPU readback until Phase 3 (barycentric OOD).
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_round_1_goldilocks<A>(
     air: &A,
@@ -211,17 +141,13 @@ pub fn gpu_round_1_goldilocks<A>(
 where
     A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
 {
-    // --- Main trace ---
-
-    let t = std::time::Instant::now();
     let main_columns = trace.columns_main();
-    // Store original trace evaluations for barycentric OOD in Phase 3
     let main_trace_evals: Vec<Vec<FieldElement<Goldilocks64Field>>> = main_columns.clone();
 
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
 
-    // Fused IFFT → ÷N → coset shift → FFT per column (no intermediate coefficient storage)
+    // Fused IFFT + div-N + coset shift + FFT per column (no intermediate coefficient storage)
     let (main_lde_buffers, main_lde_domain_size) = gpu_lde_from_evaluations(
         &main_columns,
         blowup_factor,
@@ -230,33 +156,22 @@ where
         state.inner(),
     )
     .map_err(|e| ProvingError::FieldOperationError(format!("GPU main LDE error: {e}")))?;
-    eprintln!("    1a main LDE:       {:>10.2?}", t.elapsed());
 
-    // GPU Merkle commit directly from FFT output buffers (no extra memcpy)
-    let t = std::time::Instant::now();
+    // GPU Merkle commit directly from FFT output buffers
     let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
     let (main_merkle_tree, main_merkle_root) =
         gpu_batch_commit_from_column_buffers(&buffer_refs, main_lde_domain_size, keccak_state)
             .ok_or(ProvingError::EmptyCommitment)?;
-    eprintln!("    1c main Merkle:    {:>10.2?}", t.elapsed());
 
     transcript.append_bytes(&main_merkle_root);
     let rap_challenges = air.build_rap_challenges(transcript);
 
-    // --- Auxiliary trace (if RAP) ---
-    let t = std::time::Instant::now();
     let (aux_merkle_tree, aux_merkle_root, aux_gpu_bufs, aux_trace_evals) =
         if air.has_trace_interaction() {
-            let t_sub = std::time::Instant::now();
             air.build_auxiliary_trace(trace, &rap_challenges);
-            eprintln!("      1d.1 build aux:  {:>10.2?}", t_sub.elapsed());
-
-            let t_sub = std::time::Instant::now();
             let aux_columns = trace.columns_aux();
-            // Store original aux trace evaluations for barycentric OOD
             let aux_evals: Vec<Vec<FieldElement<Goldilocks64Field>>> = aux_columns.clone();
 
-            // Fused IFFT → ÷N → coset shift → FFT per column (no intermediate coefficient storage)
             let (aux_lde_buffers, aux_lde_domain_size) = gpu_lde_from_evaluations(
                 &aux_columns,
                 blowup_factor,
@@ -265,15 +180,11 @@ where
                 state.inner(),
             )
             .map_err(|e| ProvingError::FieldOperationError(format!("GPU aux LDE error: {e}")))?;
-            eprintln!("      1d.2 aux LDE:    {:>10.2?}", t_sub.elapsed());
 
-            // GPU Merkle commit from auxiliary trace FFT buffers
-            let t_sub = std::time::Instant::now();
             let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
             let (aux_tree, aux_root) =
                 gpu_batch_commit_from_column_buffers(&buf_refs, aux_lde_domain_size, keccak_state)
                     .ok_or(ProvingError::EmptyCommitment)?;
-            eprintln!("      1d.4 aux Merkle: {:>10.2?}", t_sub.elapsed());
 
             transcript.append_bytes(&aux_root);
             (
@@ -285,12 +196,8 @@ where
         } else {
             (None, None, None, Vec::new())
         };
-    eprintln!("    1d aux all:        {:>10.2?}", t.elapsed());
 
-    // Pre-compute LDE coset points as a GPU buffer once.
-    // This is reused by Phase 2 (fused constraint eval) and Phase 4 (DEEP domain inversions),
-    // avoiding two redundant 32MB conversions + uploads.
-    let t = std::time::Instant::now();
+    // Pre-compute LDE coset points as a GPU buffer once (reused by Phase 2 and Phase 4).
     let coset_raw: Vec<u64> = _domain
         .lde_roots_of_unity_coset
         .iter()
@@ -301,15 +208,14 @@ where
         (coset_raw.len() * std::mem::size_of::<u64>()) as u64,
         metal::MTLResourceOptions::StorageModeShared,
     );
-    eprintln!("    1e coset buf:      {:>10.2?}", t.elapsed());
 
     Ok(GpuRound1Result {
-        main_trace_polys: Vec::new(), // Not needed in Goldilocks path; Phase 3 uses barycentric
-        main_lde_evaluations: Vec::new(), // Not populated in Goldilocks path; use GPU buffers
+        main_trace_polys: Vec::new(),
+        main_lde_evaluations: Vec::new(),
         main_merkle_tree,
         main_merkle_root,
-        aux_trace_polys: Vec::new(), // Not needed in Goldilocks path; Phase 3 uses barycentric
-        aux_lde_evaluations: Vec::new(), // Not populated in Goldilocks path; use GPU buffers
+        aux_trace_polys: Vec::new(),
+        aux_lde_evaluations: Vec::new(),
         aux_merkle_tree,
         aux_merkle_root,
         rap_challenges,
@@ -323,8 +229,8 @@ where
 
 /// GPU-accelerated Phase 1 for Fp3 extension field proofs.
 ///
-/// Main trace (base field): GPU FFT interpolation + GPU FFT LDE + GPU Keccak Merkle.
-/// Aux trace (Fp3): CPU FFT interpolation + CPU FFT LDE + CPU Merkle commit.
+/// Main trace (base field): GPU FFT + GPU Keccak Merkle.
+/// Aux trace (Fp3): CPU FFT + CPU Merkle commit.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_round_1_fp3<A>(
     air: &A,
@@ -351,17 +257,12 @@ where
     type Fp3 = Degree3GoldilocksExtensionField;
     type Fp3E = FieldElement<Fp3>;
 
-    // --- Main trace (base field, GPU path) ---
-
-    let t = std::time::Instant::now();
     let main_columns = trace.columns_main();
     let main_trace_polys = interpolate_columns_gpu(&main_columns, state)?;
-    eprintln!("    1a main interp:    {:>10.2?}", t.elapsed());
 
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
 
-    let t = std::time::Instant::now();
     let (main_lde_buffers, main_lde_domain_size) = evaluate_polys_on_lde_gpu_to_buffers(
         &main_trace_polys,
         blowup_factor,
@@ -369,7 +270,7 @@ where
         state,
     )?;
 
-    // Fp3 path: reconstruct CPU vecs from GPU buffers via UMA pointer (no intermediate Vec<u64>).
+    // Reconstruct CPU vecs from GPU buffers via UMA pointer (no intermediate Vec<u64>)
     let main_lde_evaluations: Vec<Vec<FieldElement<Goldilocks64Field>>> = main_lde_buffers
         .iter()
         .map(|buf| {
@@ -378,26 +279,19 @@ where
                 .collect()
         })
         .collect();
-    eprintln!("    1b main LDE+read:  {:>10.2?}", t.elapsed());
 
-    // GPU Merkle commit directly from FFT output buffers
-    let t = std::time::Instant::now();
     let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
     let (main_merkle_tree, main_merkle_root) =
         gpu_batch_commit_from_column_buffers(&buffer_refs, main_lde_domain_size, keccak_state)
             .ok_or(ProvingError::EmptyCommitment)?;
-    eprintln!("    1c main Merkle:    {:>10.2?}", t.elapsed());
 
     transcript.append_bytes(&main_merkle_root);
     let rap_challenges = air.build_rap_challenges(transcript);
 
-    // --- Auxiliary trace (Fp3, CPU path) ---
-    let t = std::time::Instant::now();
     let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root) =
         if air.has_trace_interaction() {
             air.build_auxiliary_trace(trace, &rap_challenges);
 
-            // CPU FFT interpolation (base-field twiddles on extension-field data)
             let aux_columns = trace.columns_aux();
             let aux_polys: Vec<Polynomial<Fp3E>> = aux_columns
                 .iter()
@@ -405,7 +299,6 @@ where
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| ProvingError::FieldOperationError(format!("CPU aux FFT: {e}")))?;
 
-            // CPU FFT LDE evaluation
             let aux_lde_evals: Vec<Vec<Fp3E>> = aux_polys
                 .iter()
                 .map(|poly| {
@@ -428,17 +321,14 @@ where
                 .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| ProvingError::FieldOperationError(format!("CPU aux LDE FFT: {e}")))?;
 
-            // CPU Merkle commit on aux LDE
             let aux_permuted_rows = columns2rows_bit_reversed(&aux_lde_evals);
             let (aux_tree, aux_root) =
                 cpu_batch_commit(&aux_permuted_rows).ok_or(ProvingError::EmptyCommitment)?;
-
             transcript.append_bytes(&aux_root);
             (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root))
         } else {
             (Vec::new(), Vec::new(), None, None)
         };
-    eprintln!("    1d aux all:        {:>10.2?}", t.elapsed());
 
     Ok(crate::metal::phases::fp3_types::GpuRound1ResultFp3 {
         main_trace_polys,
@@ -453,11 +343,7 @@ where
     })
 }
 
-/// Interpolates a set of evaluation columns into polynomials using GPU FFT.
-///
-/// Each column is a vector of field element evaluations at roots of unity.
-/// Returns a vector of polynomials (one per column) whose coefficients are
-/// computed via inverse FFT on the Metal GPU.
+/// Interpolates evaluation columns into polynomials using GPU FFT.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 fn interpolate_columns_gpu<F>(
     columns: &[Vec<FieldElement<F>>],
@@ -478,10 +364,6 @@ where
 }
 
 /// Evaluates polynomials on the LDE coset domain using GPU FFT.
-///
-/// For each polynomial, this computes evaluations at `{offset * w^i}` where
-/// `w` is a primitive root of unity of order `len * blowup_factor`.
-/// Returns a vector of evaluation vectors (one per polynomial, column-major).
 #[cfg(all(target_os = "macos", feature = "metal"))]
 fn evaluate_polys_on_lde_gpu<F>(
     polys: &[Polynomial<FieldElement<F>>],
@@ -502,16 +384,10 @@ where
         .collect()
 }
 
-/// Evaluates polynomials on the LDE coset domain, returning GPU Buffers and domain size.
+/// Evaluates polynomials on the LDE coset domain, returning GPU Buffers.
 ///
-/// Like [`evaluate_polys_on_lde_gpu`] but keeps FFT results as GPU Metal Buffers
-/// without reading them back to CPU. The Buffers can be passed directly to
-/// [`gpu_batch_commit_from_column_buffers`] for zero-copy Merkle commit.
-///
-/// On Apple Silicon UMA, subsequent phases can read individual elements directly
-/// from the Metal buffer's shared memory via [`read_element_from_buffer`].
-///
-/// Twiddle factors are generated once and reused for all columns (batch FFT).
+/// Keeps FFT results as Metal Buffers without CPU readback. Twiddle factors
+/// are generated once and reused for all columns (batch FFT).
 #[cfg(all(target_os = "macos", feature = "metal"))]
 fn evaluate_polys_on_lde_gpu_to_buffers(
     polys: &[Polynomial<FieldElement<Goldilocks64Field>>],
@@ -523,7 +399,6 @@ fn evaluate_polys_on_lde_gpu_to_buffers(
         return Ok((Vec::new(), 0));
     }
 
-    // Collect coefficient slices for batch FFT (shared twiddles)
     let coeff_slices: Vec<&[FieldElement<Goldilocks64Field>]> =
         polys.iter().map(|p| p.coefficients()).collect();
 
@@ -548,15 +423,8 @@ fn evaluate_polys_on_lde_gpu_to_buffers(
 
 /// Read a single Goldilocks field element from a Metal buffer at a given index.
 ///
-/// On Apple Silicon UMA, `StorageModeShared` buffers share physical memory between
-/// CPU and GPU — this is a direct pointer dereference with no DMA transfer.
-///
-/// # Safety contract
-///
-/// The caller must ensure:
-/// - The buffer contains valid canonical Goldilocks u64 values
-/// - `index` is within bounds
-/// - All GPU commands writing to this buffer have completed
+/// On Apple Silicon UMA, `StorageModeShared` buffers share physical memory --
+/// this is a direct pointer dereference with no DMA transfer.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn read_element_from_buffer(
     buffer: &metal::Buffer,
@@ -602,22 +470,16 @@ mod tests {
         let mut transcript = DefaultTranscript::<F>::new(&[]);
         let result = gpu_round_1(&air, &mut trace, &domain, &mut transcript, &state).unwrap();
 
-        // Fibonacci RAP has 2 main columns
         assert_eq!(result.main_trace_polys.len(), 2);
-        // LDE should have blowup_factor * trace_length evaluations per column
         let expected_lde_len = trace.num_rows() * proof_options.blowup_factor as usize;
         assert_eq!(result.main_lde_evaluations[0].len(), expected_lde_len);
-        // Merkle root should be non-zero
         assert_ne!(result.main_merkle_root, [0u8; 32]);
-        // Fibonacci RAP has auxiliary trace (permutation argument): 1 aux column
         assert!(result.aux_merkle_root.is_some());
         assert_eq!(result.aux_trace_polys.len(), 1);
         assert!(!result.rap_challenges.is_empty());
-        // Aux LDE evaluations should match expected size
         assert_eq!(result.aux_lde_evaluations[0].len(), expected_lde_len);
     }
 
-    /// Verify that GPU interpolation + LDE produces the same results as the CPU path.
     #[test]
     fn gpu_round_1_matches_cpu_main_trace() {
         let trace_length = 16;
@@ -631,7 +493,6 @@ mod tests {
         let air = FibonacciRAP::new(trace.num_rows(), &pub_inputs, &proof_options);
         let state = StarkMetalState::new().unwrap();
 
-        // --- CPU path ---
         let main_columns = trace.columns_main();
         let blowup_factor = air.blowup_factor() as usize;
         let coset_offset = air.coset_offset();
@@ -649,12 +510,10 @@ mod tests {
             })
             .collect();
 
-        // --- GPU path ---
         let gpu_polys = interpolate_columns_gpu(&main_columns, &state).unwrap();
         let gpu_lde_evals =
             evaluate_polys_on_lde_gpu(&gpu_polys, blowup_factor, &coset_offset, &state).unwrap();
 
-        // Compare polynomials
         assert_eq!(cpu_polys.len(), gpu_polys.len());
         for (i, (cpu_poly, gpu_poly)) in cpu_polys.iter().zip(&gpu_polys).enumerate() {
             assert_eq!(
@@ -672,7 +531,6 @@ mod tests {
             }
         }
 
-        // Compare LDE evaluations
         assert_eq!(cpu_lde_evals.len(), gpu_lde_evals.len());
         for (i, (cpu_col, gpu_col)) in cpu_lde_evals.iter().zip(&gpu_lde_evals).enumerate() {
             assert_eq!(

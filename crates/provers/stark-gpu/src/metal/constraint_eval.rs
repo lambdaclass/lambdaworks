@@ -1,8 +1,7 @@
 //! GPU constraint evaluation for the Fibonacci RAP AIR.
 //!
-//! Uses a Metal shader to evaluate transition constraints in parallel across
-//! all LDE domain points. Boundary constraints are still evaluated on CPU
-//! and passed to the shader as pre-computed values.
+//! Uses Metal shaders to evaluate transition and boundary constraints in parallel
+//! across all LDE domain points.
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::DynamicMetalState};
@@ -11,14 +10,10 @@ use lambdaworks_math::field::{
     element::FieldElement, fields::u64_goldilocks_field::Goldilocks64Field, traits::IsPrimeField,
 };
 
-/// Embedded Metal shader source for the Fibonacci RAP constraint kernel.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 const FIBONACCI_RAP_SHADER: &str = include_str!("shaders/fibonacci_rap_constraints.metal");
 
-/// Parameters struct matching the Metal shader's `FibRapParams`.
-///
-/// Must be `#[repr(C)]` to match Metal's memory layout exactly.
-/// Fields must appear in the same order as in the shader struct.
+/// Parameters matching the Metal shader's `FibRapParams`.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -32,10 +27,71 @@ struct FibRapParams {
     transition_coeff_1: u64,
 }
 
-/// Pre-compiled Metal state for Fibonacci RAP constraint evaluation.
+/// Converts a slice of field elements to their canonical u64 representations.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn to_raw_u64(elems: &[FieldElement<Goldilocks64Field>]) -> Vec<u64> {
+    elems
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect()
+}
+
+/// Shorthand for extracting a single canonical u64 value.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn canonical(fe: &FieldElement<Goldilocks64Field>) -> u64 {
+    Goldilocks64Field::canonical(fe.value())
+}
+
+/// Builds `FibRapParams` from common arguments.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn build_fib_rap_params(
+    lde_step_size: usize,
+    num_rows: usize,
+    z0_len: usize,
+    z1_len: usize,
+    gamma: &FieldElement<Goldilocks64Field>,
+    transition_coefficients: &[FieldElement<Goldilocks64Field>],
+) -> FibRapParams {
+    FibRapParams {
+        lde_step_size: lde_step_size as u32,
+        num_rows: num_rows as u32,
+        zerofier_0_len: z0_len as u32,
+        zerofier_1_len: z1_len as u32,
+        gamma: canonical(gamma),
+        transition_coeff_0: canonical(&transition_coefficients[0]),
+        transition_coeff_1: canonical(&transition_coefficients[1]),
+    }
+}
+
+/// Resolves a precompiled Metal state or creates a fresh one for the given kernel.
 ///
-/// Create once and reuse across multiple calls to avoid shader recompilation.
-/// The compiled pipeline and max thread count are cached after construction.
+/// Returns a reference to the `DynamicMetalState` and the max thread count.
+/// When `precompiled` is `None`, the caller must keep `owned_state` alive.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn resolve_state<'a, S: HasMetalState>(
+    precompiled: Option<&'a S>,
+    owned_state: &'a mut Option<DynamicMetalState>,
+    kernel_name: &str,
+) -> Result<(&'a DynamicMetalState, u64), MetalError> {
+    if let Some(pre) = precompiled {
+        Ok((pre.metal_state(), pre.metal_max_threads()))
+    } else {
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(FIBONACCI_RAP_SHADER)?;
+        let mt = state.prepare_pipeline(kernel_name)?;
+        *owned_state = Some(state);
+        Ok((owned_state.as_ref().unwrap(), mt))
+    }
+}
+
+/// Trait for pre-compiled Metal state types to share the state resolution logic.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+trait HasMetalState {
+    fn metal_state(&self) -> &DynamicMetalState;
+    fn metal_max_threads(&self) -> u64;
+}
+
+/// Pre-compiled Metal state for Fibonacci RAP constraint evaluation.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub struct FibRapConstraintState {
     state: DynamicMetalState,
@@ -43,12 +99,17 @@ pub struct FibRapConstraintState {
 }
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
+impl HasMetalState for FibRapConstraintState {
+    fn metal_state(&self) -> &DynamicMetalState {
+        &self.state
+    }
+    fn metal_max_threads(&self) -> u64 {
+        self.max_threads
+    }
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
 impl FibRapConstraintState {
-    /// Compile the Fibonacci RAP constraint shader and prepare the pipeline.
-    ///
-    /// # Errors
-    ///
-    /// Returns `MetalError` if the shader fails to compile or the pipeline cannot be created.
     pub fn new() -> Result<Self, MetalError> {
         let mut state = DynamicMetalState::new()?;
         state.load_library(FIBONACCI_RAP_SHADER)?;
@@ -57,15 +118,10 @@ impl FibRapConstraintState {
     }
 }
 
-/// Evaluates Fibonacci RAP constraints on the GPU using a Metal compute shader.
+/// Evaluates Fibonacci RAP constraints on the GPU, returning CPU `Vec`.
 ///
-/// This replaces the CPU `ConstraintEvaluator::evaluate()` for the specific
-/// case of Fibonacci RAP on the Goldilocks field. The boundary constraint
-/// evaluations must be pre-computed on the CPU and passed in via `boundary_evals`.
-///
-/// If `precompiled` is `Some`, uses the pre-compiled shader state to avoid
-/// recompiling the Metal shader on each call. Otherwise, compiles the shader
-/// from scratch (slower, but convenient for one-off use and tests).
+/// Boundary constraint evaluations must be pre-computed on CPU and passed in.
+/// If `precompiled` is `Some`, reuses the compiled pipeline; otherwise compiles from scratch.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::too_many_arguments)]
 pub fn gpu_evaluate_fibonacci_rap_constraints(
@@ -96,55 +152,29 @@ pub fn gpu_evaluate_fibonacci_rap_constraints(
         "need at least 2 transition coefficients"
     );
 
-    // Extract canonical u64 values for GPU buffers.
-    let col0_raw: Vec<u64> = main_col_0
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let col1_raw: Vec<u64> = main_col_1
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let aux0_raw: Vec<u64> = aux_col_0
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let z0_raw: Vec<u64> = zerofier_evals[0]
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let z1_raw: Vec<u64> = zerofier_evals[1]
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let boundary_raw: Vec<u64> = boundary_evals
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
+    let col0_raw = to_raw_u64(main_col_0);
+    let col1_raw = to_raw_u64(main_col_1);
+    let aux0_raw = to_raw_u64(aux_col_0);
+    let z0_raw = to_raw_u64(&zerofier_evals[0]);
+    let z1_raw = to_raw_u64(&zerofier_evals[1]);
+    let boundary_raw = to_raw_u64(boundary_evals);
 
-    let params = FibRapParams {
-        lde_step_size: lde_step_size as u32,
-        num_rows: num_rows as u32,
-        zerofier_0_len: zerofier_evals[0].len() as u32,
-        zerofier_1_len: zerofier_evals[1].len() as u32,
-        gamma: Goldilocks64Field::canonical(gamma.value()),
-        transition_coeff_0: Goldilocks64Field::canonical(transition_coefficients[0].value()),
-        transition_coeff_1: Goldilocks64Field::canonical(transition_coefficients[1].value()),
-    };
+    let params = build_fib_rap_params(
+        lde_step_size,
+        num_rows,
+        zerofier_evals[0].len(),
+        zerofier_evals[1].len(),
+        gamma,
+        transition_coefficients,
+    );
 
-    // Use pre-compiled state or create a fresh one.
-    let mut owned_state;
-    let (dyn_state, max_threads) = match precompiled {
-        Some(pre) => (&pre.state, pre.max_threads),
-        None => {
-            owned_state = DynamicMetalState::new()?;
-            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
-            let mt = owned_state.prepare_pipeline("fibonacci_rap_constraint_eval")?;
-            (&owned_state, mt)
-        }
-    };
+    let mut owned_state = None;
+    let (dyn_state, max_threads) = resolve_state(
+        precompiled,
+        &mut owned_state,
+        "fibonacci_rap_constraint_eval",
+    )?;
 
-    // Allocate GPU-accessible buffers.
     let buf_col0 = dyn_state.alloc_buffer_with_data(&col0_raw)?;
     let buf_col1 = dyn_state.alloc_buffer_with_data(&col1_raw)?;
     let buf_aux0 = dyn_state.alloc_buffer_with_data(&aux0_raw)?;
@@ -154,7 +184,6 @@ pub fn gpu_evaluate_fibonacci_rap_constraints(
     let buf_boundary = dyn_state.alloc_buffer_with_data(&boundary_raw)?;
     let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
 
-    // Dispatch the compute kernel over all LDE domain points.
     dyn_state.execute_compute(
         "fibonacci_rap_constraint_eval",
         &[
@@ -171,19 +200,11 @@ pub fn gpu_evaluate_fibonacci_rap_constraints(
         max_threads,
     )?;
 
-    // Read results back from the GPU and wrap in FieldElements.
     let output_raw: Vec<u64> = unsafe { dyn_state.read_buffer(&buf_output, num_rows) };
-    let result: Vec<FieldElement<Goldilocks64Field>> =
-        output_raw.into_iter().map(FieldElement::from).collect();
-
-    Ok(result)
+    Ok(output_raw.into_iter().map(FieldElement::from).collect())
 }
 
-/// Evaluates Fibonacci RAP constraints on the GPU, returning the result as a Metal buffer.
-///
-/// Like [`gpu_evaluate_fibonacci_rap_constraints`] but keeps the result on GPU,
-/// avoiding the GPU→CPU readback. Use this when the constraint evaluations will
-/// be consumed by another GPU operation (e.g., GPU coset IFFT).
+/// Like [`gpu_evaluate_fibonacci_rap_constraints`] but keeps the result on GPU as a Metal buffer.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::too_many_arguments)]
 pub fn gpu_evaluate_fibonacci_rap_constraints_to_buffer(
@@ -214,51 +235,28 @@ pub fn gpu_evaluate_fibonacci_rap_constraints_to_buffer(
         "need at least 2 transition coefficients"
     );
 
-    let col0_raw: Vec<u64> = main_col_0
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let col1_raw: Vec<u64> = main_col_1
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let aux0_raw: Vec<u64> = aux_col_0
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let z0_raw: Vec<u64> = zerofier_evals[0]
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let z1_raw: Vec<u64> = zerofier_evals[1]
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let boundary_raw: Vec<u64> = boundary_evals
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
+    let col0_raw = to_raw_u64(main_col_0);
+    let col1_raw = to_raw_u64(main_col_1);
+    let aux0_raw = to_raw_u64(aux_col_0);
+    let z0_raw = to_raw_u64(&zerofier_evals[0]);
+    let z1_raw = to_raw_u64(&zerofier_evals[1]);
+    let boundary_raw = to_raw_u64(boundary_evals);
 
-    let params = FibRapParams {
-        lde_step_size: lde_step_size as u32,
-        num_rows: num_rows as u32,
-        zerofier_0_len: zerofier_evals[0].len() as u32,
-        zerofier_1_len: zerofier_evals[1].len() as u32,
-        gamma: Goldilocks64Field::canonical(gamma.value()),
-        transition_coeff_0: Goldilocks64Field::canonical(transition_coefficients[0].value()),
-        transition_coeff_1: Goldilocks64Field::canonical(transition_coefficients[1].value()),
-    };
+    let params = build_fib_rap_params(
+        lde_step_size,
+        num_rows,
+        zerofier_evals[0].len(),
+        zerofier_evals[1].len(),
+        gamma,
+        transition_coefficients,
+    );
 
-    let mut owned_state;
-    let (dyn_state, max_threads) = match precompiled {
-        Some(pre) => (&pre.state, pre.max_threads),
-        None => {
-            owned_state = DynamicMetalState::new()?;
-            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
-            let mt = owned_state.prepare_pipeline("fibonacci_rap_constraint_eval")?;
-            (&owned_state, mt)
-        }
-    };
+    let mut owned_state = None;
+    let (dyn_state, max_threads) = resolve_state(
+        precompiled,
+        &mut owned_state,
+        "fibonacci_rap_constraint_eval",
+    )?;
 
     let buf_col0 = dyn_state.alloc_buffer_with_data(&col0_raw)?;
     let buf_col1 = dyn_state.alloc_buffer_with_data(&col1_raw)?;
@@ -286,422 +284,6 @@ pub fn gpu_evaluate_fibonacci_rap_constraints_to_buffer(
     )?;
 
     Ok((buf_output, num_rows))
-}
-
-/// Evaluates Fibonacci RAP constraints on the GPU using pre-existing GPU buffers for trace columns.
-///
-/// Like [`gpu_evaluate_fibonacci_rap_constraints_to_buffer`] but accepts Metal buffers
-/// for the trace columns directly (from Phase 1's retained GPU buffers), avoiding the
-/// CPU extraction + u64 conversion + GPU re-upload of 3 large column arrays.
-///
-/// The `zerofier_evals` and `boundary_evals` are still computed fresh on CPU and uploaded,
-/// since they depend on the specific constraint coefficients sampled in Phase 2.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(clippy::too_many_arguments)]
-pub fn gpu_evaluate_fibonacci_rap_constraints_from_buffers(
-    main_col_0_buf: &metal::Buffer,
-    main_col_1_buf: &metal::Buffer,
-    aux_col_0_buf: &metal::Buffer,
-    num_rows: usize,
-    zerofier_evals: &[Vec<FieldElement<Goldilocks64Field>>],
-    boundary_evals: &[FieldElement<Goldilocks64Field>],
-    gamma: &FieldElement<Goldilocks64Field>,
-    transition_coefficients: &[FieldElement<Goldilocks64Field>],
-    lde_step_size: usize,
-    precompiled: Option<&FibRapConstraintState>,
-) -> Result<(metal::Buffer, usize), MetalError> {
-    assert_eq!(
-        boundary_evals.len(),
-        num_rows,
-        "boundary_evals length mismatch"
-    );
-    assert!(
-        zerofier_evals.len() >= 2,
-        "need at least 2 zerofier evaluation vectors"
-    );
-    assert!(
-        transition_coefficients.len() >= 2,
-        "need at least 2 transition coefficients"
-    );
-
-    // Only convert zerofier and boundary data — trace columns are already on GPU.
-    let z0_raw: Vec<u64> = zerofier_evals[0]
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let z1_raw: Vec<u64> = zerofier_evals[1]
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let boundary_raw: Vec<u64> = boundary_evals
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-
-    let params = FibRapParams {
-        lde_step_size: lde_step_size as u32,
-        num_rows: num_rows as u32,
-        zerofier_0_len: zerofier_evals[0].len() as u32,
-        zerofier_1_len: zerofier_evals[1].len() as u32,
-        gamma: Goldilocks64Field::canonical(gamma.value()),
-        transition_coeff_0: Goldilocks64Field::canonical(transition_coefficients[0].value()),
-        transition_coeff_1: Goldilocks64Field::canonical(transition_coefficients[1].value()),
-    };
-
-    let mut owned_state;
-    let (dyn_state, max_threads) = match precompiled {
-        Some(pre) => (&pre.state, pre.max_threads),
-        None => {
-            owned_state = DynamicMetalState::new()?;
-            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
-            let mt = owned_state.prepare_pipeline("fibonacci_rap_constraint_eval")?;
-            (&owned_state, mt)
-        }
-    };
-
-    let buf_z0 = dyn_state.alloc_buffer_with_data(&z0_raw)?;
-    let buf_z1 = dyn_state.alloc_buffer_with_data(&z1_raw)?;
-    let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
-    let buf_boundary = dyn_state.alloc_buffer_with_data(&boundary_raw)?;
-    let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
-
-    dyn_state.execute_compute(
-        "fibonacci_rap_constraint_eval",
-        &[
-            main_col_0_buf,
-            main_col_1_buf,
-            aux_col_0_buf,
-            &buf_z0,
-            &buf_z1,
-            &buf_params,
-            &buf_boundary,
-            &buf_output,
-        ],
-        num_rows as u64,
-        max_threads,
-    )?;
-
-    Ok((buf_output, num_rows))
-}
-
-/// Evaluates Fibonacci RAP constraints on the GPU with all large inputs as Metal buffers.
-///
-/// Like [`gpu_evaluate_fibonacci_rap_constraints_from_buffers`] but additionally accepts
-/// the boundary evaluations as a pre-existing Metal buffer (from
-/// [`gpu_evaluate_boundary_constraints`]), eliminating the GPU→CPU→GPU round-trip for
-/// boundary data.
-///
-/// Only zerofier data (small, CPU-computed) is uploaded fresh.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(clippy::too_many_arguments)]
-pub fn gpu_evaluate_fibonacci_rap_constraints_all_buffers(
-    main_col_0_buf: &metal::Buffer,
-    main_col_1_buf: &metal::Buffer,
-    aux_col_0_buf: &metal::Buffer,
-    boundary_buf: &metal::Buffer,
-    num_rows: usize,
-    zerofier_evals: &[Vec<FieldElement<Goldilocks64Field>>],
-    gamma: &FieldElement<Goldilocks64Field>,
-    transition_coefficients: &[FieldElement<Goldilocks64Field>],
-    lde_step_size: usize,
-    precompiled: Option<&FibRapConstraintState>,
-) -> Result<(metal::Buffer, usize), MetalError> {
-    assert!(
-        zerofier_evals.len() >= 2,
-        "need at least 2 zerofier evaluation vectors"
-    );
-    assert!(
-        transition_coefficients.len() >= 2,
-        "need at least 2 transition coefficients"
-    );
-
-    // Only convert zerofier data — trace columns and boundary are already on GPU.
-    let z0_raw: Vec<u64> = zerofier_evals[0]
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let z1_raw: Vec<u64> = zerofier_evals[1]
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-
-    let params = FibRapParams {
-        lde_step_size: lde_step_size as u32,
-        num_rows: num_rows as u32,
-        zerofier_0_len: zerofier_evals[0].len() as u32,
-        zerofier_1_len: zerofier_evals[1].len() as u32,
-        gamma: Goldilocks64Field::canonical(gamma.value()),
-        transition_coeff_0: Goldilocks64Field::canonical(transition_coefficients[0].value()),
-        transition_coeff_1: Goldilocks64Field::canonical(transition_coefficients[1].value()),
-    };
-
-    let mut owned_state;
-    let (dyn_state, max_threads) = match precompiled {
-        Some(pre) => (&pre.state, pre.max_threads),
-        None => {
-            owned_state = DynamicMetalState::new()?;
-            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
-            let mt = owned_state.prepare_pipeline("fibonacci_rap_constraint_eval")?;
-            (&owned_state, mt)
-        }
-    };
-
-    let buf_z0 = dyn_state.alloc_buffer_with_data(&z0_raw)?;
-    let buf_z1 = dyn_state.alloc_buffer_with_data(&z1_raw)?;
-    let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
-    let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
-
-    dyn_state.execute_compute(
-        "fibonacci_rap_constraint_eval",
-        &[
-            main_col_0_buf,
-            main_col_1_buf,
-            aux_col_0_buf,
-            &buf_z0,
-            &buf_z1,
-            &buf_params,
-            boundary_buf,
-            &buf_output,
-        ],
-        num_rows as u64,
-        max_threads,
-    )?;
-
-    Ok((buf_output, num_rows))
-}
-
-/// Zero-copy variant: zerofier data is already on GPU as Metal buffers.
-///
-/// Eliminates the GPU→CPU→GPU round-trip where zerofier evaluations were previously
-/// read back from GPU to `Vec<FpE>`, then re-uploaded as `Vec<u64>` buffers.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(clippy::too_many_arguments)]
-pub fn gpu_evaluate_fibonacci_rap_constraints_zero_copy(
-    main_col_0_buf: &metal::Buffer,
-    main_col_1_buf: &metal::Buffer,
-    aux_col_0_buf: &metal::Buffer,
-    boundary_buf: &metal::Buffer,
-    num_rows: usize,
-    zerofier_bufs: &[(metal::Buffer, usize)],
-    gamma: &FieldElement<Goldilocks64Field>,
-    transition_coefficients: &[FieldElement<Goldilocks64Field>],
-    lde_step_size: usize,
-    precompiled: Option<&FibRapConstraintState>,
-) -> Result<(metal::Buffer, usize), MetalError> {
-    assert!(zerofier_bufs.len() >= 2, "need at least 2 zerofier buffers");
-    assert!(
-        transition_coefficients.len() >= 2,
-        "need at least 2 transition coefficients"
-    );
-
-    let params = FibRapParams {
-        lde_step_size: lde_step_size as u32,
-        num_rows: num_rows as u32,
-        zerofier_0_len: zerofier_bufs[0].1 as u32,
-        zerofier_1_len: zerofier_bufs[1].1 as u32,
-        gamma: Goldilocks64Field::canonical(gamma.value()),
-        transition_coeff_0: Goldilocks64Field::canonical(transition_coefficients[0].value()),
-        transition_coeff_1: Goldilocks64Field::canonical(transition_coefficients[1].value()),
-    };
-
-    let mut owned_state;
-    let (dyn_state, max_threads) = match precompiled {
-        Some(pre) => (&pre.state, pre.max_threads),
-        None => {
-            owned_state = DynamicMetalState::new()?;
-            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
-            let mt = owned_state.prepare_pipeline("fibonacci_rap_constraint_eval")?;
-            (&owned_state, mt)
-        }
-    };
-
-    let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
-    let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
-
-    dyn_state.execute_compute(
-        "fibonacci_rap_constraint_eval",
-        &[
-            main_col_0_buf,
-            main_col_1_buf,
-            aux_col_0_buf,
-            &zerofier_bufs[0].0,
-            &zerofier_bufs[1].0,
-            &buf_params,
-            boundary_buf,
-            &buf_output,
-        ],
-        num_rows as u64,
-        max_threads,
-    )?;
-
-    Ok((buf_output, num_rows))
-}
-
-/// Parameters for a single boundary constraint, matching the Metal shader struct.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[repr(C)]
-#[derive(Copy, Clone)]
-struct BoundaryConstraintParam {
-    g_pow_step: u64,
-    value: u64,
-    coefficient: u64,
-    col: u32,
-    _pad: u32,
-}
-
-/// Parameters for the boundary eval kernel.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[repr(C)]
-#[derive(Copy, Clone)]
-struct BoundaryEvalParams {
-    num_rows: u32,
-    num_constraints: u32,
-}
-
-/// Pre-compiled Metal state for GPU boundary evaluation.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-pub struct BoundaryEvalState {
-    state: DynamicMetalState,
-    max_threads: u64,
-}
-
-#[cfg(all(target_os = "macos", feature = "metal"))]
-impl BoundaryEvalState {
-    /// Compile the boundary eval kernel.
-    pub fn new() -> Result<Self, MetalError> {
-        let mut state = DynamicMetalState::new()?;
-        state.load_library(FIBONACCI_RAP_SHADER)?;
-        let max_threads = state.prepare_pipeline("goldilocks_boundary_eval")?;
-        Ok(Self { state, max_threads })
-    }
-}
-
-/// Evaluates boundary constraints on the GPU using per-element Goldilocks inverse.
-///
-/// For each LDE point x_i, computes:
-///   sum_k coeff_k * (trace_col_k[i] - value_k) / (x_i - g^step_k)
-///
-/// Uses the optimized addition-chain based Goldilocks inverse in the Metal shader.
-///
-/// `col_mapping`: maps boundary constraint column indices to buffer indices:
-///   0 = main_col_0, 1 = main_col_1, 2 = aux_col_0
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(clippy::too_many_arguments)]
-pub fn gpu_evaluate_boundary_constraints(
-    lde_coset_points: &[FieldElement<Goldilocks64Field>],
-    main_col_0_buf: &metal::Buffer,
-    main_col_1_buf: &metal::Buffer,
-    aux_col_0_buf: &metal::Buffer,
-    boundary_constraints: &[(usize, usize, FieldElement<Goldilocks64Field>)], // (col, step, value)
-    boundary_coefficients: &[FieldElement<Goldilocks64Field>],
-    trace_primitive_root: &FieldElement<Goldilocks64Field>,
-    num_rows: usize,
-    precompiled: Option<&BoundaryEvalState>,
-    lde_coset_buf: Option<&metal::Buffer>,
-) -> Result<(metal::Buffer, usize), MetalError> {
-    // Build constraint parameter array
-    let bc_params: Vec<BoundaryConstraintParam> = boundary_constraints
-        .iter()
-        .zip(boundary_coefficients.iter())
-        .map(|(&(col, step, ref value), coeff)| {
-            // Map (col, is_aux) to buffer index: main cols 0,1 → 0,1; aux col 0 → 2
-            let buf_col = col as u32;
-            BoundaryConstraintParam {
-                g_pow_step: Goldilocks64Field::canonical(
-                    trace_primitive_root.pow(step as u64).value(),
-                ),
-                value: Goldilocks64Field::canonical(value.value()),
-                coefficient: Goldilocks64Field::canonical(coeff.value()),
-                col: buf_col,
-                _pad: 0,
-            }
-        })
-        .collect();
-
-    let params = BoundaryEvalParams {
-        num_rows: num_rows as u32,
-        num_constraints: bc_params.len() as u32,
-    };
-
-    // Use pre-compiled state or create a fresh one
-    let mut owned_state;
-    let (dyn_state, max_threads) = match precompiled {
-        Some(pre) => (&pre.state, pre.max_threads),
-        None => {
-            owned_state = DynamicMetalState::new()?;
-            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
-            let mt = owned_state.prepare_pipeline("goldilocks_boundary_eval")?;
-            (&owned_state, mt)
-        }
-    };
-
-    // Use pre-existing LDE coset buffer from Phase 1 when available,
-    // otherwise convert and upload (fallback path).
-    let _owned_coset_buf;
-    let buf_coset: &metal::Buffer = if let Some(buf) = lde_coset_buf {
-        buf
-    } else {
-        let coset_raw: Vec<u64> = lde_coset_points
-            .iter()
-            .map(|fe| Goldilocks64Field::canonical(fe.value()))
-            .collect();
-        _owned_coset_buf = dyn_state.alloc_buffer_with_data(&coset_raw)?;
-        &_owned_coset_buf
-    };
-    let buf_bc_params = dyn_state.alloc_buffer_with_data(&bc_params)?;
-    let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
-    let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
-
-    dyn_state.execute_compute(
-        "goldilocks_boundary_eval",
-        &[
-            buf_coset,
-            main_col_0_buf,
-            main_col_1_buf,
-            aux_col_0_buf,
-            &buf_bc_params,
-            &buf_params,
-            &buf_output,
-        ],
-        num_rows as u64,
-        max_threads,
-    )?;
-
-    Ok((buf_output, num_rows))
-}
-
-/// Evaluates boundary constraints on the GPU, returning CPU Vec.
-///
-/// Convenience wrapper that reads back results from GPU.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(clippy::too_many_arguments)]
-pub fn gpu_evaluate_boundary_constraints_to_vec(
-    lde_coset_points: &[FieldElement<Goldilocks64Field>],
-    main_col_0_buf: &metal::Buffer,
-    main_col_1_buf: &metal::Buffer,
-    aux_col_0_buf: &metal::Buffer,
-    boundary_constraints: &[(usize, usize, FieldElement<Goldilocks64Field>)],
-    boundary_coefficients: &[FieldElement<Goldilocks64Field>],
-    trace_primitive_root: &FieldElement<Goldilocks64Field>,
-    num_rows: usize,
-    precompiled: Option<&BoundaryEvalState>,
-) -> Result<Vec<FieldElement<Goldilocks64Field>>, MetalError> {
-    let (buf, _len) = gpu_evaluate_boundary_constraints(
-        lde_coset_points,
-        main_col_0_buf,
-        main_col_1_buf,
-        aux_col_0_buf,
-        boundary_constraints,
-        boundary_coefficients,
-        trace_primitive_root,
-        num_rows,
-        precompiled,
-        None,
-    )?;
-
-    let raw: Vec<u64> =
-        lambdaworks_gpu::metal::abstractions::state::MetalState::retrieve_contents(&buf);
-    Ok(raw.into_iter().map(FieldElement::from).collect())
 }
 
 /// Parameters for a single boundary constraint in the fused kernel.
@@ -742,8 +324,17 @@ pub struct FusedConstraintState {
 }
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
+impl HasMetalState for FusedConstraintState {
+    fn metal_state(&self) -> &DynamicMetalState {
+        &self.state
+    }
+    fn metal_max_threads(&self) -> u64 {
+        self.max_threads
+    }
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
 impl FusedConstraintState {
-    /// Compile the fused constraint shader and prepare the pipeline.
     pub fn new() -> Result<Self, MetalError> {
         let mut state = DynamicMetalState::new()?;
         state.load_library(FIBONACCI_RAP_SHADER)?;
@@ -751,7 +342,6 @@ impl FusedConstraintState {
         Ok(Self { state, max_threads })
     }
 
-    /// Compile sharing a device and queue with an existing Metal state.
     pub fn from_device_and_queue(
         device: &metal::Device,
         queue: &metal::CommandQueue,
@@ -765,12 +355,9 @@ impl FusedConstraintState {
 
 /// Fused boundary + transition constraint evaluation on GPU.
 ///
-/// Combines both steps into a single kernel dispatch, eliminating:
-/// - Separate boundary kernel launch overhead
-/// - Intermediate boundary_evals buffer (num_rows × 8 bytes)
-/// - Redundant trace column reads (shared between transition + boundary)
-///
-/// Boundary zerofier inversions are computed inline on GPU via Fermat's little theorem.
+/// Combines both steps into a single kernel dispatch, eliminating separate boundary
+/// kernel launch overhead, intermediate buffer, and redundant trace column reads.
+/// Boundary zerofier inversions are computed inline via Fermat's little theorem.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::too_many_arguments)]
 pub fn gpu_evaluate_fused_constraints(
@@ -782,7 +369,7 @@ pub fn gpu_evaluate_fused_constraints(
     gamma: &FieldElement<Goldilocks64Field>,
     transition_coefficients: &[FieldElement<Goldilocks64Field>],
     lde_step_size: usize,
-    boundary_constraints: &[(usize, usize, FieldElement<Goldilocks64Field>)], // (col, step, value)
+    boundary_constraints: &[(usize, usize, FieldElement<Goldilocks64Field>)],
     boundary_coefficients: &[FieldElement<Goldilocks64Field>],
     lde_coset_points: &[FieldElement<Goldilocks64Field>],
     trace_primitive_root: &FieldElement<Goldilocks64Field>,
@@ -800,61 +387,44 @@ pub fn gpu_evaluate_fused_constraints(
         "boundary constraints and coefficients must have same length"
     );
 
-    let mut owned_state;
-    let (dyn_state, max_threads) = match precompiled {
-        Some(pre) => (&pre.state, pre.max_threads),
-        None => {
-            owned_state = DynamicMetalState::new()?;
-            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
-            let mt = owned_state.prepare_pipeline("fibonacci_rap_fused_eval")?;
-            (&owned_state, mt)
-        }
-    };
+    let mut owned_state = None;
+    let (dyn_state, max_threads) =
+        resolve_state(precompiled, &mut owned_state, "fibonacci_rap_fused_eval")?;
 
-    // Use pre-existing LDE coset buffer from Phase 1 when available,
-    // otherwise convert and upload (fallback path).
+    // Use pre-existing LDE coset buffer when available, otherwise upload.
     let _owned_coset_buf;
     let buf_coset: &metal::Buffer = if let Some(buf) = lde_coset_buf {
         buf
     } else {
-        let coset_raw: Vec<u64> = lde_coset_points
-            .iter()
-            .map(|fe| Goldilocks64Field::canonical(fe.value()))
-            .collect();
+        let coset_raw = to_raw_u64(lde_coset_points);
         _owned_coset_buf = dyn_state.alloc_buffer_with_data(&coset_raw)?;
         &_owned_coset_buf
     };
 
-    // Build boundary param array with g^step for each constraint.
     let bc_params: Vec<FusedBoundaryParam> = boundary_constraints
         .iter()
         .zip(boundary_coefficients.iter())
-        .map(|(&(col, step, ref value), coeff)| {
-            let g_pow_step = trace_primitive_root.pow(step as u64);
-            FusedBoundaryParam {
-                g_pow_step: Goldilocks64Field::canonical(g_pow_step.value()),
-                value: Goldilocks64Field::canonical(value.value()),
-                coefficient: Goldilocks64Field::canonical(coeff.value()),
-                col: col as u32,
-                _pad: 0,
-            }
+        .map(|(&(col, step, ref value), coeff)| FusedBoundaryParam {
+            g_pow_step: canonical(&trace_primitive_root.pow(step as u64)),
+            value: canonical(value),
+            coefficient: canonical(coeff),
+            col: col as u32,
+            _pad: 0,
         })
         .collect();
 
-    // Build fused params.
     let params = FusedParams {
         lde_step_size: lde_step_size as u32,
         num_rows: num_rows as u32,
         zerofier_0_len: zerofier_bufs[0].1 as u32,
         zerofier_1_len: zerofier_bufs[1].1 as u32,
-        gamma: Goldilocks64Field::canonical(gamma.value()),
-        transition_coeff_0: Goldilocks64Field::canonical(transition_coefficients[0].value()),
-        transition_coeff_1: Goldilocks64Field::canonical(transition_coefficients[1].value()),
+        gamma: canonical(gamma),
+        transition_coeff_0: canonical(&transition_coefficients[0]),
+        transition_coeff_1: canonical(&transition_coefficients[1]),
         num_boundary_constraints: bc_params.len() as u32,
         _pad2: 0,
     };
 
-    // Dispatch the fused kernel.
     let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
     let buf_bc_params = dyn_state.alloc_buffer_with_data(&bc_params)?;
     let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
@@ -902,15 +472,6 @@ mod tests {
     type F = Goldilocks64Field;
     type FpE = FieldElement<F>;
 
-    /// Differential test: compare GPU constraint evaluations against the CPU evaluator.
-    ///
-    /// This test:
-    /// 1. Sets up a Fibonacci RAP trace
-    /// 2. Runs GPU round 1 to obtain LDE trace and RAP challenges
-    /// 3. Pre-computes boundary evaluations on CPU
-    /// 4. Invokes the GPU constraint evaluator
-    /// 5. Runs the CPU constraint evaluator
-    /// 6. Compares results element-by-element
     #[test]
     fn gpu_fibonacci_rap_constraints_match_cpu() {
         let trace_length = 32;
@@ -924,10 +485,8 @@ mod tests {
         let air = FibonacciRAP::new(trace.num_rows(), &pub_inputs, &proof_options);
         let domain = Domain::new(&air);
         let state = StarkMetalState::new().unwrap();
-
         let mut transcript = DefaultTranscript::<F>::new(&[]);
 
-        // Run GPU round 1 to get the LDE trace and RAP challenges.
         let round_1 = gpu_round_1(&air, &mut trace, &domain, &mut transcript, &state).unwrap();
 
         // Build coefficients the same way gpu_round_2 / the CPU prover does.
@@ -953,7 +512,7 @@ mod tests {
             blowup_factor,
         );
 
-        // --- CPU reference path ---
+        // --- CPU reference ---
         let evaluator = ConstraintEvaluator::<F, F, _>::new(&air, &round_1.rap_challenges);
         let cpu_result = evaluator
             .evaluate(
@@ -967,7 +526,6 @@ mod tests {
             .unwrap();
 
         // --- GPU path ---
-        // Extract LDE trace columns for the GPU. The LDETraceTable stores data column-major.
         let num_lde_rows = lde_trace.num_rows();
         let main_col_0: Vec<FpE> = (0..num_lde_rows)
             .map(|r| *lde_trace.get_main(r, 0))
@@ -979,11 +537,9 @@ mod tests {
             .map(|r| *lde_trace.get_aux(r, 0))
             .collect();
 
-        // Pre-compute transition zerofier evaluations (same as CPU does internally).
         let zerofier_evals = air.transition_zerofier_evaluations(&domain);
 
-        // Pre-compute boundary evaluations on CPU (the GPU shader adds them after transition acc).
-        // Replicate the evaluator's boundary logic.
+        // Pre-compute boundary evaluations on CPU.
         let boundary_constraints = air.boundary_constraints(&round_1.rap_challenges);
         use std::collections::HashMap;
         let mut zerofier_cache: HashMap<usize, Vec<FpE>> = HashMap::new();
@@ -1046,7 +602,6 @@ mod tests {
         )
         .expect("GPU constraint evaluation failed");
 
-        // Compare results element-by-element.
         assert_eq!(
             gpu_result.len(),
             cpu_result.len(),

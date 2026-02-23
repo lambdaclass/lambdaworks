@@ -1,7 +1,6 @@
 use alloc::{borrow::ToOwned, vec::Vec};
 use lambdaworks_math::field::element::FieldElement as FE;
 
-pub mod goldilocks;
 pub mod parameters;
 pub mod starknet;
 

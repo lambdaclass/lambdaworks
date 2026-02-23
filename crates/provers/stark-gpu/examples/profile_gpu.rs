@@ -19,6 +19,14 @@ use stark_platinum_prover::{
 type F = Goldilocks64Field;
 type FpE = FieldElement<F>;
 
+fn new_trace(len: usize) -> stark_platinum_prover::trace::TraceTable<F, F> {
+    fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], len)
+}
+
+fn new_transcript() -> DefaultTranscript<F> {
+    DefaultTranscript::<F>::new(&[])
+}
+
 fn main() {
     let log_len: usize = std::env::args()
         .nth(1)
@@ -37,35 +45,29 @@ fn main() {
 
     // Warmup: compile shaders once
     {
-        let mut trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], 16);
-        let air = FibonacciRAP::new(
-            trace.num_rows(),
-            &FibonacciRAPPublicInputs {
-                steps: 16,
-                a0: FpE::one(),
-                a1: FpE::one(),
-            },
-            &proof_options,
-        );
-        let mut transcript = DefaultTranscript::<F>::new(&[]);
-        let _ = prove_gpu_optimized(&air, &mut trace, &mut transcript);
+        let mut trace = new_trace(16);
+        let warmup_inputs = FibonacciRAPPublicInputs {
+            steps: 16,
+            a0: FpE::one(),
+            a1: FpE::one(),
+        };
+        let air = FibonacciRAP::new(trace.num_rows(), &warmup_inputs, &proof_options);
+        let _ = prove_gpu_optimized(&air, &mut trace, &mut new_transcript());
     }
 
     // CPU reference
     let start = Instant::now();
-    let mut cpu_trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+    let mut cpu_trace = new_trace(trace_length);
     let air = FibonacciRAP::new(cpu_trace.num_rows(), &pub_inputs, &proof_options);
-    let mut cpu_transcript = DefaultTranscript::<F>::new(&[]);
-    let _ = Prover::<F, F, _>::prove(&air, &mut cpu_trace, &mut cpu_transcript).unwrap();
+    let _ = Prover::<F, F, _>::prove(&air, &mut cpu_trace, &mut new_transcript()).unwrap();
     let cpu_total = start.elapsed();
     println!("CPU total:         {:>10.2?}", cpu_total);
 
     // GPU optimized (total)
     let start = Instant::now();
-    let mut gpu_trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+    let mut gpu_trace = new_trace(trace_length);
     let air = FibonacciRAP::new(gpu_trace.num_rows(), &pub_inputs, &proof_options);
-    let mut gpu_transcript = DefaultTranscript::<F>::new(&[]);
-    let _ = prove_gpu_optimized(&air, &mut gpu_trace, &mut gpu_transcript).unwrap();
+    let _ = prove_gpu_optimized(&air, &mut gpu_trace, &mut new_transcript()).unwrap();
     let gpu_total = start.elapsed();
     println!(
         "GPU_opt total:     {:>10.2?}  ({:.2}x vs CPU)",
@@ -73,7 +75,6 @@ fn main() {
         gpu_total.as_secs_f64() / cpu_total.as_secs_f64()
     );
 
-    // Now run the instrumented version
     println!("\n--- Phase breakdown (GPU_opt) ---\n");
     profile_gpu_optimized(trace_length, &pub_inputs, &proof_options);
 }
@@ -100,11 +101,10 @@ fn profile_gpu_optimized(
     use lambdaworks_stark_gpu::metal::state::StarkMetalState;
     use stark_platinum_prover::domain::Domain;
 
-    let mut trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+    let mut trace = new_trace(trace_length);
     let air = FibonacciRAP::new(trace.num_rows(), pub_inputs, proof_options);
-    let mut transcript = DefaultTranscript::<F>::new(&[]);
+    let mut transcript = new_transcript();
 
-    // Shader compilation
     let t = Instant::now();
     let state = StarkMetalState::new().unwrap();
     let constraint_state = FibRapConstraintState::new().unwrap();
@@ -119,7 +119,6 @@ fn profile_gpu_optimized(
     let domain = Domain::new(&air);
     println!("  Setup (shaders):   {:>10.2?}", t.elapsed());
 
-    // Phase 1: RAP
     let t = Instant::now();
     let round_1 = gpu_round_1_goldilocks(
         &air,
@@ -134,7 +133,6 @@ fn profile_gpu_optimized(
     let phase1_time = t.elapsed();
     println!("  Phase 1 (RAP):     {:>10.2?}", phase1_time);
 
-    // Phase 2: Composition
     let t = Instant::now();
     let round_2 = gpu_round_2_goldilocks_merkle(
         &air,
@@ -151,13 +149,11 @@ fn profile_gpu_optimized(
     let phase2_time = t.elapsed();
     println!("  Phase 2 (Comp):    {:>10.2?}", phase2_time);
 
-    // Phase 3: OOD
     let t = Instant::now();
     let round_3 = gpu_round_3(&air, &domain, &round_1, &round_2, &mut transcript).unwrap();
     let phase3_time = t.elapsed();
     println!("  Phase 3 (OOD):     {:>10.2?}", phase3_time);
 
-    // Phase 4: FRI
     let t = Instant::now();
     let _round_4 = gpu_round_4_goldilocks(
         &air,
@@ -181,15 +177,12 @@ fn profile_gpu_optimized(
     let total = phase1_time + phase2_time + phase3_time + phase4_time;
     println!("\n  Phases total:      {:>10.2?}", total);
 
-    // Now profile sub-operations in Phase 1
     println!("\n--- Phase 1 sub-operations ---\n");
     profile_phase1(trace_length, pub_inputs, proof_options);
 
-    // Profile sub-operations in Phase 2
     println!("\n--- Phase 2 sub-operations ---\n");
     profile_phase2(trace_length, pub_inputs, proof_options);
 
-    // Profile sub-operations in Phase 4
     println!("\n--- Phase 4 sub-operations ---\n");
     profile_phase4(trace_length, pub_inputs, proof_options);
 }
@@ -202,35 +195,30 @@ fn profile_phase1(
     use lambdaworks_math::polynomial::Polynomial;
     use lambdaworks_stark_gpu::metal::fft::{gpu_evaluate_offset_fft, gpu_interpolate_fft};
     use lambdaworks_stark_gpu::metal::merkle::{
-        gpu_build_merkle_tree, gpu_hash_leaves_goldilocks, gpu_transpose_bitrev,
+        cpu_batch_commit, gpu_build_merkle_tree, gpu_hash_leaves_goldilocks, gpu_transpose_bitrev,
         GpuKeccakMerkleState,
     };
     use lambdaworks_stark_gpu::metal::state::StarkMetalState;
     use stark_platinum_prover::trace::columns2rows_bit_reversed;
 
-    let trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+    let trace = new_trace(trace_length);
     let air = FibonacciRAP::new(trace.num_rows(), pub_inputs, proof_options);
     let state = StarkMetalState::new().unwrap();
     let keccak_state = GpuKeccakMerkleState::new().unwrap();
 
-    // Extract columns
     let t = Instant::now();
     let main_columns = trace.columns_main();
     println!(
-        "  columns_main():    {:>10.2?}  ({} cols × {} rows)",
+        "  columns_main():    {:>10.2?}  ({} cols x {} rows)",
         t.elapsed(),
         main_columns.len(),
         main_columns[0].len()
     );
 
-    // GPU interpolation
     let t = Instant::now();
     let main_trace_polys: Vec<Polynomial<FpE>> = main_columns
         .iter()
-        .map(|col| {
-            let coeffs = gpu_interpolate_fft::<F>(col, state.inner()).unwrap();
-            Polynomial::new(&coeffs)
-        })
+        .map(|col| Polynomial::new(&gpu_interpolate_fft::<F>(col, state.inner()).unwrap()))
         .collect();
     println!(
         "  GPU interpolate:   {:>10.2?}  ({} polys)",
@@ -238,13 +226,12 @@ fn profile_phase1(
         main_trace_polys.len()
     );
 
-    // GPU LDE evaluation
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
     let t = Instant::now();
     let main_lde_evaluations: Vec<Vec<FpE>> = main_trace_polys
         .iter()
-        .map(|poly| {
+        .map(|poly: &Polynomial<FpE>| {
             gpu_evaluate_offset_fft::<F>(
                 poly.coefficients(),
                 blowup_factor,
@@ -256,18 +243,17 @@ fn profile_phase1(
         .collect();
     let lde_rows = main_lde_evaluations[0].len();
     println!(
-        "  GPU LDE eval:      {:>10.2?}  ({} cols × {} rows, blowup={})",
+        "  GPU LDE eval:      {:>10.2?}  ({} cols x {} rows, blowup={})",
         t.elapsed(),
         main_lde_evaluations.len(),
         lde_rows,
         blowup_factor
     );
 
-    // GPU Merkle commit breakdown
     let t = Instant::now();
     let rows = gpu_transpose_bitrev(&main_lde_evaluations, &keccak_state).unwrap();
     println!(
-        "  GPU transpose+br:  {:>10.2?}  ({} rows × {} cols)",
+        "  GPU transpose+br:  {:>10.2?}  ({} rows x {} cols)",
         t.elapsed(),
         rows.len(),
         rows[0].len()
@@ -289,7 +275,6 @@ fn profile_phase1(
         nodes.len()
     );
 
-    // Also time the CPU path for comparison
     let t = Instant::now();
     let _cpu_rows = columns2rows_bit_reversed(&main_lde_evaluations);
     println!(
@@ -297,8 +282,6 @@ fn profile_phase1(
         t.elapsed()
     );
 
-    // CPU batch commit for comparison
-    use lambdaworks_stark_gpu::metal::merkle::cpu_batch_commit;
     let cpu_rows = columns2rows_bit_reversed(&main_lde_evaluations);
     let t = Instant::now();
     let _ = cpu_batch_commit(&cpu_rows).unwrap();
@@ -318,22 +301,23 @@ fn profile_phase2(
         gpu_evaluate_fibonacci_rap_constraints, FibRapConstraintState,
     };
     use lambdaworks_stark_gpu::metal::fft::{gpu_evaluate_offset_fft, CosetShiftState};
-    use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
+    use lambdaworks_stark_gpu::metal::merkle::{
+        gpu_batch_commit_paired_goldilocks, GpuKeccakMerkleState,
+    };
     use lambdaworks_stark_gpu::metal::phases::rap::gpu_round_1_goldilocks;
     use lambdaworks_stark_gpu::metal::state::StarkMetalState;
     use stark_platinum_prover::domain::Domain;
     use stark_platinum_prover::trace::LDETraceTable;
 
-    let mut trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+    let mut trace = new_trace(trace_length);
     let air = FibonacciRAP::new(trace.num_rows(), pub_inputs, proof_options);
     let state = StarkMetalState::new().unwrap();
     let constraint_state = FibRapConstraintState::new().unwrap();
     let keccak_state = GpuKeccakMerkleState::new().unwrap();
     let coset_state = CosetShiftState::new().unwrap();
     let domain = Domain::new(&air);
+    let mut transcript = new_transcript();
 
-    // Run round 1 to get the input data
-    let mut transcript = DefaultTranscript::<F>::new(&[]);
     let round_1 = gpu_round_1_goldilocks(
         &air,
         &mut trace,
@@ -345,7 +329,6 @@ fn profile_phase2(
     )
     .unwrap();
 
-    // Step 1: Sample beta and compute coefficients
     let t = Instant::now();
     let beta: FpE = transcript.sample_field_element();
     let num_boundary = air
@@ -360,7 +343,6 @@ fn profile_phase2(
     let boundary_coefficients = coefficients;
     println!("  Coefficients:      {:>10.2?}", t.elapsed());
 
-    // Step 2: Build LDE trace
     let blowup_factor = air.blowup_factor() as usize;
     let t = Instant::now();
     let lde_trace = LDETraceTable::from_columns(
@@ -371,7 +353,6 @@ fn profile_phase2(
     );
     println!("  LDE trace build:   {:>10.2?}", t.elapsed());
 
-    // Step 3a: Boundary evaluations on CPU
     let num_lde_rows = lde_trace.num_rows();
     let t = Instant::now();
     let boundary_constraints = air.boundary_constraints(&round_1.rap_challenges);
@@ -398,15 +379,16 @@ fn profile_phase2(
         .constraints
         .iter()
         .map(|constraint| {
-            if constraint.is_aux {
-                (0..num_lde_rows)
-                    .map(|row| lde_trace.get_aux(row, constraint.col) - constraint.value)
-                    .collect()
-            } else {
-                (0..num_lde_rows)
-                    .map(|row| lde_trace.get_main(row, constraint.col) - constraint.value)
-                    .collect()
-            }
+            (0..num_lde_rows)
+                .map(|row| {
+                    let val = if constraint.is_aux {
+                        lde_trace.get_aux(row, constraint.col)
+                    } else {
+                        lde_trace.get_main(row, constraint.col)
+                    };
+                    val - constraint.value
+                })
+                .collect()
         })
         .collect();
     let boundary_evals: Vec<FpE> = (0..num_lde_rows)
@@ -422,7 +404,6 @@ fn profile_phase2(
         .collect();
     println!("  Boundary eval:     {:>10.2?}", t.elapsed());
 
-    // Step 3b: Extract LDE columns
     let t = Instant::now();
     let main_col_0: Vec<FpE> = (0..num_lde_rows)
         .map(|r| *lde_trace.get_main(r, 0))
@@ -435,7 +416,6 @@ fn profile_phase2(
         .collect();
     println!("  Extract columns:   {:>10.2?}", t.elapsed());
 
-    // Step 3c: GPU constraint evaluation
     let zerofier_evals = air.transition_zerofier_evaluations(&domain);
     let lde_step_size = air.step_size() * blowup_factor;
     let t = Instant::now();
@@ -453,14 +433,12 @@ fn profile_phase2(
     .unwrap();
     println!("  GPU constraints:   {:>10.2?}", t.elapsed());
 
-    // Step 4: CPU IFFT (interpolate)
     let coset_offset = air.coset_offset();
     let t = Instant::now();
     let composition_poly =
         Polynomial::interpolate_offset_fft(&constraint_evaluations, &coset_offset).unwrap();
     println!("  CPU IFFT:          {:>10.2?}", t.elapsed());
 
-    // Step 5: Break into parts
     let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
     let t = Instant::now();
     let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
@@ -470,7 +448,6 @@ fn profile_phase2(
         composition_poly_parts.len()
     );
 
-    // Step 6: GPU LDE eval
     let t = Instant::now();
     let lde_evaluations: Vec<Vec<FpE>> = composition_poly_parts
         .iter()
@@ -483,25 +460,19 @@ fn profile_phase2(
             )
             .unwrap()
         })
-        .collect::<Vec<_>>();
+        .collect();
     println!("  GPU LDE eval:      {:>10.2?}", t.elapsed());
 
-    // Step 7: GPU Merkle commit (paired) - broken down
-    {
-        use lambdaworks_stark_gpu::metal::merkle::gpu_batch_commit_paired_goldilocks;
-
-        // Time the combined function (flat_data + hash + tree in single command buffer)
-        let t = Instant::now();
-        let _ = gpu_batch_commit_paired_goldilocks(&lde_evaluations, &keccak_state).unwrap();
-        let num_cols = lde_evaluations.len();
-        let lde_len = lde_evaluations[0].len();
-        println!(
-            "  GPU paired commit: {:>10.2?}  ({} leaves × {} cols)",
-            t.elapsed(),
-            lde_len / 2,
-            2 * num_cols
-        );
-    }
+    let num_cols = lde_evaluations.len();
+    let lde_len = lde_evaluations[0].len();
+    let t = Instant::now();
+    let _ = gpu_batch_commit_paired_goldilocks(&lde_evaluations, &keccak_state).unwrap();
+    println!(
+        "  GPU paired commit: {:>10.2?}  ({} leaves x {} cols)",
+        t.elapsed(),
+        lde_len / 2,
+        2 * num_cols
+    );
 }
 
 fn profile_phase4(
@@ -528,7 +499,7 @@ fn profile_phase4(
     use stark_platinum_prover::domain::Domain;
     use stark_platinum_prover::traits::AIR;
 
-    let mut trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+    let mut trace = new_trace(trace_length);
     let air = FibonacciRAP::new(trace.num_rows(), pub_inputs, proof_options);
     let state = StarkMetalState::new().unwrap();
     let constraint_state = FibRapConstraintState::new().unwrap();
@@ -541,7 +512,7 @@ fn profile_phase4(
     let fri_square_inv_state = FriSquareInvState::new().unwrap();
     let domain_inv_state = DomainInversionState::new().unwrap();
     let domain = Domain::new(&air);
-    let mut transcript = DefaultTranscript::<F>::new(&[]);
+    let mut transcript = new_transcript();
 
     let round_1 = gpu_round_1_goldilocks(
         &air,
@@ -567,7 +538,6 @@ fn profile_phase4(
     .unwrap();
     let round_3 = gpu_round_3(&air, &domain, &round_1, &round_2, &mut transcript).unwrap();
 
-    // Step 1: Coefficients
     let t = Instant::now();
     let gamma = transcript.sample_field_element();
     let n_terms_comp = round_2.lde_composition_poly_evaluations.len();
@@ -585,7 +555,6 @@ fn profile_phase4(
     let composition_gammas = deep_coeffs;
     println!("  Coefficients:      {:>10.2?}", t.elapsed());
 
-    // Step 2: GPU DEEP composition (eval-domain, no IFFT)
     let t = Instant::now();
     let (deep_evals_buffer, deep_evals_len) = gpu_compute_deep_composition_evals_to_buffer(
         &round_1,
@@ -601,7 +570,6 @@ fn profile_phase4(
     .unwrap();
     println!("  GPU DEEP evals:    {:>10.2?}", t.elapsed());
 
-    // Step 3: FRI commit phase (eval-domain fold + GPU Keccak256 Merkle)
     let domain_size = domain.lde_roots_of_unity_coset.len();
     let t = Instant::now();
     let (fri_last_value, fri_layers) = gpu_fri_commit_phase_eval_domain(
@@ -624,16 +592,13 @@ fn profile_phase4(
         fri_layers.len()
     );
 
-    // Step 4: Grinding
     let security_bits = air.context().proof_options.grinding_factor;
     let t = Instant::now();
-    let mut nonce = None;
     if security_bits > 0 {
         let nonce_value =
             stark_platinum_prover::grinding::generate_nonce(&transcript.state(), security_bits)
                 .unwrap();
         transcript.append_bytes(&nonce_value.to_be_bytes());
-        nonce = Some(nonce_value);
     }
     println!(
         "  Grinding:          {:>10.2?}  (bits={})",
@@ -641,7 +606,6 @@ fn profile_phase4(
         security_bits
     );
 
-    // Step 5: Query indexes
     let number_of_queries = air.options().fri_number_of_queries;
     let t = Instant::now();
     let iotas: Vec<usize> = (0..number_of_queries)
@@ -653,16 +617,9 @@ fn profile_phase4(
         iotas.len()
     );
 
-    // Step 6: FRI query phase
     let t = Instant::now();
     let _query_list = gpu_query_phase(&fri_layers, &iotas).unwrap();
     println!("  FRI query:         {:>10.2?}", t.elapsed());
 
-    // Step 7: Open deep composition poly
-    let t = Instant::now();
-    // Can't call private function directly, but we can approximate
-    let _ = &fri_last_value;
-    let _ = &nonce;
-    println!("  Proof openings:    (included in FRI query time)");
-    let _ = t.elapsed();
+    let _ = fri_last_value;
 }
