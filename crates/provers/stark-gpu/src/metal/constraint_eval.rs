@@ -63,49 +63,11 @@ fn build_fib_rap_params(
     }
 }
 
-/// Resolves a precompiled Metal state or creates a fresh one for the given kernel.
-///
-/// Returns a reference to the `DynamicMetalState` and the max thread count.
-/// When `precompiled` is `None`, the caller must keep `owned_state` alive.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-fn resolve_state<'a, S: HasMetalState>(
-    precompiled: Option<&'a S>,
-    owned_state: &'a mut Option<DynamicMetalState>,
-    kernel_name: &str,
-) -> Result<(&'a DynamicMetalState, u64), MetalError> {
-    if let Some(pre) = precompiled {
-        Ok((pre.metal_state(), pre.metal_max_threads()))
-    } else {
-        let mut state = DynamicMetalState::new()?;
-        state.load_library(FIBONACCI_RAP_SHADER)?;
-        let mt = state.prepare_pipeline(kernel_name)?;
-        *owned_state = Some(state);
-        Ok((owned_state.as_ref().unwrap(), mt))
-    }
-}
-
-/// Trait for pre-compiled Metal state types to share the state resolution logic.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-trait HasMetalState {
-    fn metal_state(&self) -> &DynamicMetalState;
-    fn metal_max_threads(&self) -> u64;
-}
-
 /// Pre-compiled Metal state for Fibonacci RAP constraint evaluation.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub struct FibRapConstraintState {
     state: DynamicMetalState,
     max_threads: u64,
-}
-
-#[cfg(all(target_os = "macos", feature = "metal"))]
-impl HasMetalState for FibRapConstraintState {
-    fn metal_state(&self) -> &DynamicMetalState {
-        &self.state
-    }
-    fn metal_max_threads(&self) -> u64 {
-        self.max_threads
-    }
 }
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -135,72 +97,22 @@ pub fn gpu_evaluate_fibonacci_rap_constraints(
     lde_step_size: usize,
     precompiled: Option<&FibRapConstraintState>,
 ) -> Result<Vec<FieldElement<Goldilocks64Field>>, MetalError> {
-    let num_rows = main_col_0.len();
-    assert_eq!(main_col_1.len(), num_rows, "main_col_1 length mismatch");
-    assert_eq!(aux_col_0.len(), num_rows, "aux_col_0 length mismatch");
-    assert_eq!(
-        boundary_evals.len(),
-        num_rows,
-        "boundary_evals length mismatch"
-    );
-    assert!(
-        zerofier_evals.len() >= 2,
-        "need at least 2 zerofier evaluation vectors"
-    );
-    assert!(
-        transition_coefficients.len() >= 2,
-        "need at least 2 transition coefficients"
-    );
-
-    let col0_raw = to_raw_u64(main_col_0);
-    let col1_raw = to_raw_u64(main_col_1);
-    let aux0_raw = to_raw_u64(aux_col_0);
-    let z0_raw = to_raw_u64(&zerofier_evals[0]);
-    let z1_raw = to_raw_u64(&zerofier_evals[1]);
-    let boundary_raw = to_raw_u64(boundary_evals);
-
-    let params = build_fib_rap_params(
-        lde_step_size,
-        num_rows,
-        zerofier_evals[0].len(),
-        zerofier_evals[1].len(),
+    let (buf_output, num_rows) = gpu_evaluate_fibonacci_rap_constraints_to_buffer(
+        main_col_0,
+        main_col_1,
+        aux_col_0,
+        zerofier_evals,
+        boundary_evals,
         gamma,
         transition_coefficients,
-    );
-
-    let mut owned_state = None;
-    let (dyn_state, max_threads) = resolve_state(
+        lde_step_size,
         precompiled,
-        &mut owned_state,
-        "fibonacci_rap_constraint_eval",
     )?;
 
-    let buf_col0 = dyn_state.alloc_buffer_with_data(&col0_raw)?;
-    let buf_col1 = dyn_state.alloc_buffer_with_data(&col1_raw)?;
-    let buf_aux0 = dyn_state.alloc_buffer_with_data(&aux0_raw)?;
-    let buf_z0 = dyn_state.alloc_buffer_with_data(&z0_raw)?;
-    let buf_z1 = dyn_state.alloc_buffer_with_data(&z1_raw)?;
-    let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
-    let buf_boundary = dyn_state.alloc_buffer_with_data(&boundary_raw)?;
-    let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
-
-    dyn_state.execute_compute(
-        "fibonacci_rap_constraint_eval",
-        &[
-            &buf_col0,
-            &buf_col1,
-            &buf_aux0,
-            &buf_z0,
-            &buf_z1,
-            &buf_params,
-            &buf_boundary,
-            &buf_output,
-        ],
-        num_rows as u64,
-        max_threads,
-    )?;
-
-    let output_raw: Vec<u64> = unsafe { dyn_state.read_buffer(&buf_output, num_rows) };
+    let output_raw: Vec<u64> = unsafe {
+        let ptr = buf_output.contents() as *const u64;
+        std::slice::from_raw_parts(ptr, num_rows).to_vec()
+    };
     Ok(output_raw.into_iter().map(FieldElement::from).collect())
 }
 
@@ -251,12 +163,16 @@ pub fn gpu_evaluate_fibonacci_rap_constraints_to_buffer(
         transition_coefficients,
     );
 
-    let mut owned_state = None;
-    let (dyn_state, max_threads) = resolve_state(
-        precompiled,
-        &mut owned_state,
-        "fibonacci_rap_constraint_eval",
-    )?;
+    let mut owned_state;
+    let (dyn_state, max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            owned_state = DynamicMetalState::new()?;
+            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
+            let mt = owned_state.prepare_pipeline("fibonacci_rap_constraint_eval")?;
+            (&owned_state, mt)
+        }
+    };
 
     let buf_col0 = dyn_state.alloc_buffer_with_data(&col0_raw)?;
     let buf_col1 = dyn_state.alloc_buffer_with_data(&col1_raw)?;
@@ -324,16 +240,6 @@ pub struct FusedConstraintState {
 }
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-impl HasMetalState for FusedConstraintState {
-    fn metal_state(&self) -> &DynamicMetalState {
-        &self.state
-    }
-    fn metal_max_threads(&self) -> u64 {
-        self.max_threads
-    }
-}
-
-#[cfg(all(target_os = "macos", feature = "metal"))]
 impl FusedConstraintState {
     pub fn new() -> Result<Self, MetalError> {
         let mut state = DynamicMetalState::new()?;
@@ -387,9 +293,16 @@ pub fn gpu_evaluate_fused_constraints(
         "boundary constraints and coefficients must have same length"
     );
 
-    let mut owned_state = None;
-    let (dyn_state, max_threads) =
-        resolve_state(precompiled, &mut owned_state, "fibonacci_rap_fused_eval")?;
+    let mut owned_state;
+    let (dyn_state, max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            owned_state = DynamicMetalState::new()?;
+            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
+            let mt = owned_state.prepare_pipeline("fibonacci_rap_fused_eval")?;
+            (&owned_state, mt)
+        }
+    };
 
     // Use pre-existing LDE coset buffer when available, otherwise upload.
     let _owned_coset_buf;

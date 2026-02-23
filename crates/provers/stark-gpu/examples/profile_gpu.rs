@@ -19,6 +19,25 @@ use stark_platinum_prover::{
 type F = Goldilocks64Field;
 type FpE = FieldElement<F>;
 
+fn cols_to_metal_buffers(columns: &[Vec<FpE>], device: &metal::DeviceRef) -> Vec<metal::Buffer> {
+    use lambdaworks_math::field::traits::IsPrimeField;
+    use metal::MTLResourceOptions;
+    columns
+        .iter()
+        .map(|col| {
+            let data: Vec<u64> = col
+                .iter()
+                .map(|fe| Goldilocks64Field::canonical(fe.value()))
+                .collect();
+            device.new_buffer_with_data(
+                data.as_ptr() as *const _,
+                (data.len() * std::mem::size_of::<u64>()) as u64,
+                MTLResourceOptions::StorageModeShared,
+            )
+        })
+        .collect()
+}
+
 fn new_trace(len: usize) -> stark_platinum_prover::trace::TraceTable<F, F> {
     fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], len)
 }
@@ -195,8 +214,7 @@ fn profile_phase1(
     use lambdaworks_math::polynomial::Polynomial;
     use lambdaworks_stark_gpu::metal::fft::{gpu_evaluate_offset_fft, gpu_interpolate_fft};
     use lambdaworks_stark_gpu::metal::merkle::{
-        cpu_batch_commit, gpu_build_merkle_tree, gpu_hash_leaves_goldilocks, gpu_transpose_bitrev,
-        GpuKeccakMerkleState,
+        cpu_batch_commit, gpu_batch_commit_from_column_buffers, GpuKeccakMerkleState,
     };
     use lambdaworks_stark_gpu::metal::state::StarkMetalState;
     use stark_platinum_prover::trace::columns2rows_bit_reversed;
@@ -250,29 +268,18 @@ fn profile_phase1(
         blowup_factor
     );
 
+    // GPU fused commit (transpose+hash+tree in one pipeline)
     let t = Instant::now();
-    let rows = gpu_transpose_bitrev(&main_lde_evaluations, &keccak_state).unwrap();
+    let device = metal::Device::system_default().unwrap();
+    let col_buffers = cols_to_metal_buffers(&main_lde_evaluations, &device);
+    let col_buf_refs: Vec<&metal::Buffer> = col_buffers.iter().collect();
+    let (_gpu_tree, _gpu_root) =
+        gpu_batch_commit_from_column_buffers(&col_buf_refs, lde_rows, &keccak_state).unwrap();
     println!(
-        "  GPU transpose+br:  {:>10.2?}  ({} rows x {} cols)",
+        "  GPU fused commit:  {:>10.2?}  ({} leaves x {} cols)",
         t.elapsed(),
-        rows.len(),
-        rows[0].len()
-    );
-
-    let t = Instant::now();
-    let leaf_hashes = gpu_hash_leaves_goldilocks(&rows, &keccak_state).unwrap();
-    println!(
-        "  GPU leaf hash:     {:>10.2?}  ({} leaves)",
-        t.elapsed(),
-        leaf_hashes.len()
-    );
-
-    let t = Instant::now();
-    let (nodes, _root) = gpu_build_merkle_tree(&leaf_hashes, &keccak_state).unwrap();
-    println!(
-        "  GPU tree build:    {:>10.2?}  ({} nodes)",
-        t.elapsed(),
-        nodes.len()
+        lde_rows,
+        main_lde_evaluations.len()
     );
 
     let t = Instant::now();
@@ -302,7 +309,7 @@ fn profile_phase2(
     };
     use lambdaworks_stark_gpu::metal::fft::{gpu_evaluate_offset_fft, CosetShiftState};
     use lambdaworks_stark_gpu::metal::merkle::{
-        gpu_batch_commit_paired_goldilocks, GpuKeccakMerkleState,
+        gpu_batch_commit_paired_from_column_buffers, GpuKeccakMerkleState,
     };
     use lambdaworks_stark_gpu::metal::phases::rap::gpu_round_1_goldilocks;
     use lambdaworks_stark_gpu::metal::state::StarkMetalState;
@@ -466,7 +473,11 @@ fn profile_phase2(
     let num_cols = lde_evaluations.len();
     let lde_len = lde_evaluations[0].len();
     let t = Instant::now();
-    let _ = gpu_batch_commit_paired_goldilocks(&lde_evaluations, &keccak_state).unwrap();
+    let device = metal::Device::system_default().unwrap();
+    let col_buffers = cols_to_metal_buffers(&lde_evaluations, &device);
+    let col_buf_refs: Vec<&metal::Buffer> = col_buffers.iter().collect();
+    let _ =
+        gpu_batch_commit_paired_from_column_buffers(&col_buf_refs, lde_len, &keccak_state).unwrap();
     println!(
         "  GPU paired commit: {:>10.2?}  ({} leaves x {} cols)",
         t.elapsed(),

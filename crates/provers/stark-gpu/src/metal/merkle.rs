@@ -40,6 +40,7 @@ const TRANSPOSE_BITREV_SHADER: &str = include_str!("shaders/transpose_bitrev.met
 /// Caches compiled pipelines for leaf hashing, pair hashing, and grinding.
 /// Create once and reuse across the entire prove call.
 #[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(dead_code)] // Some fields only used in #[cfg(test)] functions
 pub struct GpuMerkleState {
     pub(crate) state: DynamicMetalState,
     hash_leaves_max_threads: u64,
@@ -143,7 +144,7 @@ impl TransposeBitrevState {
 // =============================================================================
 
 /// Convert a flat byte buffer into a Vec of 32-byte hash arrays.
-#[cfg(all(target_os = "macos", feature = "metal"))]
+#[cfg(all(test, target_os = "macos", feature = "metal"))]
 fn bytes_to_hashes(raw: &[u8]) -> Vec<[u8; 32]> {
     raw.chunks_exact(32)
         .map(|chunk| {
@@ -159,7 +160,7 @@ fn bytes_to_hashes(raw: &[u8]) -> Vec<[u8; 32]> {
 /// `leaf_rows` is the actual number of hashed leaves; `leaves_len` is the
 /// padded power-of-two count. Padding duplicates the last real leaf hash.
 #[cfg(all(target_os = "macos", feature = "metal"))]
-fn read_tree_nodes(
+pub(crate) fn read_tree_nodes(
     tree_buf: &metal::Buffer,
     total_nodes: usize,
     leaf_rows: usize,
@@ -270,6 +271,7 @@ fn blit_columns_to_flat(
 /// When `paired` is true: merges consecutive bit-reversed rows into `num_rows/2` rows
 /// of `2 * num_cols` elements each.
 #[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(dead_code)]
 fn gpu_transpose_bitrev_dispatch(
     column_buffers: &[&metal::Buffer],
     num_rows: usize,
@@ -352,34 +354,13 @@ fn gpu_transpose_bitrev_dispatch(
     Ok(output_buf)
 }
 
-/// Transpose column GPU buffers to a single row-major buffer with bit-reversed row ordering.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-pub fn gpu_transpose_bitrev_to_buffer(
-    column_buffers: &[&metal::Buffer],
-    num_rows: usize,
-    transpose_state: &TransposeBitrevState,
-) -> Result<metal::Buffer, MetalError> {
-    gpu_transpose_bitrev_dispatch(column_buffers, num_rows, false, transpose_state)
-}
-
-/// Like `gpu_transpose_bitrev_to_buffer` but merges consecutive bit-reversed rows:
-///   `merged_row[i] = row[br(2*i)] ++ row[br(2*i+1)]`
-#[cfg(all(target_os = "macos", feature = "metal"))]
-pub fn gpu_transpose_bitrev_paired_to_buffer(
-    column_buffers: &[&metal::Buffer],
-    num_rows: usize,
-    transpose_state: &TransposeBitrevState,
-) -> Result<metal::Buffer, MetalError> {
-    gpu_transpose_bitrev_dispatch(column_buffers, num_rows, true, transpose_state)
-}
-
 // =============================================================================
-// Leaf hashing
+// Test-only: individual leaf hashing and tree building functions
 // =============================================================================
 
 /// Hash row-major Goldilocks field element data into 32-byte leaf digests on GPU.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-pub fn gpu_hash_leaves_goldilocks(
+#[cfg(all(test, target_os = "macos", feature = "metal"))]
+fn gpu_hash_leaves_goldilocks(
     rows: &[Vec<FieldElement<Goldilocks64Field>>],
     keccak_state: &GpuKeccakMerkleState,
 ) -> Result<Vec<[u8; 32]>, MetalError> {
@@ -399,8 +380,8 @@ pub fn gpu_hash_leaves_goldilocks(
 }
 
 /// Hash pre-flattened row-major u64 data into 32-byte leaf digests on GPU.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-pub fn gpu_hash_leaves_flat(
+#[cfg(all(test, target_os = "macos", feature = "metal"))]
+fn gpu_hash_leaves_flat(
     flat_data: &[u64],
     num_rows: usize,
     num_cols: usize,
@@ -431,14 +412,10 @@ pub fn gpu_hash_leaves_flat(
     Ok(bytes_to_hashes(&raw_output))
 }
 
-// =============================================================================
-// Tree building
-// =============================================================================
-
 /// Hash pairs of 32-byte child nodes into parent nodes.
 /// Falls back to CPU for fewer than 64 pairs.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-pub fn gpu_hash_tree_level(
+#[cfg(all(test, target_os = "macos", feature = "metal"))]
+fn gpu_hash_tree_level(
     children: &[[u8; 32]],
     keccak_state: &GpuKeccakMerkleState,
 ) -> Result<Vec<[u8; 32]>, MetalError> {
@@ -478,8 +455,8 @@ pub fn gpu_hash_tree_level(
 ///
 /// Node layout matches `MerkleTree::build()`: `[inner_nodes | leaves]` where `nodes[0]` = root.
 /// Uses a single GPU command buffer with all tree levels as sequential compute dispatches.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-pub fn gpu_build_merkle_tree(
+#[cfg(all(test, target_os = "macos", feature = "metal"))]
+fn gpu_build_merkle_tree(
     leaf_hashes: &[[u8; 32]],
     keccak_state: &GpuKeccakMerkleState,
 ) -> Result<(Vec<[u8; 32]>, [u8; 32]), MetalError> {
@@ -648,22 +625,6 @@ pub(crate) fn encode_hash_and_build_tree(
     );
 
     Ok(())
-}
-
-/// Hash leaves from a CPU slice and build tree in a single GPU command buffer.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-fn gpu_hash_and_build_tree(
-    flat_data: &[u64],
-    num_rows: usize,
-    num_cols: usize,
-    keccak_state: &GpuKeccakMerkleState,
-) -> Result<(Vec<[u8; 32]>, [u8; 32]), MetalError> {
-    if num_rows == 0 {
-        return Err(MetalError::ExecutionError("Empty data".to_string()));
-    }
-
-    let buf_data = keccak_state.state.alloc_buffer_with_data(flat_data)?;
-    gpu_hash_and_build_tree_from_buffer(&buf_data, num_rows, num_cols, keccak_state)
 }
 
 /// Hash leaves from a GPU buffer and build tree in a single GPU command buffer.
@@ -899,22 +860,24 @@ pub fn gpu_fri_layer_commit(
         .iter()
         .map(|fe| Goldilocks64Field::canonical(fe.value()))
         .collect();
-    let (nodes, root) = gpu_hash_and_build_tree(&flat_data, num_leaves, 2, keccak_state)?;
+    let buf_data = keccak_state.state.alloc_buffer_with_data(&flat_data)?;
+    let (nodes, root) =
+        gpu_hash_and_build_tree_from_buffer(&buf_data, num_leaves, 2, keccak_state)?;
     let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)
         .ok_or_else(|| MetalError::ExecutionError("Failed to build FRI Merkle tree".into()))?;
     Ok((tree, root))
 }
 
 // =============================================================================
-// CPU-data commit paths (column-major LDE input)
+// Test-only: CPU-data commit paths (column-major LDE input)
 // =============================================================================
 
 /// GPU Merkle commit from column-major LDE evaluations.
 ///
 /// Computes bit-reversed row-major flat data on CPU, then hashes + builds
 /// tree on GPU in a single command buffer.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-pub fn gpu_batch_commit_goldilocks(
+#[cfg(all(test, target_os = "macos", feature = "metal"))]
+fn gpu_batch_commit_goldilocks(
     lde_columns: &[Vec<FieldElement<Goldilocks64Field>>],
     keccak_state: &GpuKeccakMerkleState,
 ) -> Option<(BatchedMerkleTree<Goldilocks64Field>, Commitment)> {
@@ -930,8 +893,9 @@ pub fn gpu_batch_commit_goldilocks(
         }
     }
 
+    let buf_data = keccak_state.state.alloc_buffer_with_data(&flat_data).ok()?;
     let (nodes, root) =
-        gpu_hash_and_build_tree(&flat_data, num_rows, num_cols, keccak_state).ok()?;
+        gpu_hash_and_build_tree_from_buffer(&buf_data, num_rows, num_cols, keccak_state).ok()?;
     let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)?;
     Some((tree, root))
 }
@@ -939,8 +903,8 @@ pub fn gpu_batch_commit_goldilocks(
 /// GPU Merkle commit for composition polynomial (paired rows variant).
 ///
 /// Transposes, bit-reverses, and pairs consecutive rows before hashing.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-pub fn gpu_batch_commit_paired_goldilocks(
+#[cfg(all(test, target_os = "macos", feature = "metal"))]
+fn gpu_batch_commit_paired_goldilocks(
     lde_evaluations: &[Vec<FieldElement<Goldilocks64Field>>],
     keccak_state: &GpuKeccakMerkleState,
 ) -> Option<(BatchedMerkleTree<Goldilocks64Field>, Commitment)> {
@@ -962,8 +926,9 @@ pub fn gpu_batch_commit_paired_goldilocks(
         }
     }
 
-    let (nodes, root) = gpu_hash_and_build_tree(
-        &flat_data,
+    let buf_data = keccak_state.state.alloc_buffer_with_data(&flat_data).ok()?;
+    let (nodes, root) = gpu_hash_and_build_tree_from_buffer(
+        &buf_data,
         num_merged_rows,
         cols_per_merged_row,
         keccak_state,
@@ -974,12 +939,12 @@ pub fn gpu_batch_commit_paired_goldilocks(
 }
 
 // =============================================================================
-// GPU transpose (returns Vec<Vec<FieldElement>>)
+// Test-only: GPU transpose (returns Vec<Vec<FieldElement>>)
 // =============================================================================
 
 /// Transpose column-major LDE data to row-major bit-reversed layout on GPU.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-pub fn gpu_transpose_bitrev(
+#[cfg(all(test, target_os = "macos", feature = "metal"))]
+fn gpu_transpose_bitrev(
     columns: &[Vec<FieldElement<Goldilocks64Field>>],
     keccak_state: &GpuKeccakMerkleState,
 ) -> Result<Vec<Vec<FieldElement<Goldilocks64Field>>>, MetalError> {
@@ -1056,9 +1021,10 @@ pub fn gpu_generate_nonce(
     let grind_kernel = keccak_state.grind_kernel?;
 
     // Compute inner_hash on CPU (single hash, not worth GPU)
-    let prefix: [u8; 8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xed];
+    // Matches the grinding module's GRINDING_PREFIX constant.
+    const GRINDING_PREFIX: [u8; 8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xed];
     let mut inner_data = [0u8; 41];
-    inner_data[0..8].copy_from_slice(&prefix);
+    inner_data[0..8].copy_from_slice(&GRINDING_PREFIX);
     inner_data[8..40].copy_from_slice(seed);
     inner_data[40] = grinding_factor;
     let digest = Keccak256::digest(inner_data);
@@ -1351,7 +1317,7 @@ mod gpu_tests {
         let col_buffers = columns_to_metal_buffers(&columns, transpose_state.state.device());
         let col_buf_refs: Vec<&metal::Buffer> = col_buffers.iter().collect();
         let result_buf =
-            gpu_transpose_bitrev_to_buffer(&col_buf_refs, 256, transpose_state).unwrap();
+            gpu_transpose_bitrev_dispatch(&col_buf_refs, 256, false, transpose_state).unwrap();
 
         let gpu_raw: Vec<u64> = unsafe {
             let ptr = result_buf.contents() as *const u64;
@@ -1396,8 +1362,7 @@ mod gpu_tests {
         let col_buffers = columns_to_metal_buffers(&columns, transpose_state.state.device());
         let col_buf_refs: Vec<&metal::Buffer> = col_buffers.iter().collect();
         let result_buf =
-            gpu_transpose_bitrev_paired_to_buffer(&col_buf_refs, num_rows, transpose_state)
-                .unwrap();
+            gpu_transpose_bitrev_dispatch(&col_buf_refs, num_rows, true, transpose_state).unwrap();
 
         let num_merged_rows = num_rows / 2;
         let cols_per_merged = 2 * num_cols;
@@ -1432,7 +1397,8 @@ mod gpu_tests {
 
         let col_buffers = columns_to_metal_buffers(&columns, transpose_state.state.device());
         let col_buf_refs: Vec<&metal::Buffer> = col_buffers.iter().collect();
-        let result_buf = gpu_transpose_bitrev_to_buffer(&col_buf_refs, 8, transpose_state).unwrap();
+        let result_buf =
+            gpu_transpose_bitrev_dispatch(&col_buf_refs, 8, false, transpose_state).unwrap();
 
         let gpu_raw: Vec<u64> = unsafe {
             let ptr = result_buf.contents() as *const u64;

@@ -26,17 +26,11 @@ use crate::metal::phases::rap::GpuRound1Result;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::deep_composition::{DeepCompositionState, DomainInversionState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::fft::gpu_evaluate_offset_fft;
-#[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{gpu_coset_shift_buffer_to_buffer, CosetShiftState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::merkle::{
-    gpu_fri_layer_commit, gpu_fri_layer_commit_from_buffer, gpu_generate_nonce, GpuMerkleState,
-};
+use crate::metal::merkle::{gpu_fri_layer_commit_from_buffer, gpu_generate_nonce, GpuMerkleState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
-#[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::fft::gpu::metal::ops::{fft_buffer_to_buffer, gen_twiddles_to_buffer};
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -64,6 +58,40 @@ fn check_command_buffer(cb: &metal::CommandBufferRef, context: &str) -> Result<(
         return Err(MetalError::ExecutionError(context.to_string()));
     }
     Ok(())
+}
+
+/// Dispatch a single compute kernel synchronously.
+///
+/// Handles the boilerplate of creating a command buffer, encoder, setting the pipeline,
+/// dispatching thread groups, and waiting for completion. The caller provides a closure
+/// that sets the required buffers on the encoder.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn dispatch_kernel(
+    state: &DynamicMetalState,
+    pipeline: &metal::ComputePipelineStateRef,
+    max_threads: u64,
+    work_items: usize,
+    context: &str,
+    set_buffers: impl FnOnce(&metal::ComputeCommandEncoderRef),
+) -> Result<(), MetalError> {
+    use metal::MTLSize;
+
+    let threads_per_group = max_threads.min(256);
+    let thread_groups = (work_items as u64).div_ceil(threads_per_group);
+
+    let command_buffer = state.command_queue().new_command_buffer();
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    set_buffers(encoder);
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+    check_command_buffer(command_buffer, context)
 }
 
 /// Macro to define a shader state struct with `new()` and `from_device_and_queue()`.
@@ -126,8 +154,6 @@ pub fn gpu_fold_polynomial(
     beta: &FieldElement<Goldilocks64Field>,
     state: &FriFoldState,
 ) -> Result<(metal::Buffer, usize), MetalError> {
-    use metal::MTLSize;
-
     if num_coeffs <= 1 {
         let val: u64 = if num_coeffs == 1 {
             let vals: Vec<u64> = MetalState::retrieve_contents(coeffs_buffer);
@@ -167,11 +193,7 @@ pub fn gpu_fold_polynomial(
         (None, Some(coeffs_buffer), num_coeffs)
     };
 
-    let actual_input: &metal::Buffer = match (&input_buf_owned, input_ref) {
-        (Some(buf), _) => buf,
-        (_, Some(buf)) => buf,
-        _ => unreachable!(),
-    };
+    let actual_input: &metal::Buffer = input_buf_owned.as_ref().or(input_ref).unwrap();
 
     let half_len = padded_len / 2;
 
@@ -193,26 +215,19 @@ pub fn gpu_fold_polynomial(
         .get_pipeline_ref("goldilocks_fri_fold")
         .ok_or_else(|| MetalError::FunctionError("goldilocks_fri_fold".to_string()))?;
 
-    let threads_per_group = state.fri_fold_max_threads.min(256);
-    let thread_groups = (half_len as u64).div_ceil(threads_per_group);
-
-    let command_buffer = state.state.command_queue().new_command_buffer();
-    let encoder = command_buffer.new_compute_command_encoder();
-    encoder.set_compute_pipeline_state(pipeline);
-    encoder.set_buffer(0, Some(actual_input), 0);
-    encoder.set_buffer(1, Some(&buf_output), 0);
-    encoder.set_buffer(2, Some(&buf_beta), 0);
-    encoder.set_buffer(3, Some(&buf_half_len), 0);
-
-    encoder.dispatch_thread_groups(
-        MTLSize::new(thread_groups, 1, 1),
-        MTLSize::new(threads_per_group, 1, 1),
-    );
-    encoder.end_encoding();
-
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
-    check_command_buffer(command_buffer, "GPU FRI fold error")?;
+    dispatch_kernel(
+        &state.state,
+        pipeline,
+        state.fri_fold_max_threads,
+        half_len,
+        "GPU FRI fold error",
+        |encoder| {
+            encoder.set_buffer(0, Some(actual_input), 0);
+            encoder.set_buffer(1, Some(&buf_output), 0);
+            encoder.set_buffer(2, Some(&buf_beta), 0);
+            encoder.set_buffer(3, Some(&buf_half_len), 0);
+        },
+    )?;
 
     Ok((buf_output, half_len))
 }
@@ -283,8 +298,6 @@ pub fn gpu_fold_evaluations(
     inv_x_buffer: &metal::Buffer,
     state: &FriFoldEvalState,
 ) -> Result<(metal::Buffer, usize), MetalError> {
-    use metal::MTLSize;
-
     assert!(
         num_evals >= 2 && num_evals.is_multiple_of(2),
         "eval-domain fold requires even number of evaluations"
@@ -311,25 +324,20 @@ pub fn gpu_fold_evaluations(
         .get_pipeline_ref("goldilocks_fri_fold_eval")
         .ok_or_else(|| MetalError::FunctionError("goldilocks_fri_fold_eval".to_string()))?;
 
-    let threads_per_group = state.max_threads.min(256);
-    let thread_groups = (half_len as u64).div_ceil(threads_per_group);
-
-    let command_buffer = state.state.command_queue().new_command_buffer();
-    let encoder = command_buffer.new_compute_command_encoder();
-    encoder.set_compute_pipeline_state(pipeline);
-    encoder.set_buffer(0, Some(evals_buffer), 0);
-    encoder.set_buffer(1, Some(&buf_output), 0);
-    encoder.set_buffer(2, Some(&buf_beta), 0);
-    encoder.set_buffer(3, Some(inv_x_buffer), 0);
-    encoder.set_buffer(4, Some(&buf_params), 0);
-    encoder.dispatch_thread_groups(
-        MTLSize::new(thread_groups, 1, 1),
-        MTLSize::new(threads_per_group, 1, 1),
-    );
-    encoder.end_encoding();
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
-    check_command_buffer(command_buffer, "GPU eval-domain FRI fold error")?;
+    dispatch_kernel(
+        &state.state,
+        pipeline,
+        state.max_threads,
+        half_len,
+        "GPU eval-domain FRI fold error",
+        |encoder| {
+            encoder.set_buffer(0, Some(evals_buffer), 0);
+            encoder.set_buffer(1, Some(&buf_output), 0);
+            encoder.set_buffer(2, Some(&buf_beta), 0);
+            encoder.set_buffer(3, Some(inv_x_buffer), 0);
+            encoder.set_buffer(4, Some(&buf_params), 0);
+        },
+    )?;
 
     Ok((buf_output, half_len))
 }
@@ -668,24 +676,8 @@ pub fn gpu_fold_and_commit_fused(
         ));
     }
 
-    let mut nodes = vec![[0u8; 32]; total_nodes];
-    unsafe {
-        let ptr = tree_buf.contents() as *const u8;
-        std::ptr::copy_nonoverlapping(ptr, nodes.as_mut_ptr() as *mut u8, total_nodes * 32);
-    }
-
-    if num_leaves < leaves_len {
-        let last_real = leaves_len - 1 + num_leaves - 1;
-        let pad_hash = nodes[last_real];
-        for node in nodes
-            .iter_mut()
-            .take(leaves_len - 1 + leaves_len)
-            .skip(last_real + 1)
-        {
-            *node = pad_hash;
-        }
-    }
-
+    let nodes =
+        crate::metal::merkle::read_tree_nodes(&tree_buf, total_nodes, num_leaves, leaves_len);
     let root = nodes[0];
     let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)
         .ok_or_else(|| MetalError::ExecutionError("Failed to build FRI Merkle tree".into()))?;
@@ -710,8 +702,6 @@ pub fn gpu_compute_fri_domain_inverses(
     domain_size: usize,
     state: &FriDomainInvState,
 ) -> Result<metal::Buffer, MetalError> {
-    use metal::MTLSize;
-
     let half_len = domain_size / 2;
     let h_inv_u64 = Goldilocks64Field::canonical(h_inv.value());
     let omega_inv_u64 = Goldilocks64Field::canonical(omega_inv.value());
@@ -738,24 +728,19 @@ pub fn gpu_compute_fri_domain_inverses(
         .get_pipeline_ref("compute_fri_domain_inverses")
         .ok_or_else(|| MetalError::FunctionError("compute_fri_domain_inverses".to_string()))?;
 
-    let threads_per_group = state.max_threads.min(256);
-    let thread_groups = (half_len as u64).div_ceil(threads_per_group);
-
-    let command_buffer = state.state.command_queue().new_command_buffer();
-    let encoder = command_buffer.new_compute_command_encoder();
-    encoder.set_compute_pipeline_state(pipeline);
-    encoder.set_buffer(0, Some(&buf_h_inv), 0);
-    encoder.set_buffer(1, Some(&buf_omega_inv), 0);
-    encoder.set_buffer(2, Some(&buf_output), 0);
-    encoder.set_buffer(3, Some(&buf_params), 0);
-    encoder.dispatch_thread_groups(
-        MTLSize::new(thread_groups, 1, 1),
-        MTLSize::new(threads_per_group, 1, 1),
-    );
-    encoder.end_encoding();
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
-    check_command_buffer(command_buffer, "GPU FRI domain inverse error")?;
+    dispatch_kernel(
+        &state.state,
+        pipeline,
+        state.max_threads,
+        half_len,
+        "GPU FRI domain inverse error",
+        |encoder| {
+            encoder.set_buffer(0, Some(&buf_h_inv), 0);
+            encoder.set_buffer(1, Some(&buf_omega_inv), 0);
+            encoder.set_buffer(2, Some(&buf_output), 0);
+            encoder.set_buffer(3, Some(&buf_params), 0);
+        },
+    )?;
 
     Ok(buf_output)
 }
@@ -776,8 +761,6 @@ pub fn gpu_square_fri_inverses(
     output_len: usize,
     state: &FriSquareInvState,
 ) -> Result<metal::Buffer, MetalError> {
-    use metal::MTLSize;
-
     let buf_output = state
         .state
         .alloc_buffer(output_len * std::mem::size_of::<u64>())?;
@@ -793,23 +776,18 @@ pub fn gpu_square_fri_inverses(
         .get_pipeline_ref("fri_square_inverses")
         .ok_or_else(|| MetalError::FunctionError("fri_square_inverses".to_string()))?;
 
-    let threads_per_group = state.max_threads.min(256);
-    let thread_groups = (output_len as u64).div_ceil(threads_per_group);
-
-    let command_buffer = state.state.command_queue().new_command_buffer();
-    let encoder = command_buffer.new_compute_command_encoder();
-    encoder.set_compute_pipeline_state(pipeline);
-    encoder.set_buffer(0, Some(inv_x_buffer), 0);
-    encoder.set_buffer(1, Some(&buf_output), 0);
-    encoder.set_buffer(2, Some(&buf_params), 0);
-    encoder.dispatch_thread_groups(
-        MTLSize::new(thread_groups, 1, 1),
-        MTLSize::new(threads_per_group, 1, 1),
-    );
-    encoder.end_encoding();
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
-    check_command_buffer(command_buffer, "GPU FRI square inverses error")?;
+    dispatch_kernel(
+        &state.state,
+        pipeline,
+        state.max_threads,
+        output_len,
+        "GPU FRI square inverses error",
+        |encoder| {
+            encoder.set_buffer(0, Some(inv_x_buffer), 0);
+            encoder.set_buffer(1, Some(&buf_output), 0);
+            encoder.set_buffer(2, Some(&buf_params), 0);
+        },
+    )?;
 
     Ok(buf_output)
 }
@@ -895,8 +873,6 @@ pub fn gpu_fold_polynomial_fp3(
     beta: &Fp3E,
     state: &FriFoldFp3State,
 ) -> Result<(metal::Buffer, usize), MetalError> {
-    use metal::MTLSize;
-
     if num_coeffs <= 1 {
         let val: [u64; 3] = if num_coeffs == 1 {
             let vals: Vec<u64> = MetalState::retrieve_contents(coeffs_buffer);
@@ -942,11 +918,7 @@ pub fn gpu_fold_polynomial_fp3(
         (None, Some(coeffs_buffer), num_coeffs)
     };
 
-    let actual_input: &metal::Buffer = match (&input_buf_owned, input_ref) {
-        (Some(buf), _) => buf,
-        (_, Some(buf)) => buf,
-        _ => unreachable!(),
-    };
+    let actual_input: &metal::Buffer = input_buf_owned.as_ref().or(input_ref).unwrap();
 
     let half_len = padded_len / 2;
 
@@ -972,26 +944,19 @@ pub fn gpu_fold_polynomial_fp3(
         .get_pipeline_ref("goldilocks_fp3_fri_fold")
         .ok_or_else(|| MetalError::FunctionError("goldilocks_fp3_fri_fold".to_string()))?;
 
-    let threads_per_group = state.fri_fold_max_threads.min(256);
-    let thread_groups = (half_len as u64).div_ceil(threads_per_group);
-
-    let command_buffer = state.state.command_queue().new_command_buffer();
-    let encoder = command_buffer.new_compute_command_encoder();
-    encoder.set_compute_pipeline_state(pipeline);
-    encoder.set_buffer(0, Some(actual_input), 0);
-    encoder.set_buffer(1, Some(&buf_output), 0);
-    encoder.set_buffer(2, Some(&buf_beta), 0);
-    encoder.set_buffer(3, Some(&buf_half_len), 0);
-
-    encoder.dispatch_thread_groups(
-        MTLSize::new(thread_groups, 1, 1),
-        MTLSize::new(threads_per_group, 1, 1),
-    );
-    encoder.end_encoding();
-
-    command_buffer.commit();
-    command_buffer.wait_until_completed();
-    check_command_buffer(command_buffer, "GPU Fp3 FRI fold error")?;
+    dispatch_kernel(
+        &state.state,
+        pipeline,
+        state.fri_fold_max_threads,
+        half_len,
+        "GPU Fp3 FRI fold error",
+        |encoder| {
+            encoder.set_buffer(0, Some(actual_input), 0);
+            encoder.set_buffer(1, Some(&buf_output), 0);
+            encoder.set_buffer(2, Some(&buf_beta), 0);
+            encoder.set_buffer(3, Some(&buf_half_len), 0);
+        },
+    )?;
 
     Ok((buf_output, half_len))
 }
@@ -1210,26 +1175,30 @@ where
 }
 
 /// Computes the DEEP composition polynomial via Ruffini division.
+///
+/// Supports both `F = E` (base field only) and `F != E` (e.g. Goldilocks + Fp3 extension).
+/// `primitive_root` lives in the base field `F`; all other field elements live in `E`.
 #[allow(clippy::too_many_arguments)]
-fn compute_deep_composition_poly<F>(
-    trace_polys: &[Polynomial<FieldElement<F>>],
-    composition_poly_parts: &[Polynomial<FieldElement<F>>],
-    trace_ood_evaluations: &Table<F>,
-    composition_poly_ood_evaluations: &[FieldElement<F>],
-    z: &FieldElement<F>,
+fn compute_deep_composition_poly<F, E>(
+    trace_polys: &[Polynomial<FieldElement<E>>],
+    composition_poly_parts: &[Polynomial<FieldElement<E>>],
+    trace_ood_evaluations: &Table<E>,
+    composition_poly_ood_evaluations: &[FieldElement<E>],
+    z: &FieldElement<E>,
     primitive_root: &FieldElement<F>,
-    composition_gammas: &[FieldElement<F>],
-    trace_term_coeffs: &[Vec<FieldElement<F>>],
-) -> Polynomial<FieldElement<F>>
+    composition_gammas: &[FieldElement<E>],
+    trace_term_coeffs: &[Vec<FieldElement<E>>],
+) -> Polynomial<FieldElement<E>>
 where
-    F: IsFFTField + IsSubFieldOf<F>,
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
 {
     let z_power = crate::metal::exp_power_of_2(z, composition_poly_parts.len().trailing_zeros());
 
     let mut h_terms = Polynomial::zero();
     for (i, part) in composition_poly_parts.iter().enumerate() {
         let h_i_eval = &composition_poly_ood_evaluations[i];
-        let h_i_term = &composition_gammas[i] * (part - h_i_eval);
+        let h_i_term = composition_gammas[i].clone() * (part - h_i_eval);
         h_terms += h_i_term;
     }
     debug_assert_eq!(h_terms.evaluate(&z_power), FieldElement::zero());
@@ -1237,7 +1206,7 @@ where
 
     let trace_evaluations_columns = trace_ood_evaluations.columns();
     let num_offsets = trace_ood_evaluations.height;
-    let z_shifted_values: Vec<FieldElement<F>> = {
+    let z_shifted_values: Vec<FieldElement<E>> = {
         let mut vals = Vec::with_capacity(num_offsets);
         let mut g_pow = FieldElement::<F>::one();
         for _ in 0..num_offsets {
@@ -1330,29 +1299,21 @@ where
             ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index))
         })?;
 
-    let lde_composition_poly_parts_evaluation: Vec<_> = lde_composition_poly_evaluations
+    let (evaluations, evaluations_sym): (Vec<_>, Vec<_>) = lde_composition_poly_evaluations
         .iter()
-        .flat_map(|part| {
-            vec![
+        .map(|part| {
+            (
                 part[reverse_index(index * 2, part.len() as u64)].clone(),
                 part[reverse_index(index * 2 + 1, part.len() as u64)].clone(),
-            ]
+            )
         })
-        .collect();
+        .unzip();
 
     Ok(PolynomialOpenings {
         proof: proof.clone(),
         proof_sym: proof,
-        evaluations: lde_composition_poly_parts_evaluation
-            .clone()
-            .into_iter()
-            .step_by(2)
-            .collect(),
-        evaluations_sym: lde_composition_poly_parts_evaluation
-            .into_iter()
-            .skip(1)
-            .step_by(2)
-            .collect(),
+        evaluations,
+        evaluations_sym,
     })
 }
 
@@ -1411,30 +1372,22 @@ fn open_composition_poly_from_buffers(
             ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index))
         })?;
 
-    let lde_composition_poly_parts_evaluation: Vec<_> = lde_composition_buffers
+    let (evaluations, evaluations_sym): (Vec<_>, Vec<_>) = lde_composition_buffers
         .iter()
-        .flat_map(|buf| {
+        .map(|buf| {
             let part_len = buf.length() as usize / std::mem::size_of::<u64>();
-            vec![
+            (
                 read_element_from_buffer(buf, reverse_index(index * 2, part_len as u64)),
                 read_element_from_buffer(buf, reverse_index(index * 2 + 1, part_len as u64)),
-            ]
+            )
         })
-        .collect();
+        .unzip();
 
     Ok(PolynomialOpenings {
         proof: proof.clone(),
         proof_sym: proof,
-        evaluations: lde_composition_poly_parts_evaluation
-            .clone()
-            .into_iter()
-            .step_by(2)
-            .collect(),
-        evaluations_sym: lde_composition_poly_parts_evaluation
-            .into_iter()
-            .skip(1)
-            .step_by(2)
-            .collect(),
+        evaluations,
+        evaluations_sym,
     })
 }
 
@@ -1450,7 +1403,7 @@ where
     FieldElement<F>: AsBytes + Sync + Send,
 {
     let domain_size = domain.lde_roots_of_unity_coset.len();
-    let mut openings = Vec::new();
+    let mut openings = Vec::with_capacity(indexes_to_open.len());
 
     for index in indexes_to_open.iter() {
         let main_trace_opening = open_trace_polys(
@@ -1506,7 +1459,7 @@ fn open_deep_composition_poly_from_buffers(
         .as_ref()
         .expect("open_deep_composition_poly_from_buffers requires lde_composition_gpu_buffers");
 
-    let mut openings = Vec::new();
+    let mut openings = Vec::with_capacity(indexes_to_open.len());
 
     for index in indexes_to_open.iter() {
         let main_trace_opening = open_trace_polys_from_buffers(
@@ -1542,38 +1495,6 @@ fn open_deep_composition_poly_from_buffers(
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 const GPU_FRI_THRESHOLD: usize = 4096;
-
-/// Create a single FRI layer using GPU FFT + GPU Keccak256 Merkle (fallback path).
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(dead_code)]
-fn gpu_new_fri_layer(
-    poly: &Polynomial<FieldElement<Goldilocks64Field>>,
-    coset_offset: &FieldElement<Goldilocks64Field>,
-    domain_size: usize,
-    gpu_state: &StarkMetalState,
-    keccak_state: &GpuMerkleState,
-) -> Result<FriLayer<Goldilocks64Field, BatchedMerkleTreeBackend<Goldilocks64Field>>, ProvingError>
-{
-    let coefficients = poly.coefficients();
-    let mut padded_coeffs = coefficients.to_vec();
-    padded_coeffs.resize(domain_size, FieldElement::zero());
-
-    let mut evaluation =
-        gpu_evaluate_offset_fft(&padded_coeffs, 1, coset_offset, gpu_state.inner())
-            .map_err(|e| ProvingError::FieldOperationError(format!("GPU FFT in FRI: {e}")))?;
-
-    in_place_bit_reverse_permute(&mut evaluation);
-
-    let (merkle_tree, _root) = gpu_fri_layer_commit(&evaluation, keccak_state)
-        .map_err(|e| ProvingError::MerkleTreeError(format!("GPU Merkle in FRI: {e}")))?;
-
-    Ok(FriLayer::new(
-        &evaluation,
-        merkle_tree,
-        *coset_offset,
-        domain_size,
-    ))
-}
 
 /// Create a FRI layer on GPU from a Metal buffer: coset shift -> FFT -> Merkle hash.
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -1628,12 +1549,23 @@ fn gpu_new_fri_layer_fused(
     ))
 }
 
+/// Initial input for the GPU FRI commit phase: either a CPU polynomial or a GPU buffer.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub enum FriCommitInput {
+    /// CPU polynomial coefficients (will be uploaded on first fold).
+    Poly(Polynomial<FieldElement<Goldilocks64Field>>),
+    /// Pre-existing GPU buffer with coefficient count.
+    Buffer(metal::Buffer, usize),
+}
+
 /// GPU-accelerated FRI commit phase for Goldilocks (coeff-domain fold).
+///
+/// Accepts either a CPU polynomial or a GPU buffer as the initial input via [`FriCommitInput`].
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn gpu_fri_commit_phase_goldilocks(
     number_layers: usize,
-    p_0: Polynomial<FieldElement<Goldilocks64Field>>,
+    input: FriCommitInput,
     transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
     coset_offset: &FieldElement<Goldilocks64Field>,
     domain_size: usize,
@@ -1655,8 +1587,13 @@ pub fn gpu_fri_commit_phase_goldilocks(
     let mut fri_layer_list = Vec::with_capacity(number_layers);
     let mut coset_offset = *coset_offset;
 
+    // On the first iteration the poly variant uploads from CPU; after that we always use buffers.
     let mut current_buffer: Option<(metal::Buffer, usize)> = None;
-    let mut current_poly_cpu: Option<Polynomial<FpE>> = Some(p_0);
+    let mut current_poly_cpu: Option<Polynomial<FpE>> = None;
+    match input {
+        FriCommitInput::Poly(p) => current_poly_cpu = Some(p),
+        FriCommitInput::Buffer(buf, len) => current_buffer = Some((buf, len)),
+    }
 
     for _ in 1..number_layers {
         let zeta = transcript.sample_field_element();
@@ -1703,82 +1640,6 @@ pub fn gpu_fri_commit_phase_goldilocks(
         gpu_fold_polynomial(&buf, len, &zeta, fri_fold_state)
             .map_err(|e| ProvingError::FieldOperationError(format!("GPU FRI fold: {e}")))?
     };
-
-    let last_u64: Vec<u64> = MetalState::retrieve_contents(&last_buf);
-    let last_value = if last_u64.is_empty() {
-        FpE::zero()
-    } else {
-        FpE::from(last_u64[0])
-    };
-    transcript.append_field_element(&last_value);
-
-    Ok((last_value, fri_layer_list))
-}
-
-/// Like [`gpu_fri_commit_phase_goldilocks`] but starting from a GPU buffer.
-#[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(clippy::type_complexity, clippy::too_many_arguments)]
-pub fn gpu_fri_commit_phase_goldilocks_from_buffer(
-    number_layers: usize,
-    p_0_buffer: metal::Buffer,
-    p_0_len: usize,
-    transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
-    coset_offset: &FieldElement<Goldilocks64Field>,
-    domain_size: usize,
-    gpu_state: &StarkMetalState,
-    keccak_state: &GpuMerkleState,
-    coset_state: &CosetShiftState,
-    fri_fold_state: &FriFoldState,
-) -> Result<
-    (
-        FieldElement<Goldilocks64Field>,
-        Vec<FriLayer<Goldilocks64Field, BatchedMerkleTreeBackend<Goldilocks64Field>>>,
-    ),
-    ProvingError,
-> {
-    type F = Goldilocks64Field;
-    type FpE = FieldElement<F>;
-
-    let mut domain_size = domain_size;
-    let mut fri_layer_list = Vec::with_capacity(number_layers);
-    let mut coset_offset = *coset_offset;
-    let mut current_buffer: (metal::Buffer, usize) = (p_0_buffer, p_0_len);
-
-    for _ in 1..number_layers {
-        let zeta = transcript.sample_field_element();
-        coset_offset = coset_offset.square();
-        domain_size /= 2;
-
-        let (buf, len) = current_buffer;
-        let (folded_buf, folded_len) = gpu_fold_polynomial(&buf, len, &zeta, fri_fold_state)
-            .map_err(|e| ProvingError::FieldOperationError(format!("GPU FRI fold: {e}")))?;
-
-        let current_layer = if domain_size >= GPU_FRI_THRESHOLD {
-            gpu_new_fri_layer_fused(
-                &folded_buf,
-                folded_len,
-                &coset_offset,
-                domain_size,
-                gpu_state,
-                keccak_state,
-                coset_state,
-            )?
-        } else {
-            let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&folded_buf);
-            let coeffs: Vec<FpE> = coeffs_u64.into_iter().map(FpE::from).collect();
-            fri::new_fri_layer(&Polynomial::new(&coeffs), &coset_offset, domain_size)?
-        };
-
-        current_buffer = (folded_buf, folded_len);
-        let commitment = current_layer.merkle_tree.root;
-        fri_layer_list.push(current_layer);
-        transcript.append_bytes(&commitment);
-    }
-
-    let zeta = transcript.sample_field_element();
-    let (buf, len) = current_buffer;
-    let (last_buf, _last_len) = gpu_fold_polynomial(&buf, len, &zeta, fri_fold_state)
-        .map_err(|e| ProvingError::FieldOperationError(format!("GPU FRI fold: {e}")))?;
 
     let last_u64: Vec<u64> = MetalState::retrieve_contents(&last_buf);
     let last_value = if last_u64.is_empty() {
@@ -2137,7 +1998,7 @@ where
         .collect();
     all_trace_polys.extend(round_1_result.aux_trace_polys.iter().cloned());
 
-    let deep_composition_poly = compute_deep_composition_poly_fp3(
+    let deep_composition_poly = compute_deep_composition_poly(
         &all_trace_polys,
         &round_2_result.composition_poly_parts,
         &round_3_result.trace_ood_evaluations,
@@ -2194,104 +2055,6 @@ where
     })
 }
 
-/// CPU DEEP composition polynomial for Fp3.
-#[allow(clippy::too_many_arguments)]
-fn compute_deep_composition_poly_fp3(
-    trace_polys: &[Polynomial<Fp3E>],
-    composition_poly_parts: &[Polynomial<Fp3E>],
-    trace_ood_evaluations: &Table<Fp3>,
-    composition_poly_ood_evaluations: &[Fp3E],
-    z: &Fp3E,
-    primitive_root: &FieldElement<Goldilocks64Field>,
-    composition_gammas: &[Fp3E],
-    trace_term_coeffs: &[Vec<Fp3E>],
-) -> Polynomial<Fp3E> {
-    let z_power = crate::metal::exp_power_of_2(z, composition_poly_parts.len().trailing_zeros());
-
-    let mut h_terms = Polynomial::zero();
-    for (i, part) in composition_poly_parts.iter().enumerate() {
-        let h_i_eval = &composition_poly_ood_evaluations[i];
-        let h_i_term = composition_gammas[i] * (part - h_i_eval);
-        h_terms += h_i_term;
-    }
-    debug_assert_eq!(h_terms.evaluate(&z_power), Fp3E::zero());
-    h_terms.ruffini_division_inplace(&z_power);
-
-    let trace_evaluations_columns = trace_ood_evaluations.columns();
-    let num_offsets = trace_ood_evaluations.height;
-    let z_shifted_values: Vec<Fp3E> = {
-        let mut vals = Vec::with_capacity(num_offsets);
-        let mut g_pow = FieldElement::<Goldilocks64Field>::one();
-        for _ in 0..num_offsets {
-            vals.push(g_pow * z);
-            g_pow *= primitive_root;
-        }
-        vals
-    };
-
-    let trace_terms =
-        trace_polys
-            .iter()
-            .enumerate()
-            .fold(Polynomial::zero(), |accumulator, (i, t_j)| {
-                let gammas_i = &trace_term_coeffs[i];
-                let trace_evaluations_i = &trace_evaluations_columns[i];
-
-                let trace_int = trace_evaluations_i
-                    .iter()
-                    .zip(&z_shifted_values)
-                    .zip(gammas_i)
-                    .fold(
-                        Polynomial::zero(),
-                        |trace_agg, ((trace_term_poly_evaluation, z_shifted), trace_gamma)| {
-                            let mut poly = t_j - trace_term_poly_evaluation;
-                            poly.ruffini_division_inplace(z_shifted);
-                            trace_agg + poly * trace_gamma
-                        },
-                    );
-                accumulator + trace_int
-            });
-
-    h_terms + trace_terms
-}
-
-/// Opens trace polynomials at a given query index for Fp3 extension field openings.
-fn open_trace_polys_extension(
-    domain_size: usize,
-    tree: &BatchedMerkleTree<Fp3>,
-    lde_evaluations: &[Vec<Fp3E>],
-    challenge: usize,
-) -> Result<PolynomialOpenings<Fp3>, ProvingError> {
-    let index = challenge * 2;
-    let index_sym = challenge * 2 + 1;
-
-    let proof = tree.get_proof_by_pos(index).ok_or_else(|| {
-        ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index))
-    })?;
-    let proof_sym = tree.get_proof_by_pos(index_sym).ok_or_else(|| {
-        ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index_sym))
-    })?;
-
-    let actual_index = reverse_index(index, domain_size as u64);
-    let actual_index_sym = reverse_index(index_sym, domain_size as u64);
-
-    let evaluations: Vec<_> = lde_evaluations
-        .iter()
-        .map(|col| col[actual_index])
-        .collect();
-    let evaluations_sym: Vec<_> = lde_evaluations
-        .iter()
-        .map(|col| col[actual_index_sym])
-        .collect();
-
-    Ok(PolynomialOpenings {
-        proof,
-        proof_sym,
-        evaluations,
-        evaluations_sym,
-    })
-}
-
 /// Opens the deep composition polynomial at query indexes for Fp3 proofs.
 fn open_deep_composition_poly_fp3(
     domain: &Domain<Goldilocks64Field>,
@@ -2300,7 +2063,7 @@ fn open_deep_composition_poly_fp3(
     indexes_to_open: &[usize],
 ) -> Result<Vec<DeepPolynomialOpening<Goldilocks64Field, Fp3>>, ProvingError> {
     let domain_size = domain.lde_roots_of_unity_coset.len();
-    let mut openings = Vec::new();
+    let mut openings = Vec::with_capacity(indexes_to_open.len());
 
     for index in indexes_to_open.iter() {
         let main_trace_opening = open_trace_polys(
@@ -2320,7 +2083,7 @@ fn open_deep_composition_poly_fp3(
             round_1_result.aux_merkle_tree.as_ref(),
             round_1_result.aux_lde_evaluations.is_empty(),
         ) {
-            (Some(aux_tree), false) => Some(open_trace_polys_extension(
+            (Some(aux_tree), false) => Some(open_trace_polys(
                 domain_size,
                 aux_tree,
                 &round_1_result.aux_lde_evaluations,
