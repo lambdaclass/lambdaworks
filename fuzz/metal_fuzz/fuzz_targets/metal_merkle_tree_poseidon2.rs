@@ -56,16 +56,19 @@ fuzz_target!(|data: Vec<u64>| {
     // Track whether the GPU is working correctly this iteration
     let mut gpu_reliable = false;
 
-    if let Ok(gpu_leaves) = MetalPoseidon2Backend::hash_leaves_gpu(&padded) {
-        if !is_silent_gpu_failure(&gpu_leaves) {
-            for (i, (gpu, cpu)) in gpu_leaves.iter().zip(cpu_leaves.iter()).enumerate() {
-                assert_eq!(
-                    gpu, cpu,
-                    "hash_single mismatch at index {}: GPU={:?} CPU={:?}",
-                    i, gpu, cpu
-                );
+    match MetalPoseidon2Backend::hash_leaves_gpu(&padded) {
+        Err(e) => eprintln!("hash_leaves_gpu error ({} leaves): {e:?}", padded.len()),
+        Ok(gpu_leaves) => {
+            if !is_silent_gpu_failure(&gpu_leaves) {
+                for (i, (gpu, cpu)) in gpu_leaves.iter().zip(cpu_leaves.iter()).enumerate() {
+                    assert_eq!(
+                        gpu, cpu,
+                        "hash_single mismatch at index {}: GPU={:?} CPU={:?}",
+                        i, gpu, cpu
+                    );
+                }
+                gpu_reliable = true;
             }
-            gpu_reliable = true;
         }
     }
 
@@ -84,14 +87,17 @@ fuzz_target!(|data: Vec<u64>| {
         .map(|i| Poseidon2::compress(&nodes[i * 2], &nodes[i * 2 + 1]))
         .collect();
 
-    if let Ok(gpu_level) = MetalPoseidon2Backend::hash_level_gpu(&nodes) {
-        if !is_silent_gpu_failure(&gpu_level) {
-            for (i, (gpu, cpu)) in gpu_level.iter().zip(cpu_level.iter()).enumerate() {
-                assert_eq!(
-                    gpu, cpu,
-                    "compress mismatch at pair {}: GPU={:?} CPU={:?}",
-                    i, gpu, cpu
-                );
+    match MetalPoseidon2Backend::hash_level_gpu(&nodes) {
+        Err(e) => eprintln!("hash_level_gpu error ({} nodes): {e:?}", nodes.len()),
+        Ok(gpu_level) => {
+            if !is_silent_gpu_failure(&gpu_level) {
+                for (i, (gpu, cpu)) in gpu_level.iter().zip(cpu_level.iter()).enumerate() {
+                    assert_eq!(
+                        gpu, cpu,
+                        "compress mismatch at pair {}: GPU={:?} CPU={:?}",
+                        i, gpu, cpu
+                    );
+                }
             }
         }
     }

@@ -13,7 +13,9 @@ type Digest = [Fp; 2];
 /// Metal GPU-accelerated Merkle tree backend using Poseidon2 hash for Goldilocks field.
 ///
 /// Uses Apple's Metal framework to accelerate Merkle tree construction.
-/// Falls back to CPU implementation for small inputs or when GPU is unavailable.
+/// Both leaf hashing ([`hash_leaves`](IsMerkleTreeBackend::hash_leaves)) and internal level
+/// compression ([`hash_level`](IsMerkleTreeBackend::hash_level)) are GPU-accelerated.
+/// Falls back to CPU for small inputs or when GPU is unavailable.
 #[derive(Clone, Default)]
 pub struct MetalPoseidon2Backend;
 
@@ -37,6 +39,9 @@ impl MetalPoseidon2Backend {
         // Convert leaves to raw u64 values (no Montgomery form needed for Goldilocks)
         let gpu_input: Vec<u64> = leaves.iter().map(|fe| *fe.value()).collect();
 
+        // Creates a new Metal state per call, recompiling the shader from source each time.
+        // Same pattern as the Stark252 backend. Caching the compiled pipeline would require
+        // architectural changes (thread-local or Arc<Mutex<...>>) — a future optimization.
         let mut state = DynamicMetalState::new()?;
         state.load_library(POSEIDON2_SHADER)?;
 
@@ -58,7 +63,7 @@ impl MetalPoseidon2Backend {
 
         Ok(results
             .chunks_exact(2)
-            .map(|chunk| [Fp::from_raw(chunk[0]), Fp::from_raw(chunk[1])])
+            .map(|chunk| [Fp::from(chunk[0]), Fp::from(chunk[1])])
             .collect())
     }
 
@@ -67,12 +72,15 @@ impl MetalPoseidon2Backend {
     /// Takes `N` digests and produces `N/2` parent digests via `compress(left, right)`.
     ///
     /// Falls back to CPU for fewer than 32 pairs.
+    ///
+    /// Used by the [`IsMerkleTreeBackend::hash_level`] override to GPU-accelerate
+    /// internal tree level construction. Can also be called directly.
     pub fn hash_level_gpu(nodes: &[Digest]) -> Result<Vec<Digest>, MetalError> {
         if nodes.is_empty() {
             return Ok(Vec::new());
         }
 
-        if !nodes.len().is_multiple_of(2) {
+        if nodes.len() % 2 != 0 {
             return Err(MetalError::InvalidInputSize {
                 expected: nodes.len() + 1,
                 actual: nodes.len(),
@@ -96,6 +104,7 @@ impl MetalPoseidon2Backend {
             .flat_map(|d| [*d[0].value(), *d[1].value()])
             .collect();
 
+        // Per-call Metal state creation (see hash_leaves_gpu for rationale).
         let mut state = DynamicMetalState::new()?;
         state.load_library(POSEIDON2_SHADER)?;
 
@@ -117,7 +126,7 @@ impl MetalPoseidon2Backend {
 
         Ok(results
             .chunks_exact(2)
-            .map(|chunk| [Fp::from_raw(chunk[0]), Fp::from_raw(chunk[1])])
+            .map(|chunk| [Fp::from(chunk[0]), Fp::from(chunk[1])])
             .collect())
     }
 }
@@ -139,6 +148,16 @@ impl IsMerkleTreeBackend for MetalPoseidon2Backend {
 
     fn hash_new_parent(left: &Self::Node, right: &Self::Node) -> Self::Node {
         Poseidon2::compress(left, right)
+    }
+
+    fn hash_level(children: &[Self::Node]) -> Vec<Self::Node> {
+        match Self::hash_level_gpu(children) {
+            Ok(parents) => parents,
+            Err(_) => children
+                .chunks_exact(2)
+                .map(|pair| Poseidon2::compress(&pair[0], &pair[1]))
+                .collect(),
+        }
     }
 }
 
