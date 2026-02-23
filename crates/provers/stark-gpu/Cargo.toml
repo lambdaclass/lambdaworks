@@ -23,6 +23,14 @@ objc = { version = "0.2", optional = true }
 rand = "0.8.5"
 criterion = { version = "0.5", features = ["html_reports"] }
 
+[[example]]
+name = "gpu_only_bench"
+required-features = ["metal"]
+
+[[example]]
+name = "profile_gpu"
+required-features = ["metal"]
+
 [[bench]]
 name = "gpu_vs_cpu"
 harness = false
