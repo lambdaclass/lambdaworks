@@ -223,7 +223,8 @@ impl BusInteraction {
 ///
 /// Contains the initial term values (for row-0 boundary constraints) and the
 /// final accumulated value (for cross-table bus balance check).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(bound = "")]
 pub struct BusPublicInputs<E: IsField> {
     /// Term column values at row 0 (one per interaction).
     /// Used for boundary constraints that enforce `term_i(0) = initial_terms[i]`.

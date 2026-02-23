@@ -60,7 +60,10 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use crate::{constraints::transition::TransitionConstraint, domain::Domain, prover::ProvingError};
+use crate::{
+    constraints::transition::TransitionConstraint, domain::Domain, lookup::BusPublicInputs,
+    prover::ProvingError,
+};
 
 use super::{
     constraints::boundary::BoundaryConstraints, context::AirContext, frame::Frame,
@@ -249,8 +252,8 @@ pub trait AIR: Send + Sync {
         &self,
         _main_trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         _rap_challenges: &[FieldElement<Self::FieldExtension>],
-    ) -> Result<(), ProvingError> {
-        Ok(())
+    ) -> Result<Option<BusPublicInputs<Self::FieldExtension>>, ProvingError> {
+        Ok(None)
     }
 
     fn build_rap_challenges(
@@ -263,9 +266,16 @@ pub trait AIR: Send + Sync {
     /// Returns the amount main trace columns and auxiliary trace columns
     fn trace_layout(&self) -> (usize, usize);
 
-    fn has_trace_interaction(&self) -> bool {
+    fn has_aux_trace(&self) -> bool {
         let (_main_trace_columns, aux_trace_columns) = self.trace_layout();
         aux_trace_columns != 0
+    }
+
+    /// Returns true if this AIR has bus interactions (LogUp).
+    /// Override to return true in AIRs that use `BusPublicInputs` (e.g. `AirWithLogUp`).
+    /// Generic RAP AIRs with auxiliary columns but no bus interactions must return false.
+    fn has_bus_interactions(&self) -> bool {
+        false
     }
 
     fn num_auxiliary_rap_columns(&self) -> usize {
@@ -308,6 +318,7 @@ pub trait AIR: Send + Sync {
     fn boundary_constraints(
         &self,
         rap_challenges: &[FieldElement<Self::FieldExtension>],
+        bus_public_inputs: Option<&BusPublicInputs<Self::FieldExtension>>,
     ) -> BoundaryConstraints<Self::FieldExtension>;
 
     fn context(&self) -> &AirContext;

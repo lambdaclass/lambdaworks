@@ -30,6 +30,7 @@ use super::constraints::evaluator::ConstraintEvaluator;
 use super::domain::Domain;
 use super::fri::fri_decommit::FriDecommitment;
 use super::grinding;
+use super::lookup::BusPublicInputs;
 use super::proof::stark::{DeepPolynomialOpening, StarkProof};
 use super::trace::TraceTable;
 use super::traits::AIR;
@@ -120,6 +121,8 @@ where
     pub(crate) aux: Option<Round1CommitmentData<FieldExtension>>,
     /// The challenges of the RAP round.
     pub(crate) rap_challenges: Vec<FieldElement<FieldExtension>>,
+    /// Bus interaction public inputs returned by `build_auxiliary_trace`.
+    pub(crate) bus_public_inputs: Option<BusPublicInputs<FieldExtension>>,
 }
 
 impl<Field, FieldExtension> Round1<Field, FieldExtension>
@@ -395,8 +398,8 @@ pub trait IsStarkProver<
         };
 
         let rap_challenges = air.build_rap_challenges(transcript);
-        let (aux, aux_evaluations) = if air.has_trace_interaction() {
-            air.build_auxiliary_trace(trace, &rap_challenges)?;
+        let (aux, aux_evaluations, bus_public_inputs) = if air.has_aux_trace() {
+            let bus_public_inputs = air.build_auxiliary_trace(trace, &rap_challenges)?;
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
                 Self::interpolate_and_commit_aux(trace, domain, transcript)?;
             let aux_evaluations = aux_trace_polys_evaluations;
@@ -405,9 +408,9 @@ pub trait IsStarkProver<
                 lde_trace_merkle_tree: aux_merkle_tree,
                 lde_trace_merkle_root: aux_merkle_root,
             });
-            (aux, aux_evaluations)
+            (aux, aux_evaluations, bus_public_inputs)
         } else {
-            (None, Vec::new())
+            (None, Vec::new(), None)
         };
 
         let lde_trace = LDETraceTable::from_columns(
@@ -422,6 +425,7 @@ pub trait IsStarkProver<
             main,
             aux,
             rap_challenges,
+            bus_public_inputs,
         })
     }
 
@@ -496,7 +500,11 @@ pub trait IsStarkProver<
         FieldElement<FieldExtension>: AsBytes,
     {
         // Compute the evaluations of the composition polynomial on the LDE domain.
-        let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
+        let evaluator = ConstraintEvaluator::new(
+            air,
+            &round_1_result.rap_challenges,
+            round_1_result.bus_public_inputs.as_ref(),
+        );
         let constraint_evaluations = evaluator.evaluate(
             air,
             &round_1_result.lde_trace,
@@ -973,6 +981,7 @@ pub trait IsStarkProver<
                 .unwrap_or(&vec![]),
             &domain,
             &round_1_result.rap_challenges,
+            round_1_result.bus_public_inputs.as_ref(),
         );
         #[cfg(feature = "instruments")]
         let elapsed1 = timer1.elapsed();
@@ -991,7 +1000,10 @@ pub trait IsStarkProver<
         // <<<< Receive challenge: 𝛽
         let beta = transcript.sample_field_element();
         let num_boundary_constraints = air
-            .boundary_constraints(&round_1_result.rap_challenges)
+            .boundary_constraints(
+                &round_1_result.rap_challenges,
+                round_1_result.bus_public_inputs.as_ref(),
+            )
             .constraints
             .len();
 
@@ -1130,6 +1142,8 @@ pub trait IsStarkProver<
             nonce: round_4_result.nonce,
 
             trace_length: air.trace_length(),
+
+            bus_public_inputs: round_1_result.bus_public_inputs,
         })
     }
 }

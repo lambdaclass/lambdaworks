@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::sync::RwLock;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::field::{
@@ -22,7 +21,7 @@ use crate::{
 use super::{
     constraints::{LookupAccumulatedConstraint, LookupTermConstraint},
     trace_builder::{build_accumulated_column, build_logup_term_column},
-    types::{BoundaryConstraintBuilder, BusInteraction},
+    types::{BoundaryConstraintBuilder, BusInteraction, BusPublicInputs},
 };
 
 /// AIR with LogUp lookup argument support.
@@ -48,10 +47,6 @@ where
     interactions: Vec<BusInteraction>,
     trace_length: usize,
     pub_inputs: PI,
-    /// Stores the computed initial term values (row 0) after `build_auxiliary_trace()`.
-    initial_terms: RwLock<Vec<FieldElement<E>>>,
-    /// Stores the computed final accumulated value (last row) after `build_auxiliary_trace()`.
-    acc_final_value: RwLock<FieldElement<E>>,
     _phantom: PhantomData<(F, B)>,
 }
 
@@ -116,8 +111,6 @@ where
             interactions,
             trace_length,
             pub_inputs,
-            initial_terms: RwLock::new(Vec::new()),
-            acc_final_value: RwLock::new(FieldElement::<E>::zero()),
             _phantom: PhantomData,
         }
     }
@@ -163,10 +156,10 @@ where
         &self,
         trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         challenges: &[FieldElement<Self::FieldExtension>],
-    ) -> Result<(), ProvingError> {
+    ) -> Result<Option<BusPublicInputs<Self::FieldExtension>>, ProvingError> {
         let num_interactions = self.interactions.len();
         if num_interactions == 0 {
-            return Ok(());
+            return Ok(None);
         }
 
         // Allocate aux table if dimensions don't match
@@ -181,30 +174,32 @@ where
             build_logup_term_column(i, interaction, &main_segment_cols, trace, challenges)?;
         }
 
-        // Store initial term values (row 0) for boundary constraints.
-        let terms: Vec<FieldElement<E>> = (0..num_interactions)
+        // Collect initial term values (row 0) for boundary constraints.
+        let initial_terms: Vec<FieldElement<E>> = (0..num_interactions)
             .map(|i| trace.get_aux(0, i).clone())
             .collect();
-        *self.initial_terms.write().unwrap() = terms;
 
         // Build accumulated column
         let acc_col_idx = num_interactions;
         build_accumulated_column(acc_col_idx, num_interactions, trace);
 
-        // Store final accumulated value for boundary constraint.
-        let final_acc = trace.get_aux(trace.num_rows() - 1, acc_col_idx).clone();
-        *self.acc_final_value.write().unwrap() = final_acc;
+        // Collect final accumulated value for boundary constraint.
+        let final_accumulated = trace.get_aux(trace.num_rows() - 1, acc_col_idx).clone();
 
-        Ok(())
+        Ok(Some(BusPublicInputs {
+            initial_terms,
+            final_accumulated,
+        }))
     }
 
     fn boundary_constraints(
         &self,
         rap_challenges: &[FieldElement<Self::FieldExtension>],
+        bus_public_inputs: Option<&BusPublicInputs<Self::FieldExtension>>,
     ) -> BoundaryConstraints<Self::FieldExtension> {
         let mut constraints = vec![];
 
-        // LogUp boundary constraints:
+        // LogUp boundary constraints (only if interactions exist and bus_public_inputs provided):
         // 1. Pin each term column at row 0: term[k](0) = initial_terms[k]
         // 2. Pin acc[0] = Σ initial_terms
         // 3. Pin acc[N-1] = final_accumulated
@@ -212,32 +207,24 @@ where
         // Pinning row-0 terms prevents the prover from injecting offsets
         // into acc[0]. For multi-table systems the caller verifies
         // Σ final_accumulated across all tables equals 0.
-        if !self.interactions.is_empty() {
+        if let Some(bus_inputs) = bus_public_inputs {
             let acc_col_idx = self.interactions.len();
-            let initial_terms = self.initial_terms.read().unwrap();
 
             // Boundary constraint per term column at row 0.
-            // Iterate over acc_col_idx (= num_interactions) rather than
-            // initial_terms.len() so that missing entries default to zero.
-            for i in 0..acc_col_idx {
-                let expected = initial_terms
-                    .get(i)
-                    .cloned()
-                    .unwrap_or_else(FieldElement::<Self::FieldExtension>::zero);
-                constraints.push(BoundaryConstraint::new_aux(i, 0, expected));
+            for (i, term_value) in bus_inputs.initial_terms.iter().enumerate() {
+                constraints.push(BoundaryConstraint::new_aux(i, 0, term_value.clone()));
             }
 
             // acc[0] = Σ initial_terms
             let initial_acc: FieldElement<Self::FieldExtension> =
-                initial_terms.iter().cloned().sum();
+                bus_inputs.initial_terms.iter().cloned().sum();
             constraints.push(BoundaryConstraint::new_aux(acc_col_idx, 0, initial_acc));
 
             // acc[N-1] = final_accumulated
-            let final_value = self.acc_final_value.read().unwrap().clone();
             constraints.push(BoundaryConstraint::new_aux(
                 acc_col_idx,
                 self.trace_length - 1,
-                final_value,
+                bus_inputs.final_accumulated.clone(),
             ));
         }
 
@@ -249,6 +236,10 @@ where
 
     fn trace_layout(&self) -> (usize, usize) {
         self.trace_layout
+    }
+
+    fn has_bus_interactions(&self) -> bool {
+        !self.interactions.is_empty()
     }
 
     fn composition_poly_degree_bound(&self) -> usize {
@@ -294,6 +285,12 @@ mod tests {
     type F = Goldilocks64Field;
     type E = Goldilocks64Field;
     type FE = FieldElement<F>;
+
+    type BalancedProof = (
+        AirWithLogUp<F, E, NullBoundaryConstraintBuilder, ()>,
+        TraceTable<F, E>,
+        crate::proof::stark::StarkProof<F, E>,
+    );
 
     #[test]
     fn test_bus_interaction_creation() {
@@ -500,15 +497,14 @@ mod tests {
         ];
 
         let mut check_trace = trace.clone();
-        air.build_auxiliary_trace(&mut check_trace, &challenges)
-            .expect("aux trace build failed");
+        let bus_inputs = air
+            .build_auxiliary_trace(&mut check_trace, &challenges)
+            .expect("aux trace build failed")
+            .expect("bus public inputs should be Some for non-empty interactions");
 
         // The accumulated column should end at 0 for a balanced bus where
         // sender and receiver have identical values with multiplicity 1
-        let last_row = trace_length - 1;
-        let acc_col_idx = 2; // 2 interactions -> acc at index 2
-        let final_acc = check_trace.get_aux(last_row, acc_col_idx);
-        assert_eq!(*final_acc, FieldElement::<E>::zero());
+        assert_eq!(bus_inputs.final_accumulated, FieldElement::<E>::zero());
 
         // Full prove/verify
         let proof = Prover::prove(&air, &mut trace, &mut DefaultTranscript::<E>::new(&[]))
@@ -555,12 +551,13 @@ mod tests {
             vec![],
         );
 
-        air_a
+        let bus_inputs_a = air_a
             .build_auxiliary_trace(&mut trace_a, &challenges)
-            .unwrap();
+            .unwrap()
+            .expect("bus public inputs should be Some for non-empty interactions");
 
-        let final_acc_a = *trace_a.get_aux(trace_length - 1, 1); // acc column at idx 1
-                                                                 // Sender-only table should NOT balance individually
+        let final_acc_a = bus_inputs_a.final_accumulated;
+        // Sender-only table should NOT balance individually
         assert_ne!(final_acc_a, FieldElement::<E>::zero());
 
         // --- Table B: receiver only (same values) ---
@@ -584,11 +581,12 @@ mod tests {
             vec![],
         );
 
-        air_b
+        let bus_inputs_b = air_b
             .build_auxiliary_trace(&mut trace_b, &challenges)
-            .unwrap();
+            .unwrap()
+            .expect("bus public inputs should be Some for non-empty interactions");
 
-        let final_acc_b = *trace_b.get_aux(trace_length - 1, 1);
+        let final_acc_b = bus_inputs_b.final_accumulated;
         // Receiver-only table should NOT balance individually
         assert_ne!(final_acc_b, FieldElement::<E>::zero());
 
@@ -597,6 +595,85 @@ mod tests {
             final_acc_a + final_acc_b,
             FieldElement::<E>::zero(),
             "Cross-table bus balance failed: sender + receiver should sum to zero"
+        );
+    }
+
+    // =========================================================================
+    // Soundness tests: verify that tampered proofs are rejected
+    // =========================================================================
+
+    /// Helper to create a simple balanced LogUp AIR, trace, and valid proof.
+    fn make_balanced_proof() -> BalancedProof {
+        let trace_length = 8usize;
+        let num_main_columns = 2;
+
+        let sender_values: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
+        let receiver_values: Vec<FE> = (1..=8).rev().map(|i| FE::from(i as u64)).collect();
+
+        let main_columns = vec![sender_values, receiver_values];
+        let aux_zero = vec![FieldElement::<E>::zero(); trace_length];
+        let trace_aux = vec![aux_zero.clone(), aux_zero.clone(), aux_zero];
+        let mut trace = TraceTable::from_columns(main_columns, trace_aux, 1);
+
+        let interactions = vec![
+            BusInteraction::sender(0u64, Multiplicity::One, vec![BusValue::column(0)]),
+            BusInteraction::receiver(0u64, Multiplicity::One, vec![BusValue::column(1)]),
+        ];
+
+        let proof_options = ProofOptions::default_test_options();
+        let air = AirWithLogUp::<F, E, NullBoundaryConstraintBuilder, ()>::new(
+            trace_length,
+            (),
+            num_main_columns,
+            interactions,
+            &proof_options,
+            1,
+            vec![],
+        );
+
+        let proof = Prover::prove(&air, &mut trace, &mut DefaultTranscript::<E>::new(&[]))
+            .expect("proof generation failed");
+
+        (air, trace, proof)
+    }
+
+    /// A proof where bus_public_inputs is None for a LogUp AIR is rejected.
+    #[test]
+    fn test_missing_bus_public_inputs_rejected() {
+        let (air, _, mut proof) = make_balanced_proof();
+
+        // Verify the untampered proof passes
+        assert!(Verifier::verify(
+            &proof,
+            &air,
+            &mut DefaultTranscript::<E>::new(&[]),
+        ));
+
+        // Remove bus_public_inputs entirely
+        proof.bus_public_inputs = None;
+
+        assert!(
+            !Verifier::verify(&proof, &air, &mut DefaultTranscript::<E>::new(&[])),
+            "Proof with missing bus_public_inputs must be rejected"
+        );
+    }
+
+    /// A proof where initial_terms has fewer elements than expected is rejected.
+    #[test]
+    fn test_initial_terms_length_mismatch_rejected() {
+        let (air, _, mut proof) = make_balanced_proof();
+
+        // Truncate initial_terms to empty — AIR has 2 interactions so expected length is 2
+        proof
+            .bus_public_inputs
+            .as_mut()
+            .expect("bus_public_inputs must be Some")
+            .initial_terms
+            .clear();
+
+        assert!(
+            !Verifier::verify(&proof, &air, &mut DefaultTranscript::<E>::new(&[])),
+            "Proof with initial_terms length mismatch must be rejected"
         );
     }
 }
