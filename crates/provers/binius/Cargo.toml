@@ -11,6 +11,7 @@ lambdaworks-crypto = { path = "../../crypto" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 tracing = "0.1"
+sha2 = "0.10"
 
 [features]
 default = ["std"]

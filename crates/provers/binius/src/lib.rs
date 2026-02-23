@@ -21,17 +21,21 @@
 pub mod constraints;
 pub mod fields;
 pub mod fri;
+pub mod merkle;
 pub mod polynomial;
 pub mod prover;
 pub mod sumcheck;
 pub mod verifier;
 
-pub use constraints::{ConstraintSystem, Gate, Variable, Witness};
+pub use constraints::{
+    Constraint, ConstraintSystem, Gate, ShiftedPolynomial, ShiftedValue, Variable, Witness,
+};
 pub use fields::{
     tower::{self, BinaryFieldError, Tower, TowerFieldElement},
     FieldLevel,
 };
 pub use fri::{FriParams, FriProof, FriProver, FriVerifier};
+pub use merkle::{MerkleNode, MerkleProof, MerkleTree};
 pub use polynomial::MultilinearPolynomial;
 pub use prover::{BiniusProof, BiniusProver};
 pub use verifier::{BiniusVerifier, VerificationError};
