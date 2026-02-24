@@ -29,7 +29,7 @@ cargo bench --bench criterion_external_comparisons -- --list
 
 | Benchmark | LW field | P3 field | Operations |
 |-----------|----------|----------|------------|
-| Goldilocks | `Goldilocks64HybridField` | `p3_goldilocks::Goldilocks` | mul, add, sub, square, inv, pow |
+| Goldilocks | `Goldilocks64Field` | `p3_goldilocks::Goldilocks` | mul, add, sub, square, inv, pow |
 | BabyBear | `Babybear31PrimeField` | `p3_baby_bear::BabyBear` | mul, add, sub, square, inv, pow |
 | Mersenne31 | `Mersenne31Field` | `p3_mersenne_31::Mersenne31` | mul, add, sub, square, inv, pow |
 | BabyBear Fp4 | `Degree4BabyBearExtensionField` | `BinomialExtensionField<BabyBear, 4>` | mul, add, sub, square, inv |
