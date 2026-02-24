@@ -18,6 +18,9 @@ use crate::{
     traits::AIR,
 };
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use super::{
     constraints::{LookupAccumulatedConstraint, LookupTermConstraint},
     trace_builder::{build_accumulated_column, build_logup_term_column},
@@ -168,23 +171,52 @@ where
             trace.allocate_aux_table(num_aux_columns);
         }
 
-        // Build term columns
+        // Build term columns (parallel when feature enabled)
         let main_segment_cols = trace.columns_main();
-        for (i, interaction) in self.interactions.iter().enumerate() {
-            build_logup_term_column(i, interaction, &main_segment_cols, trace, challenges)?;
+        let trace_len = trace.num_rows();
+
+        #[cfg(feature = "parallel")]
+        let term_columns: Vec<Vec<FieldElement<E>>> = self
+            .interactions
+            .par_iter()
+            .map(|interaction| {
+                build_logup_term_column(interaction, &main_segment_cols, trace_len, challenges)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        #[cfg(not(feature = "parallel"))]
+        let term_columns: Vec<Vec<FieldElement<E>>> = self
+            .interactions
+            .iter()
+            .map(|interaction| {
+                build_logup_term_column(interaction, &main_segment_cols, trace_len, challenges)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Write term columns to trace
+        for (col_idx, col_data) in term_columns.iter().enumerate() {
+            for (row, value) in col_data.iter().enumerate() {
+                trace.set_aux(row, col_idx, value.clone());
+            }
         }
 
-        // Collect initial term values (row 0) for boundary constraints.
-        let initial_terms: Vec<FieldElement<E>> = (0..num_interactions)
-            .map(|i| trace.get_aux(0, i).clone())
-            .collect();
+        // Collect initial term values (row 0) for boundary constraints
+        let initial_terms: Vec<FieldElement<E>> =
+            term_columns.iter().map(|col| col[0].clone()).collect();
 
-        // Build accumulated column
+        // Build accumulated column from column-major data
+        let accumulated = build_accumulated_column(&term_columns);
+
+        // Write accumulated column to trace
         let acc_col_idx = num_interactions;
-        build_accumulated_column(acc_col_idx, num_interactions, trace);
+        for (row, value) in accumulated.iter().enumerate() {
+            trace.set_aux(row, acc_col_idx, value.clone());
+        }
 
-        // Collect final accumulated value for boundary constraint.
-        let final_accumulated = trace.get_aux(trace.num_rows() - 1, acc_col_idx).clone();
+        let final_accumulated = accumulated
+            .last()
+            .cloned()
+            .unwrap_or_else(FieldElement::zero);
 
         Ok(Some(BusPublicInputs {
             initial_terms,

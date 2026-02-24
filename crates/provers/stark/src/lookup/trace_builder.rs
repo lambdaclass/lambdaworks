@@ -3,7 +3,7 @@ use lambdaworks_math::field::{
     traits::{IsFFTField, IsField, IsSubFieldOf},
 };
 
-use crate::{prover::ProvingError, trace::TraceTable};
+use crate::prover::ProvingError;
 
 use super::types::{
     BusInteraction, LinearTerm, Multiplicity, LOGUP_CHALLENGE_ALPHA, LOGUP_CHALLENGE_Z,
@@ -17,27 +17,33 @@ use super::types::{
 /// - `fingerprint[i] = z - (bus_id*α^0 + v[0]*α^1 + v[1]*α^2 + ...)`
 /// - `sign = +1` for senders, `-1` for receivers
 ///
+/// Uses batch inversion: all fingerprints are collected first, then inverted
+/// in a single pass using Montgomery's trick (one field inversion + O(N)
+/// multiplications instead of O(N) inversions).
+///
 /// Returns an error if any fingerprint evaluates to zero (astronomically
 /// unlikely for randomly sampled challenges, probability ≈ N/|F|).
 pub fn build_logup_term_column<F, E>(
-    aux_column_idx: usize,
     interaction: &BusInteraction,
     main_segment_cols: &[Vec<FieldElement<F>>],
-    trace: &mut TraceTable<F, E>,
+    trace_len: usize,
     challenges: &[FieldElement<E>],
-) -> Result<(), ProvingError>
+) -> Result<Vec<FieldElement<E>>, ProvingError>
 where
     F: IsFFTField + IsSubFieldOf<E> + Send + Sync,
     E: IsField + Send + Sync,
 {
-    let trace_len = trace.num_rows();
-
     let z = &challenges[LOGUP_CHALLENGE_Z];
     let alpha = &challenges[LOGUP_CHALLENGE_ALPHA];
 
-    // Precompute powers of alpha
+    // Iterative alpha powers: O(1) per power instead of O(log i) for alpha.pow(i)
     let num_bus_elements = interaction.num_bus_elements();
-    let alpha_powers: Vec<FieldElement<E>> = (0..num_bus_elements).map(|i| alpha.pow(i)).collect();
+    let mut alpha_powers = Vec::with_capacity(num_bus_elements);
+    let mut alpha_power = FieldElement::<E>::one();
+    for _ in 0..num_bus_elements {
+        alpha_powers.push(alpha_power.clone());
+        alpha_power = &alpha_power * alpha;
+    }
 
     let sign = if interaction.is_sender {
         FieldElement::<E>::one()
@@ -45,43 +51,42 @@ where
         -FieldElement::<E>::one()
     };
 
+    // Precompute bus_id in extension field (avoids per-row conversion)
+    let bus_id_ext: FieldElement<E> = FieldElement::<F>::from(interaction.bus_id).to_extension();
+
+    // First pass: compute all fingerprints (no per-row allocation)
+    // Note: `row` indexes into multiple columns inside combine_from, so range loop is needed.
+    let mut fingerprints: Vec<FieldElement<E>> = Vec::with_capacity(trace_len);
+    #[allow(clippy::needless_range_loop)]
     for row in 0..trace_len {
-        // Compute multiplicity
-        let multiplicity: FieldElement<F> =
-            compute_trace_multiplicity(main_segment_cols, row, &interaction.multiplicity);
-
-        // Bus elements: [bus_id, ...values...]
-        let mut bus_elements: Vec<FieldElement<E>> = vec![FieldElement::from(interaction.bus_id)];
-
-        bus_elements.extend(interaction.values.iter().map(|bv| {
+        let mut linear_combination = &bus_id_ext * &alpha_powers[0];
+        for (bv, alpha_pow) in interaction.values.iter().zip(alpha_powers[1..].iter()) {
             let combined: FieldElement<F> =
                 bv.combine_from(|col| main_segment_cols[col][row].clone());
-            combined.to_extension()
-        }));
-
-        // fingerprint = z - (bus_id*α^0 + v[0]*α^1 + ...)
-        let linear_combination: FieldElement<E> = bus_elements
-            .iter()
-            .zip(alpha_powers.iter())
-            .map(|(v, coeff)| v * coeff)
-            .sum();
-
-        let fingerprint = z - &linear_combination;
-
-        // term = sign * multiplicity / fingerprint
-        let fingerprint_inv = fingerprint.inv().map_err(|_| {
-            ProvingError::WrongParameter(format!(
-                "LogUp: zero fingerprint at row {row} for bus_id {}. \
-                 Try re-proving — this is astronomically unlikely (≈ 1/|F|).",
-                interaction.bus_id,
-            ))
-        })?;
-
-        let term = multiplicity * &sign * fingerprint_inv;
-        trace.set_aux(row, aux_column_idx, term);
+            linear_combination += &combined.to_extension() * alpha_pow;
+        }
+        fingerprints.push(z - &linear_combination);
     }
 
-    Ok(())
+    // Batch inversion: one field inversion + O(N) multiplications
+    FieldElement::inplace_batch_inverse(&mut fingerprints).map_err(|_| {
+        ProvingError::WrongParameter(
+            "LogUp: zero fingerprint. Try re-proving (probability ≈ 1/|F|).".to_string(),
+        )
+    })?;
+
+    // Second pass: compute terms = sign * multiplicity * fingerprint_inv
+    let column: Vec<FieldElement<E>> = fingerprints
+        .iter()
+        .enumerate()
+        .map(|(row, fp_inv)| {
+            let multiplicity: FieldElement<F> =
+                compute_trace_multiplicity(main_segment_cols, row, &interaction.multiplicity);
+            multiplicity * &sign * fp_inv
+        })
+        .collect();
+
+    Ok(column)
 }
 
 /// Builds the accumulated column that sums all term columns across rows.
@@ -89,28 +94,29 @@ where
 /// `acc[0] = Σ term_columns[0]`  (sum of all terms at row 0)
 /// `acc[i] = acc[i-1] + Σ term_columns[i]`  for i > 0
 ///
-/// This means `acc[N-1] = Σ_{r=0}^{N-1} Σ_j terms_j[r]`, i.e. terms from
-/// ALL rows are folded into the accumulator. Row 0 terms are pinned by
-/// boundary constraints on the term columns and on acc[0].
-pub fn build_accumulated_column<F, E>(
-    acc_column_idx: usize,
-    num_term_columns: usize,
-    trace: &mut TraceTable<F, E>,
-) where
-    F: IsFFTField + IsSubFieldOf<E> + Send + Sync,
-    E: IsField + Send + Sync,
-{
-    let trace_len = trace.num_rows();
+/// Takes pre-computed term column vectors (column-major layout for cache-friendly
+/// sequential access within each column).
+pub fn build_accumulated_column<E: IsField>(
+    term_columns: &[Vec<FieldElement<E>>],
+) -> Vec<FieldElement<E>> {
+    if term_columns.is_empty() {
+        return vec![];
+    }
+
+    let trace_len = term_columns[0].len();
+    let mut accumulated_col = Vec::with_capacity(trace_len);
     let mut accumulated = FieldElement::<E>::zero();
 
     for row in 0..trace_len {
         let mut row_sum = FieldElement::<E>::zero();
-        for term_col in 0..num_term_columns {
-            row_sum += trace.get_aux(row, term_col).clone();
+        for term_col in term_columns {
+            row_sum += term_col[row].clone();
         }
         accumulated += row_sum;
-        trace.set_aux(row, acc_column_idx, accumulated.clone());
+        accumulated_col.push(accumulated.clone());
     }
+
+    accumulated_col
 }
 
 /// Compute multiplicity from main trace columns for a given row.
