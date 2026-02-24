@@ -4,9 +4,6 @@ use crate::hash::poseidon2::{Fp, Poseidon2};
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use alloc::vec::Vec;
 
-#[cfg(feature = "parallel")]
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-
 /// Poseidon2 Merkle tree backend for single Goldilocks field elements
 ///
 /// Node type: `[Fp; 2]` (128-bit digest)
@@ -41,21 +38,8 @@ impl IsMerkleTreeBackend for BatchPoseidon2Backend {
     type Data = Vec<Fp>;
 
     /// Hash a vector of field elements into a Merkle tree leaf node.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `leaf` is an empty vector.
     fn hash_data(leaf: &Self::Data) -> Self::Node {
         Poseidon2::hash_vec(leaf)
-    }
-
-    fn hash_leaves(unhashed_leaves: &[Self::Data]) -> Vec<Self::Node> {
-        #[cfg(feature = "parallel")]
-        let iter = unhashed_leaves.par_iter();
-        #[cfg(not(feature = "parallel"))]
-        let iter = unhashed_leaves.iter();
-
-        iter.map(Self::hash_data).collect()
     }
 
     fn hash_new_parent(left: &Self::Node, right: &Self::Node) -> Self::Node {

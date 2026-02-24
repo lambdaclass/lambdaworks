@@ -304,18 +304,25 @@ impl Poseidon2 {
 
     /// Hash a vector of field elements, returning 128-bit digest (for Merkle tree leaves).
     ///
-    /// - **Empty**: Panics (empty input is not allowed)
+    /// - **Empty**: Delegates to [`hash_many`](Self::hash_many) (which applies 10* padding)
     /// - **Length 1**: Delegates to [`hash_single`](Self::hash_single)
-    /// - **Length 2+**: Delegates to [`hash_many`](Self::hash_many)
+    /// - **Length 2+**: Delegates to [`hash_many`](Self::hash_many) (sponge construction)
     ///
-    /// # Panics
+    /// # Domain Separation
     ///
-    /// Panics if `inputs` is empty.
+    /// Note: For length 2 inputs, `hash_vec(&[a, b])` produces a **different digest** than
+    /// [`hash`](Self::hash)(&a, &b):
+    /// - `hash_vec(&[a, b])` uses [`hash_many`](Self::hash_many) which applies sponge construction
+    ///   with 10* padding (no explicit domain tag)
+    /// - `hash(&a, &b)` uses explicit domain separation via the capacity element (domain tag = 2)
+    ///
+    /// This is intentional - `hash_vec` is designed for variable-length inputs (e.g., Merkle tree
+    /// leaves of arbitrary size), while `hash` is a fixed 2-input hash with explicit domain separation.
+    /// Use `hash_vec` when the input length is not known at compile time.
     pub fn hash_vec(inputs: &[Fp]) -> Digest {
-        assert!(
-            !inputs.is_empty(),
-            "hash_vec called with empty input - empty input is not allowed"
-        );
+        if inputs.is_empty() {
+            return Self::hash_many(inputs);
+        }
         if inputs.len() == 1 {
             return Self::hash_single(&inputs[0]);
         }
@@ -325,10 +332,10 @@ impl Poseidon2 {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec::Vec;
-
     use super::goldilocks::MATRIX_DIAG_8;
     use super::*;
+    #[allow(unused_imports)]
+    use alloc::vec::Vec;
 
     #[test]
     fn test_poseidon2_permutation_deterministic() {
@@ -662,9 +669,13 @@ mod tests {
     // ========================================================================
 
     #[test]
-    #[should_panic(expected = "hash_vec called with empty input")]
-    fn test_hash_vec_empty_panics() {
-        let _ = Poseidon2::hash_vec(&[]);
+    fn test_hash_vec_empty_works() {
+        let result = Poseidon2::hash_vec(&[]);
+        assert_ne!(
+            result,
+            [Fp::zero(); 2],
+            "hash_vec([]) should not be zero (delegates to hash_many which applies padding)"
+        );
     }
 
     #[test]
@@ -724,6 +735,52 @@ mod tests {
             Poseidon2::hash_many(&[a, b]),
             Poseidon2::hash_many(&[a, b, c]),
             "Different length inputs should produce different hashes"
+        );
+    }
+
+    // ========================================================================
+    // Plonky3 reference test vectors
+    // ========================================================================
+
+    #[test]
+    fn test_poseidon2_hash_single_plonky3_vector() {
+        let x = Fp::from(42u64);
+        let result = Poseidon2::hash_single(&x);
+        let expected = [
+            Fp::from_raw(905002447419978306),
+            Fp::from_raw(17305271259383199307),
+        ];
+        assert_eq!(
+            result, expected,
+            "hash_single(42) should match Plonky3 reference"
+        );
+    }
+
+    #[test]
+    fn test_poseidon2_compress_plonky3_vector() {
+        let left = [Fp::from(1u64), Fp::from(2u64)];
+        let right = [Fp::from(3u64), Fp::from(4u64)];
+        let result = Poseidon2::compress(&left, &right);
+        let expected = [
+            Fp::from_raw(6117230863306864001),
+            Fp::from_raw(10324974368612356961),
+        ];
+        assert_eq!(
+            result, expected,
+            "compress([1,2], [3,4]) should match Plonky3 reference"
+        );
+    }
+
+    #[test]
+    fn test_poseidon2_hash_many_empty_plonky3_vector() {
+        let result = Poseidon2::hash_many(&[]);
+        let expected = [
+            Fp::from_raw(14523015988712528234),
+            Fp::from_raw(11609537137622163634),
+        ];
+        assert_eq!(
+            result, expected,
+            "hash_many([]) should match Plonky3 reference"
         );
     }
 }
