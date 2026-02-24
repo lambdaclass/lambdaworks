@@ -1,11 +1,15 @@
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::errors::DeserializationError;
+use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::{
     deserialize_field_element_with_length, deserialize_with_length, AsBytes, Deserializable,
     IsRandomFieldElementGenerator,
 };
 use std::marker::PhantomData;
+
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 use crate::setup::{
     new_strong_fiat_shamir_transcript, CommonPreprocessedInput, VerificationKey, Witness,
@@ -54,23 +58,49 @@ impl std::fmt::Display for ProverError {
 
 impl std::error::Error for ProverError {}
 
-/// Plonk proof.
-/// The challenges are denoted
-///     Round 2: β,γ,
-///     Round 3: α,
-///     Round 4: ζ,
-///     Round 5: υ.
-/// Here `Z_H` denotes the domain polynomial, `z` is the polynomial
-/// that encodes the copy constraints, and `p` is the sum of `z` and
-/// the polynomial that encodes the gates constraints.
-/// The polynomial `t` is defined as `p / Z_H`.
-/// `a`, `b`, and `c` are the wire assignment polynomials.
-/// `S_σ1(ζ), S_σ2(ζ) and S_σ3(ζ)` are the copy permutation polynomials.
-/// The polynomial `p` can be "linearized" and the result can be written as
-/// `linearized_p = p_non_constant + p_constant`, where
-/// `p_non_constant` is the sum of all the terms with a "non-constant"
-/// polynomial factor, such as `b(ζ)Q_R(X)`, and `p_constant` is the
-/// sum of all the rest (such as `PI(ζ)`).
+impl From<FFTError> for ProverError {
+    fn from(err: FFTError) -> Self {
+        ProverError::FFTError(format!("{:?}", err))
+    }
+}
+
+/// PLONK proof structure.
+///
+/// # Challenge Schedule (Fiat-Shamir)
+/// - Round 2: β, γ (permutation challenges)
+/// - Round 3: α (gate/permutation combination)
+/// - Round 4: ζ (evaluation point)
+/// - Round 5: υ (batching challenge)
+///
+/// # Key Polynomials
+/// - `Z_H`: Vanishing polynomial for domain H
+/// - `z`: Permutation polynomial encoding copy constraints
+/// - `p`: Combined constraint polynomial (gates + permutation)
+/// - `t = p / Z_H`: Quotient polynomial
+/// - `a, b, c`: Wire assignment polynomials
+/// - `S_σ1, S_σ2, S_σ3`: Copy permutation polynomials
+///
+/// # Quotient Polynomial Split (gnark-compatible)
+///
+/// The quotient polynomial `t(X)` has degree approximately 3n and is split into
+/// three parts for efficient commitment:
+///
+/// ```text
+/// t(X) = t_lo(X) + X^(n+2) · t_mid(X) + X^(2n+4) · t_hi(X)
+/// ```
+///
+/// The exponents `n+2` and `2n+4` (instead of `n` and `2n`) account for the
+/// blinding factors added to ensure zero-knowledge. Each part has degree at
+/// most `n+1`, allowing commitment with an SRS of size `n+3`.
+///
+/// This approach follows gnark's implementation, which differs slightly from
+/// the original PLONK paper's `n` and `2n` exponents.
+///
+/// # Linearization
+/// The polynomial `p` is linearized for efficient verification:
+/// `linearized_p = p_non_constant + p_constant`
+/// where `p_non_constant` contains terms with polynomial factors (e.g., `b(ζ)·Q_R(X)`)
+/// and `p_constant` contains the rest (e.g., `PI(ζ)`).
 pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     // Round 1.
     /// Commitment to the wire polynomial `a(x)`
@@ -265,11 +295,11 @@ struct Round5Result<F: IsField, Hiding> {
 
 impl<F, CS, R> Prover<F, CS, R>
 where
-    F: IsField + IsFFTField + HasDefaultTranscript,
-    CS: IsCommitmentScheme<F>,
+    F: IsField + IsFFTField + HasDefaultTranscript + Sync,
+    CS: IsCommitmentScheme<F> + Sync,
     FieldElement<F>: ByteConversion,
-    CS::Commitment: AsBytes,
-    R: IsRandomFieldElementGenerator<F>,
+    CS::Commitment: AsBytes + Send + Sync,
+    R: IsRandomFieldElementGenerator<F> + Sync,
 {
     pub fn new(commitment_scheme: CS, random_generator: R) -> Self {
         Self {
@@ -312,9 +342,25 @@ where
         let p_b = self.blind_polynomial(&p_b, &z_h, 2);
         let p_c = self.blind_polynomial(&p_c, &z_h, 2);
 
-        let a_1 = self.commitment_scheme.commit(&p_a);
-        let b_1 = self.commitment_scheme.commit(&p_b);
-        let c_1 = self.commitment_scheme.commit(&p_c);
+        #[cfg(feature = "parallel")]
+        let (a_1, b_1, c_1) = {
+            let (a_1, (b_1, c_1)) = rayon::join(
+                || self.commitment_scheme.commit(&p_a),
+                || {
+                    rayon::join(
+                        || self.commitment_scheme.commit(&p_b),
+                        || self.commitment_scheme.commit(&p_c),
+                    )
+                },
+            );
+            (a_1, b_1, c_1)
+        };
+        #[cfg(not(feature = "parallel"))]
+        let (a_1, b_1, c_1) = (
+            self.commitment_scheme.commit(&p_a),
+            self.commitment_scheme.commit(&p_b),
+            self.commitment_scheme.commit(&p_c),
+        );
 
         Round1Result {
             a_1,
@@ -332,45 +378,57 @@ where
         common_preprocessed_input: &CommonPreprocessedInput<F>,
         beta: FieldElement<F>,
         gamma: FieldElement<F>,
-    ) -> Round2Result<F, CS::Commitment> {
+    ) -> Result<Round2Result<F, CS::Commitment>, ProverError> {
         let cpi = common_preprocessed_input;
-        let mut coefficients: Vec<FieldElement<F>> = vec![FieldElement::one()];
         let (s1, s2, s3) = (&cpi.s1_lagrange, &cpi.s2_lagrange, &cpi.s3_lagrange);
 
         let k2 = &cpi.k1 * &cpi.k1;
 
         let lp = |w: &FieldElement<F>, eta: &FieldElement<F>| w + &beta * eta + &gamma;
 
-        for i in 0..&cpi.n - 1 {
+        // Compute all numerators and denominators first.
+        // We need n-1 factors to compute n coefficients: z[0]=1, z[i+1]=z[i]*factor[i] for i in 0..n-1.
+        // This matches the original loop range `0..cpi.n - 1`.
+        let n_minus_1 = cpi.n - 1;
+        let mut numerators = Vec::with_capacity(n_minus_1);
+        let mut denominators = Vec::with_capacity(n_minus_1);
+
+        for i in 0..n_minus_1 {
             let (a_i, b_i, c_i) = (&witness.a[i], &witness.b[i], &witness.c[i]);
             let num = lp(a_i, &cpi.domain[i])
                 * lp(b_i, &(&cpi.domain[i] * &cpi.k1))
                 * lp(c_i, &(&cpi.domain[i] * &k2));
             let den = lp(a_i, &s1[i]) * lp(b_i, &s2[i]) * lp(c_i, &s3[i]);
-            // den != 0 with overwhelming probability because beta and gamma are random elements.
-            let new_factor = (num / den).expect(
-                "division by zero in permutation polynomial: beta and gamma should prevent this",
-            );
+            numerators.push(num);
+            denominators.push(den);
+        }
 
-            let new_term = coefficients
-                .last()
-                .expect("coefficients vector is non-empty")
-                * &new_factor;
+        // Batch invert all denominators at once (much faster than n-1 individual inversions)
+        FieldElement::inplace_batch_inverse(&mut denominators).expect(
+            "batch inversion failed in permutation polynomial: beta and gamma should prevent zeros",
+        );
+
+        // Compute coefficients using the inverted denominators
+        let mut coefficients: Vec<FieldElement<F>> = Vec::with_capacity(cpi.n);
+        coefficients.push(FieldElement::one());
+
+        for i in 0..n_minus_1 {
+            let factor = &numerators[i] * &denominators[i];
+            let new_term = coefficients.last().expect("coefficients non-empty") * &factor;
             coefficients.push(new_term);
         }
 
-        let p_z = Polynomial::interpolate_fft::<F>(&coefficients)
-            .expect("xs and ys have equal length and xs are unique");
+        let p_z = Polynomial::interpolate_fft::<F>(&coefficients)?;
         let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
             - FieldElement::<F>::one();
         let p_z = self.blind_polynomial(&p_z, &z_h, 3);
         let z_1 = self.commitment_scheme.commit(&p_z);
-        Round2Result {
+        Ok(Round2Result {
             z_1,
             p_z,
             beta,
             gamma,
-        }
+        })
     }
 
     fn round_3(
@@ -382,13 +440,9 @@ where
             p_z, beta, gamma, ..
         }: &Round2Result<F, CS::Commitment>,
         alpha: FieldElement<F>,
-    ) -> Round3Result<F, CS::Commitment> {
+    ) -> Result<Round3Result<F, CS::Commitment>, ProverError> {
         let cpi = common_preprocessed_input;
         let k2 = &cpi.k1 * &cpi.k1;
-
-        let one = Polynomial::new_monomial(FieldElement::one(), 0);
-        let p_x = &Polynomial::new_monomial(FieldElement::<F>::one(), 1);
-        let zh = Polynomial::new_monomial(FieldElement::<F>::one(), cpi.n) - &one;
 
         let z_x_omega_coefficients: Vec<FieldElement<F>> = p_z
             .coefficients()
@@ -399,51 +453,77 @@ where
         let z_x_omega = Polynomial::new(&z_x_omega_coefficients);
         let mut e1 = vec![FieldElement::<F>::zero(); cpi.domain.len()];
         e1[0] = FieldElement::one();
-        let l1 = Polynomial::interpolate_fft::<F>(&e1)
-            .expect("xs and ys have equal length and xs are unique");
+        let l1 = Polynomial::interpolate_fft::<F>(&e1)?;
         let mut p_pi_y = public_input.to_vec();
         p_pi_y.append(&mut vec![FieldElement::zero(); cpi.n - public_input.len()]);
-        let p_pi = Polynomial::interpolate_fft::<F>(&p_pi_y)
-            .expect("xs and ys have equal length and xs are unique");
+        let p_pi = Polynomial::interpolate_fft::<F>(&p_pi_y)?;
 
-        // Compute p
-        // To leverage FFT we work with the evaluation form of every polynomial
-        // involved
-        // TODO: check a factor of 4 is a sensible upper bound
+        // Compute p using FFT evaluation form for efficiency
+        // Quotient polynomial degree bound: 4n covers standard PLONK gates
+        // (constraint polynomial degree is ~4n, divided by zh of degree n gives ~3n)
         let degree = 4 * cpi.n;
         let offset = &cpi.k1;
-        let p_a_eval = Polynomial::evaluate_offset_fft(p_a, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_a must be within field's two-adicity limit");
-        let p_b_eval = Polynomial::evaluate_offset_fft(p_b, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_b must be within field's two-adicity limit");
-        let p_c_eval = Polynomial::evaluate_offset_fft(p_c, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_c must be within field's two-adicity limit");
-        let ql_eval = Polynomial::evaluate_offset_fft(&cpi.ql, 1, Some(degree), offset)
-            .expect("FFT evaluation of ql must be within field's two-adicity limit");
-        let qr_eval = Polynomial::evaluate_offset_fft(&cpi.qr, 1, Some(degree), offset)
-            .expect("FFT evaluation of qr must be within field's two-adicity limit");
-        let qm_eval = Polynomial::evaluate_offset_fft(&cpi.qm, 1, Some(degree), offset)
-            .expect("FFT evaluation of qm must be within field's two-adicity limit");
-        let qo_eval = Polynomial::evaluate_offset_fft(&cpi.qo, 1, Some(degree), offset)
-            .expect("FFT evaluation of qo must be within field's two-adicity limit");
-        let qc_eval = Polynomial::evaluate_offset_fft(&cpi.qc, 1, Some(degree), offset)
-            .expect("FFT evaluation of qc must be within field's two-adicity limit");
-        let p_pi_eval = Polynomial::evaluate_offset_fft(&p_pi, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_pi must be within field's two-adicity limit");
-        let p_x_eval = Polynomial::evaluate_offset_fft(p_x, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_x must be within field's two-adicity limit");
-        let p_z_eval = Polynomial::evaluate_offset_fft(p_z, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_z must be within field's two-adicity limit");
-        let p_z_x_omega_eval = Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset)
-            .expect("FFT evaluation of z_x_omega must be within field's two-adicity limit");
-        let p_s1_eval = Polynomial::evaluate_offset_fft(&cpi.s1, 1, Some(degree), offset)
-            .expect("FFT evaluation of s1 must be within field's two-adicity limit");
-        let p_s2_eval = Polynomial::evaluate_offset_fft(&cpi.s2, 1, Some(degree), offset)
-            .expect("FFT evaluation of s2 must be within field's two-adicity limit");
-        let p_s3_eval = Polynomial::evaluate_offset_fft(&cpi.s3, 1, Some(degree), offset)
-            .expect("FFT evaluation of s3 must be within field's two-adicity limit");
-        let l1_eval = Polynomial::evaluate_offset_fft(&l1, 1, Some(degree), offset)
-            .expect("FFT evaluation of l1 must be within field's two-adicity limit");
+        // All 15 polynomials need coset FFT evaluation at the same degree/offset.
+        // These evaluations are completely independent and can run in parallel.
+        let polys_to_eval: Vec<&Polynomial<FieldElement<F>>> = vec![
+            p_a, p_b, p_c, // 0-2: wire polynomials
+            &cpi.ql, &cpi.qr, &cpi.qm, &cpi.qo, &cpi.qc, // 3-7: gate polynomials
+            &p_pi,   // 8: public input
+            p_z, &z_x_omega, // 9-10: permutation
+            &cpi.s1, &cpi.s2, &cpi.s3, // 11-13: sigma polynomials
+            &l1,     // 14: L1 polynomial
+        ];
+
+        #[cfg(feature = "parallel")]
+        let evals: Vec<Vec<FieldElement<F>>> = polys_to_eval
+            .par_iter()
+            .map(|poly| {
+                Polynomial::evaluate_offset_fft(poly, 1, Some(degree), offset)
+                    .expect("FFT evaluation must be within field's two-adicity limit")
+            })
+            .collect();
+
+        #[cfg(not(feature = "parallel"))]
+        let evals: Vec<Vec<FieldElement<F>>> = polys_to_eval
+            .iter()
+            .map(|poly| {
+                Polynomial::evaluate_offset_fft(poly, 1, Some(degree), offset)
+                    .expect("FFT evaluation must be within field's two-adicity limit")
+            })
+            .collect();
+
+        let p_a_eval = &evals[0];
+        let p_b_eval = &evals[1];
+        let p_c_eval = &evals[2];
+        let ql_eval = &evals[3];
+        let qr_eval = &evals[4];
+        let qm_eval = &evals[5];
+        let qo_eval = &evals[6];
+        let qc_eval = &evals[7];
+        let p_pi_eval = &evals[8];
+        let p_z_eval = &evals[9];
+        let p_z_x_omega_eval = &evals[10];
+        let p_s1_eval = &evals[11];
+        let p_s2_eval = &evals[12];
+        let p_s3_eval = &evals[13];
+        let l1_eval = &evals[14];
+
+        // p_x = X (identity polynomial), so p_x(offset * ω^i) = offset * ω^i.
+        // Generate the coset directly instead of using FFT.
+        let omega = F::get_primitive_root_of_unity(degree.trailing_zeros() as u64)
+            .expect("primitive root exists for degree");
+        let p_x_eval: Vec<_> = (0..degree)
+            .scan(offset.clone(), |current, _| {
+                let val = current.clone();
+                *current = &*current * &omega;
+                Some(val)
+            })
+            .collect();
+        assert_eq!(
+            p_x_eval.len(),
+            p_a_eval.len(),
+            "p_x_eval length must match FFT evaluation length"
+        );
 
         let p_constraints_eval: Vec<_> = p_a_eval
             .iter()
@@ -505,11 +585,38 @@ where
             .map(|((p2, p1), co)| (p2 * &alpha + p1) * &alpha + co)
             .collect();
 
-        let mut zh_eval = Polynomial::evaluate_offset_fft(&zh, 1, Some(degree), offset).expect(
-            "FFT evaluation of vanishing polynomial must be within field's two-adicity limit",
+        // Optimization: Z_H(x) = x^n - 1 has only 4 distinct values on a coset of size 4n.
+        // On coset {offset * ω^i : i = 0..4n-1} where ω is primitive 4n-th root:
+        //   Z_H(offset * ω^i) = offset^n * (ω^n)^i - 1
+        // Since ω^n is a 4th root of unity, (ω^n)^i cycles through 4 values.
+        //
+        // SAFETY: This optimization assumes degree == 4 * n. If degree changes (see TODO above),
+        // this optimization must be revisited.
+        assert_eq!(
+            degree,
+            4 * cpi.n,
+            "Z_H optimization requires degree == 4n; if degree formula changes, update this code"
         );
-        FieldElement::inplace_batch_inverse(&mut zh_eval)
-            .expect("vanishing polynomial evaluations are non-zero because evaluated on coset offset from the roots of unity");
+        let omega_4n = F::get_primitive_root_of_unity(degree.trailing_zeros() as u64)
+            .expect("primitive root exists for degree");
+        let omega_n = omega_4n.pow(cpi.n as u64); // ω^n where ω is 4n-th root; this is a 4th root of unity
+        let offset_to_n = offset.pow(cpi.n as u64);
+
+        // Compute the 4 distinct Z_H values and their inverses
+        // Use multiplication chain for small powers (faster than pow)
+        let omega_n_sq = &omega_n * &omega_n;
+        let omega_n_cubed = &omega_n_sq * &omega_n;
+        let mut zh_base = [
+            &offset_to_n - FieldElement::<F>::one(), // i ≡ 0 (mod 4)
+            &offset_to_n * &omega_n - FieldElement::<F>::one(), // i ≡ 1 (mod 4)
+            &offset_to_n * &omega_n_sq - FieldElement::<F>::one(), // i ≡ 2 (mod 4)
+            &offset_to_n * &omega_n_cubed - FieldElement::<F>::one(), // i ≡ 3 (mod 4)
+        ];
+        FieldElement::inplace_batch_inverse(&mut zh_base)
+            .expect("Z_H evaluations are non-zero on coset offset from roots of unity");
+
+        // Build full evaluation vector by cycling through the 4 values
+        let zh_eval: Vec<_> = (0..degree).map(|i| zh_base[i % 4].clone()).collect();
         let c: Vec<_> = p_eval
             .iter()
             .zip(zh_eval.iter())
@@ -518,6 +625,8 @@ where
         let mut t = Polynomial::interpolate_offset_fft(&c, offset)
             .expect("FFT interpolation of quotient polynomial must succeed");
 
+        // Split quotient polynomial into 3 parts following gnark's approach:
+        // t(X) = t_lo(X) + X^(n+2) * t_mid(X) + X^(2n+4) * t_hi(X)
         polynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (&cpi.n + 2));
         let p_t_lo = Polynomial::new(&t.coefficients[..&cpi.n + 2]);
         let p_t_mid = Polynomial::new(&t.coefficients[&cpi.n + 2..2 * (&cpi.n + 2)]);
@@ -531,11 +640,27 @@ where
             &p_t_mid - b_0 + &b_1 * Polynomial::new_monomial(FieldElement::one(), cpi.n + 2);
         let p_t_hi = &p_t_hi - b_1;
 
-        let t_lo_1 = self.commitment_scheme.commit(&p_t_lo);
-        let t_mid_1 = self.commitment_scheme.commit(&p_t_mid);
-        let t_hi_1 = self.commitment_scheme.commit(&p_t_hi);
+        #[cfg(feature = "parallel")]
+        let (t_lo_1, t_mid_1, t_hi_1) = {
+            let (t_lo_1, (t_mid_1, t_hi_1)) = rayon::join(
+                || self.commitment_scheme.commit(&p_t_lo),
+                || {
+                    rayon::join(
+                        || self.commitment_scheme.commit(&p_t_mid),
+                        || self.commitment_scheme.commit(&p_t_hi),
+                    )
+                },
+            );
+            (t_lo_1, t_mid_1, t_hi_1)
+        };
+        #[cfg(not(feature = "parallel"))]
+        let (t_lo_1, t_mid_1, t_hi_1) = (
+            self.commitment_scheme.commit(&p_t_lo),
+            self.commitment_scheme.commit(&p_t_mid),
+            self.commitment_scheme.commit(&p_t_hi),
+        );
 
-        Round3Result {
+        Ok(Round3Result {
             t_lo_1,
             t_mid_1,
             t_hi_1,
@@ -543,7 +668,7 @@ where
             p_t_mid,
             p_t_hi,
             alpha,
-        }
+        })
     }
 
     fn round_4(
@@ -578,16 +703,26 @@ where
         round_3: &Round3Result<F, CS::Commitment>,
         round_4: &Round4Result<F>,
         upsilon: FieldElement<F>,
-    ) -> Round5Result<F, CS::Commitment> {
+    ) -> Result<Round5Result<F, CS::Commitment>, ProverError> {
         let cpi = common_preprocessed_input;
         let (r1, r2, r3, r4) = (round_1, round_2, round_3, round_4);
         // Precompute variables
         let k2 = &cpi.k1 * &cpi.k1;
-        let zeta_raised_n = Polynomial::new_monomial(r4.zeta.pow(cpi.n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4
-        let zeta_raised_2n = Polynomial::new_monomial(r4.zeta.pow(2 * cpi.n + 4), 0);
+
+        // Compute zeta powers efficiently: zeta^n, zeta^(n+2), zeta^(2n+4)
+        // Start with zeta^n, then derive others to avoid redundant exponentiations
+        // Following gnark's approach: quotient split uses n+2 and 2n+4 exponents
+        // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4
+        let zeta_n = r4.zeta.pow(cpi.n as u64);
+        let zeta_sq = &r4.zeta * &r4.zeta;
+        let zeta_n_plus_2 = &zeta_n * &zeta_sq; // zeta^(n+2) = zeta^n * zeta^2
+        let zeta_2n_plus_4 = &zeta_n_plus_2 * &zeta_n_plus_2; // zeta^(2n+4) = (zeta^(n+2))^2
+
+        let zeta_raised_n = Polynomial::new_monomial(zeta_n_plus_2, 0);
+        let zeta_raised_2n = Polynomial::new_monomial(zeta_2n_plus_4, 0);
 
         // zeta is sampled outside the set of roots of unity so zeta != 1, and n != 0.
-        let l1_zeta = ((&r4.zeta.pow(cpi.n as u64) - FieldElement::<F>::one())
+        let l1_zeta = ((&zeta_n - FieldElement::<F>::one())
             / ((&r4.zeta - FieldElement::<F>::one()) * FieldElement::<F>::from(cpi.n as u64)))
         .expect("zeta is outside roots of unity so denominator is non-zero");
 
@@ -606,10 +741,11 @@ where
             * &r2.beta
             * &r4.z_zeta_omega
             * &cpi.s3;
+        let alpha_squared = &r3.alpha * &r3.alpha;
         p_non_constant += (r_2_2 - r_2_1) * &r3.alpha;
 
         let r_3 = &r2.p_z * l1_zeta;
-        p_non_constant += r_3 * &r3.alpha * &r3.alpha;
+        p_non_constant += r_3 * &alpha_squared;
 
         let partial_t = &r3.p_t_lo + zeta_raised_n * &r3.p_t_mid + zeta_raised_2n * &r3.p_t_hi;
 
@@ -624,46 +760,74 @@ where
             cpi.s2.clone(),
         ];
         let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(&r4.zeta)).collect();
-        let w_zeta_1 = self
-            .commitment_scheme
-            .open_batch(&r4.zeta, &ys, &polynomials, &upsilon);
 
-        let w_zeta_omega_1 =
-            self.commitment_scheme
-                .open(&(&r4.zeta * &cpi.omega), &r4.z_zeta_omega, &r2.p_z);
+        #[cfg(feature = "parallel")]
+        let (w_zeta_1, w_zeta_omega_1) = {
+            let zeta_omega = &r4.zeta * &cpi.omega;
+            rayon::join(
+                || {
+                    self.commitment_scheme
+                        .open_batch(&r4.zeta, &ys, &polynomials, &upsilon)
+                },
+                || {
+                    self.commitment_scheme
+                        .open(&zeta_omega, &r4.z_zeta_omega, &r2.p_z)
+                },
+            )
+        };
+        #[cfg(not(feature = "parallel"))]
+        let (w_zeta_1, w_zeta_omega_1) = {
+            let w_zeta_1 = self
+                .commitment_scheme
+                .open_batch(&r4.zeta, &ys, &polynomials, &upsilon);
+            let w_zeta_omega_1 =
+                self.commitment_scheme
+                    .open(&(&r4.zeta * &cpi.omega), &r4.z_zeta_omega, &r2.p_z);
+            (w_zeta_1, w_zeta_omega_1)
+        };
 
-        Round5Result {
+        Ok(Round5Result {
             w_zeta_1,
             w_zeta_omega_1,
             p_non_constant_zeta: ys[1].clone(),
             t_zeta: ys[0].clone(),
-        }
+        })
     }
 
+    /// Generates a PLONK proof for the given witness and public inputs.
+    ///
+    /// # Arguments
+    /// * `witness` - The witness assignment (values for all variables)
+    /// * `public_input` - The public input values
+    /// * `common_preprocessed_input` - Preprocessed circuit data from setup
+    /// * `vk` - The verification key
+    ///
+    /// # Returns
+    /// * `Ok(Proof)` on success
+    /// * `Err(ProverError)` if proving fails (e.g., FFT errors, invalid witness)
     pub fn prove(
         &self,
         witness: &Witness<F>,
         public_input: &[FieldElement<F>],
         common_preprocessed_input: &CommonPreprocessedInput<F>,
         vk: &VerificationKey<CS::Commitment>,
-    ) -> Proof<F, CS> {
+    ) -> Result<Proof<F, CS>, ProverError> {
         let mut transcript = new_strong_fiat_shamir_transcript::<F, CS>(vk, public_input);
 
-        // Round 1
+        // Round 1: Commit to wire polynomials
         let round_1 = self.round_1(witness, common_preprocessed_input);
         transcript.append_bytes(&round_1.a_1.as_bytes());
         transcript.append_bytes(&round_1.b_1.as_bytes());
         transcript.append_bytes(&round_1.c_1.as_bytes());
 
-        // Round 2
-        // TODO: Handle error
+        // Round 2: Commit to permutation polynomial
         let beta = transcript.sample_field_element();
         let gamma = transcript.sample_field_element();
 
-        let round_2 = self.round_2(witness, common_preprocessed_input, beta, gamma);
+        let round_2 = self.round_2(witness, common_preprocessed_input, beta, gamma)?;
         transcript.append_bytes(&round_2.z_1.as_bytes());
 
-        // Round 3
+        // Round 3: Compute and commit to quotient polynomial
         let alpha = transcript.sample_field_element();
         let round_3 = self.round_3(
             common_preprocessed_input,
@@ -671,12 +835,12 @@ where
             &round_1,
             &round_2,
             alpha,
-        );
+        )?;
         transcript.append_bytes(&round_3.t_lo_1.as_bytes());
         transcript.append_bytes(&round_3.t_mid_1.as_bytes());
         transcript.append_bytes(&round_3.t_hi_1.as_bytes());
 
-        // Round 4
+        // Round 4: Evaluate polynomials at challenge point
         let zeta = transcript.sample_field_element();
         let round_4 = self.round_4(common_preprocessed_input, &round_1, &round_2, zeta);
 
@@ -687,7 +851,7 @@ where
         transcript.append_field_element(&round_4.s2_zeta);
         transcript.append_field_element(&round_4.z_zeta_omega);
 
-        // Round 5
+        // Round 5: Compute opening proofs
         let upsilon = transcript.sample_field_element();
         let round_5 = self.round_5(
             common_preprocessed_input,
@@ -696,9 +860,9 @@ where
             &round_3,
             &round_4,
             upsilon,
-        );
+        )?;
 
-        Proof {
+        Ok(Proof {
             a_1: round_1.a_1,
             b_1: round_1.b_1,
             c_1: round_1.c_1,
@@ -716,7 +880,7 @@ where
             w_zeta_omega_1: round_5.w_zeta_omega_1,
             p_non_constant_zeta: round_5.p_non_constant_zeta,
             t_zeta: round_5.t_zeta,
-        }
+        })
     }
 }
 
@@ -806,7 +970,9 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg, random_generator);
 
-        let result_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
+        let result_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
         let z_1_expected = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex_unchecked("3e8322968c3496cf1b5786d4d71d158a646ec90c14edf04e758038e1f88dcdfe8443fcecbb75f3074a872a380391742"),
             FpElement::from_hex_unchecked("11eac40d09796ff150004e7b858d83ddd9fe995dced0b3fbd7535d6e361729b25d488799da61fdf1d7b5022684053327"),
@@ -824,14 +990,18 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg, random_generator);
         let round_1 = prover.round_1(&witness, &common_preprocessed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
-        let round_3 = prover.round_3(
-            &common_preprocessed_input,
-            &public_input,
-            &round_1,
-            &round_2,
-            alpha(),
-        );
+        let round_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
+        let round_3 = prover
+            .round_3(
+                &common_preprocessed_input,
+                &public_input,
+                &round_1,
+                &round_2,
+                alpha(),
+            )
+            .unwrap();
 
         let t_lo_1_expected = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex_unchecked("9f511a769e77e87537b0749d65f467532fbf0f9dc1bcc912c333741be9d0a613f61e5fe595996964646ce30794701e5"),
@@ -858,7 +1028,9 @@ mod tests {
         let prover = Prover::new(kzg, random_generator);
 
         let round_1 = prover.round_1(&witness, &common_preprocessed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
+        let round_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
 
         let round_4 = prover.round_4(&common_preprocessed_input, &round_1, &round_2, zeta());
         let expected_a_value = FrElement::from_hex_unchecked(
@@ -899,15 +1071,19 @@ mod tests {
         let prover = Prover::new(kzg, random_generator);
 
         let round_1 = prover.round_1(&witness, &common_preprocessed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
+        let round_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
 
-        let round_3 = prover.round_3(
-            &common_preprocessed_input,
-            &public_input,
-            &round_1,
-            &round_2,
-            alpha(),
-        );
+        let round_3 = prover
+            .round_3(
+                &common_preprocessed_input,
+                &public_input,
+                &round_1,
+                &round_2,
+                alpha(),
+            )
+            .unwrap();
 
         let round_4 = prover.round_4(&common_preprocessed_input, &round_1, &round_2, zeta());
 
@@ -920,14 +1096,16 @@ mod tests {
             FpElement::from_hex_unchecked("1254347a0fa2ac856917825a5cff5f9583d39a52edbc2be5bb10fabd0c04d23019bcb963404345743120310fd734a61a"),
         ).unwrap();
 
-        let round_5 = prover.round_5(
-            &common_preprocessed_input,
-            &round_1,
-            &round_2,
-            &round_3,
-            &round_4,
-            upsilon(),
-        );
+        let round_5 = prover
+            .round_5(
+                &common_preprocessed_input,
+                &round_1,
+                &round_2,
+                &round_3,
+                &round_4,
+                upsilon(),
+            )
+            .unwrap();
         assert_eq!(round_5.w_zeta_1, expected_w_zeta_1);
         assert_eq!(round_5.w_zeta_omega_1, expected_w_zeta_omega_1);
     }

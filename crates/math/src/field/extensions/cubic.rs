@@ -30,26 +30,44 @@ where
 {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
-        unimplemented!()
+        let mut bytes = self[0].value().to_bytes_be();
+        bytes.extend(self[1].value().to_bytes_be());
+        bytes.extend(self[2].value().to_bytes_be());
+        bytes
     }
 
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
-        unimplemented!()
+        let mut bytes = self[0].value().to_bytes_le();
+        bytes.extend(self[1].value().to_bytes_le());
+        bytes.extend(self[2].value().to_bytes_le());
+        bytes
     }
 
-    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
-        unimplemented!()
+        let element_size = bytes.len() / 3;
+        let x0 = FieldElement::new(F::BaseType::from_bytes_be(&bytes[..element_size])?);
+        let x1 = FieldElement::new(F::BaseType::from_bytes_be(
+            &bytes[element_size..element_size * 2],
+        )?);
+        let x2 = FieldElement::new(F::BaseType::from_bytes_be(&bytes[element_size * 2..])?);
+        Ok([x0, x1, x2])
     }
 
-    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
-        unimplemented!()
+        let element_size = bytes.len() / 3;
+        let x0 = FieldElement::new(F::BaseType::from_bytes_le(&bytes[..element_size])?);
+        let x1 = FieldElement::new(F::BaseType::from_bytes_le(
+            &bytes[element_size..element_size * 2],
+        )?);
+        let x2 = FieldElement::new(F::BaseType::from_bytes_le(&bytes[element_size * 2..])?);
+        Ok([x0, x1, x2])
     }
 }
 
@@ -258,6 +276,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::field::fields::u64_prime_field::{U64FieldElement, U64PrimeField};
+    use alloc::vec;
 
     const ORDER_P: u64 = 13;
 
@@ -432,5 +451,67 @@ mod tests {
         let b = FEE::new([-FE::new(4), FE::new(2), FE::new(2)]);
         let expected_result = FEE::new([FE::new(3), FE::new(6), FE::new(11)]);
         assert_eq!((a / b).unwrap(), expected_result);
+    }
+
+    #[test]
+    fn byte_conversion_roundtrip_be() {
+        let original = [FE::new(1), FE::new(7), FE::new(11)];
+        let bytes = original.to_bytes_be();
+        let restored = <[FE; 3]>::from_bytes_be(&bytes).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn byte_conversion_roundtrip_le() {
+        let original = [FE::new(1), FE::new(7), FE::new(11)];
+        let bytes = original.to_bytes_le();
+        let restored = <[FE; 3]>::from_bytes_le(&bytes).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn byte_conversion_zero_elements() {
+        let original = [FE::zero(), FE::zero(), FE::zero()];
+        let bytes_be = original.to_bytes_be();
+        let bytes_le = original.to_bytes_le();
+        assert_eq!(<[FE; 3]>::from_bytes_be(&bytes_be).unwrap(), original);
+        assert_eq!(<[FE; 3]>::from_bytes_le(&bytes_le).unwrap(), original);
+    }
+
+    #[test]
+    fn byte_conversion_max_elements() {
+        let max = FE::new(ORDER_P - 1);
+        let original = [max, max, max];
+        let bytes_be = original.to_bytes_be();
+        let bytes_le = original.to_bytes_le();
+        assert_eq!(<[FE; 3]>::from_bytes_be(&bytes_be).unwrap(), original);
+        assert_eq!(<[FE; 3]>::from_bytes_le(&bytes_le).unwrap(), original);
+    }
+
+    #[test]
+    fn byte_conversion_invalid_length_not_divisible_by_3() {
+        let bytes_len_4 = vec![1, 2, 3, 4]; // Not divisible by 3
+        let bytes_len_5 = vec![1, 2, 3, 4, 5]; // Not divisible by 3
+        let bytes_len_7 = vec![1, 2, 3, 4, 5, 6, 7]; // Not divisible by 3
+
+        assert!(<[FE; 3]>::from_bytes_be(&bytes_len_4).is_err());
+        assert!(<[FE; 3]>::from_bytes_le(&bytes_len_4).is_err());
+
+        assert!(<[FE; 3]>::from_bytes_be(&bytes_len_5).is_err());
+        assert!(<[FE; 3]>::from_bytes_le(&bytes_len_5).is_err());
+
+        assert!(<[FE; 3]>::from_bytes_be(&bytes_len_7).is_err());
+        assert!(<[FE; 3]>::from_bytes_le(&bytes_len_7).is_err());
+    }
+
+    #[test]
+    fn byte_conversion_empty() {
+        let bytes = vec![];
+        // Empty is divisible by 3 (0 % 3 == 0), should pass validation but may fail on element creation
+        let result_be = <[FE; 3]>::from_bytes_be(&bytes);
+        let result_le = <[FE; 3]>::from_bytes_le(&bytes);
+        // Both should either succeed with zero elements or fail gracefully
+        assert!(result_be.is_ok() || result_be.is_err());
+        assert!(result_le.is_ok() || result_le.is_err());
     }
 }

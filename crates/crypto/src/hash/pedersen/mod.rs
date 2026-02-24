@@ -84,13 +84,11 @@ impl<P: PedersenParameters<F = Stark252PrimeField>> Pedersen for P {
 
 #[inline]
 fn bools_to_usize_le(bools: &[bool]) -> usize {
-    let mut result: usize = 0;
-    for (ind, bit) in bools.iter().enumerate() {
-        if *bit {
-            result += 1 << ind;
-        }
-    }
-    result
+    bools
+        .iter()
+        .enumerate()
+        .filter(|(_, &bit)| bit)
+        .fold(0, |acc, (i, _)| acc | (1 << i))
 }
 
 #[cfg(test)]

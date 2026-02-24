@@ -96,6 +96,7 @@ fn compile_metal_shaders() {
             "-sdk",
             "macosx",
             "metal",
+            "-O2",
             "-c",
             &source_file,
             "-o",

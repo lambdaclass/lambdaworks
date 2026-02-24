@@ -80,3 +80,30 @@ template [[ host_name("bitrev_permutation_stark256") ]]
     uint,
     uint
 );
+
+// Threadgroup-cached radix-2 DIT butterfly for Stark252
+template [[ host_name("radix2_dit_butterfly_tg_stark256") ]]
+[[kernel]] void radix2_dit_butterfly_tg<FpStark256>(
+    device FpStark256*,
+    constant FpStark256*,
+    constant uint32_t&,
+    constant uint32_t&,
+    uint32_t,
+    uint32_t,
+    uint32_t,
+    uint32_t,
+    threadgroup FpStark256*
+);
+
+// Fused multi-stage radix-2 DIT butterfly for Stark252
+template [[ host_name("radix2_dit_butterfly_fused_stark256") ]]
+[[kernel]] void radix2_dit_butterfly_fused<FpStark256>(
+    device FpStark256*,
+    constant FpStark256*,
+    constant uint32_t&,
+    constant uint32_t&,
+    uint32_t,
+    uint32_t,
+    uint32_t,
+    threadgroup FpStark256*
+);
