@@ -314,7 +314,7 @@ where
         }
     }
 
-    let two = &FieldElement::<F>::one() + &FieldElement::<F>::one();
+    let two = FieldElement::<F>::from(2u64);
     let mut ood_point: Vec<FieldElement<F>> = Vec::new();
     let mut claims_to_verify_by_instance: Vec<Option<Vec<FieldElement<F>>>> =
         vec![None; n_instances];

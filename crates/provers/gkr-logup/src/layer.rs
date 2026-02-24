@@ -60,8 +60,8 @@ where
             Self::LogUpGeneric {
                 numerators,
                 denominators,
-            } => next_logup_layer(Some(numerators), denominators),
-            Self::LogUpMultiplicities {
+            }
+            | Self::LogUpMultiplicities {
                 numerators,
                 denominators,
             } => next_logup_layer(Some(numerators), denominators),
@@ -81,8 +81,8 @@ where
             Layer::LogUpGeneric {
                 numerators,
                 denominators,
-            } => vec![numerators[0].clone(), denominators[0].clone()],
-            Layer::LogUpMultiplicities {
+            }
+            | Layer::LogUpMultiplicities {
                 numerators,
                 denominators,
             } => vec![numerators[0].clone(), denominators[0].clone()],

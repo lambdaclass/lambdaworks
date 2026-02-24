@@ -90,14 +90,8 @@ where
             Layer::LogUpGeneric {
                 numerators,
                 denominators,
-            } => eval_logup_sum(
-                &self.eq_evals,
-                Some(numerators),
-                denominators,
-                n_terms,
-                lambda,
-            ),
-            Layer::LogUpMultiplicities {
+            }
+            | Layer::LogUpMultiplicities {
                 numerators,
                 denominators,
             } => eval_logup_sum(
@@ -150,13 +144,8 @@ where
             Layer::LogUpGeneric {
                 numerators,
                 denominators,
-            } => {
-                vec![
-                    [numerators[0].clone(), numerators[1].clone()],
-                    [denominators[0].clone(), denominators[1].clone()],
-                ]
             }
-            Layer::LogUpMultiplicities {
+            | Layer::LogUpMultiplicities {
                 numerators,
                 denominators,
             } => {
@@ -521,7 +510,7 @@ where
     let mut assignment = Vec::new();
 
     // Scale claims by doubling factor for smaller instances.
-    let two = &FieldElement::<F>::one() + &FieldElement::<F>::one();
+    let two = FieldElement::<F>::from(2u64);
     let two_inv = two.inv().unwrap();
     for (claim, oracle) in claims.iter_mut().zip(oracles.iter()) {
         let n_unused = n_variables - oracle.n_variables();

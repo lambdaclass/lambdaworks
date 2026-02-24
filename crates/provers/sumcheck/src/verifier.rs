@@ -1,6 +1,7 @@
 use crate::evaluate_product_at_point;
 use crate::Channel;
 use crate::EvaluationError;
+use core::ops::Mul;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
@@ -11,7 +12,6 @@ use lambdaworks_math::{
     polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
     traits::ByteConversion,
 };
-use std::ops::Mul;
 use thiserror::Error;
 
 /// Represents the result of a single round of verification.

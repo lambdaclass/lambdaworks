@@ -5,6 +5,7 @@
 
 use crate::prover::{ProofResult, ProverError};
 use crate::Channel;
+use core::ops::Mul;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
@@ -15,7 +16,6 @@ use lambdaworks_math::{
     polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
     traits::ByteConversion,
 };
-use std::ops::Mul;
 
 /// Validates that all polynomial factors have the same number of variables.
 ///
@@ -274,7 +274,7 @@ where
 
     let mut evaluations = vec![FieldElement::zero(); num_eval_points];
 
-    for (t, eval) in evaluations.iter_mut().enumerate().take(num_eval_points) {
+    for (t, eval) in evaluations.iter_mut().enumerate() {
         let t_fe: FieldElement<F> = FieldElement::from(t as u64);
         let mut sum = FieldElement::zero();
 
