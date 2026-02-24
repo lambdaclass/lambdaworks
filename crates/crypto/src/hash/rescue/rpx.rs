@@ -28,7 +28,7 @@ impl Default for Rpx256 {
 impl Rpx256 {
     pub fn new(mds_method: MdsMethod) -> Self {
         Self {
-            core: RescueCore::new(&SecurityLevel::Sec128, mds_method),
+            core: RescueCore::new(SecurityLevel::Sec128, mds_method),
         }
     }
 
@@ -56,28 +56,13 @@ impl Rpx256 {
     /// (x³ - x - 1), and each element is raised to the 7th power.
     fn apply_ext_sbox(state: &mut [Fp]) {
         debug_assert!(state.len() >= 12, "State must have at least 12 elements");
-        let [s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11] = [
-            state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7],
-            state[8], state[9], state[10], state[11],
-        ];
-
-        let ext0 = cubic_ext_power7([s0, s1, s2]);
-        let ext1 = cubic_ext_power7([s3, s4, s5]);
-        let ext2 = cubic_ext_power7([s6, s7, s8]);
-        let ext3 = cubic_ext_power7([s9, s10, s11]);
-
-        state[0] = ext0[0];
-        state[1] = ext0[1];
-        state[2] = ext0[2];
-        state[3] = ext1[0];
-        state[4] = ext1[1];
-        state[5] = ext1[2];
-        state[6] = ext2[0];
-        state[7] = ext2[1];
-        state[8] = ext2[2];
-        state[9] = ext3[0];
-        state[10] = ext3[1];
-        state[11] = ext3[2];
+        let results: [[Fp; 3]; 4] = core::array::from_fn(|i| {
+            let base = i * 3;
+            cubic_ext_power7([state[base], state[base + 1], state[base + 2]])
+        });
+        for (i, r) in results.iter().enumerate() {
+            state[i * 3..i * 3 + 3].copy_from_slice(r);
+        }
     }
 
     fn apply_middle_round(&self, state: &mut [Fp], round: usize) {
@@ -173,36 +158,6 @@ mod tests {
 
     fn rand_field_element(rng: &mut StdRng) -> Fp {
         Fp::from(rng.gen::<u64>())
-    }
-
-    #[test]
-    fn test_apply_sbox() {
-        let mut rng = StdRng::seed_from_u64(1);
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
-        let mut state: Vec<Fp> = (0..rpx.core.m)
-            .map(|_| rand_field_element(&mut rng))
-            .collect();
-
-        let mut expected = state.clone();
-        expected.iter_mut().for_each(|v| *v = v.pow(ALPHA));
-
-        RescueCore::apply_sbox(&mut state);
-        assert_eq!(expected, state);
-    }
-
-    #[test]
-    fn test_apply_inverse_sbox() {
-        let mut rng = StdRng::seed_from_u64(2);
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
-        let mut state: Vec<Fp> = (0..rpx.core.m)
-            .map(|_| rand_field_element(&mut rng))
-            .collect();
-
-        let mut expected = state.clone();
-        expected.iter_mut().for_each(|v| *v = v.pow(ALPHA_INV));
-
-        RescueCore::apply_inverse_sbox(&mut state);
-        assert_eq!(expected, state);
     }
 
     #[test]

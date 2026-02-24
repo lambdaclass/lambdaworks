@@ -39,7 +39,7 @@ impl Rpo256 {
     /// Creates a new instance of `Rpo256` with corresponding Security level and the specified MDS method.
     pub fn new(security_level: SecurityLevel, mds_method: MdsMethod) -> Self {
         Self {
-            core: RescueCore::new(&security_level, mds_method),
+            core: RescueCore::new(security_level, mds_method),
         }
     }
 
