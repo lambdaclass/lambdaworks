@@ -9,6 +9,9 @@ pub mod eq_evals;
 pub mod fraction;
 pub mod layer;
 pub mod prover;
+pub mod univariate;
+pub mod univariate_layer;
+
 pub mod utils;
 pub mod verifier;
 
