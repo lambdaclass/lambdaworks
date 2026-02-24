@@ -12,6 +12,9 @@ pub mod prover;
 pub mod utils;
 pub mod verifier;
 
+/// Max degree of round polynomials in the GKR sumcheck.
+pub const MAX_DEGREE: usize = 3;
+
 pub use fraction::Fraction;
 pub use lambdaworks_sumcheck::ProverError;
 pub use layer::Layer;

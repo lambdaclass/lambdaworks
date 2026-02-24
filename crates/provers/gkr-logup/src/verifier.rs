@@ -6,6 +6,7 @@ use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 
 use crate::fraction::Fraction;
+use crate::MAX_DEGREE;
 use lambdaworks_math::polynomial::eq_eval;
 
 use crate::utils::{fold_mle_evals, random_linear_combination};
@@ -15,9 +16,6 @@ use crate::utils::{fold_mle_evals, random_linear_combination};
 pub struct SumcheckProof<F: IsField> {
     pub round_polys: Vec<Polynomial<FieldElement<F>>>,
 }
-
-/// Max degree of round polynomials the verifier accepts.
-const MAX_DEGREE: usize = 3;
 
 /// Defines how a 2-to-1 gate operates locally on two input rows.
 #[derive(Debug, Clone, Copy)]
@@ -229,12 +227,12 @@ where
         // Sample challenge (same as prover)
         let challenge: FieldElement<F> = channel.sample_field_element();
 
+        // Reduce mask at challenge point (borrow challenge before moving it)
+        claims_to_verify = mask.reduce_at_point(&challenge);
+
         // Update ood_point
         ood_point = sumcheck_ood_point;
-        ood_point.push(challenge.clone());
-
-        // Reduce mask at challenge point
-        claims_to_verify = mask.reduce_at_point(&challenge);
+        ood_point.push(challenge);
     }
 
     Ok(VerificationResult {
@@ -314,7 +312,6 @@ where
         }
     }
 
-    let two = FieldElement::<F>::from(2u64);
     let mut ood_point: Vec<FieldElement<F>> = Vec::new();
     let mut claims_to_verify_by_instance: Vec<Option<Vec<FieldElement<F>>>> =
         vec![None; n_instances];
@@ -362,10 +359,7 @@ where
                     continue;
                 }
                 let n_unused = n_layers - instance_n_layers(instance);
-                let mut doubling_factor = FieldElement::<F>::one();
-                for _ in 0..n_unused {
-                    doubling_factor = &doubling_factor * &two;
-                }
+                let doubling_factor = FieldElement::<F>::from(1u64 << n_unused);
                 let claim = &random_linear_combination(claims, &lambda) * &doubling_factor;
                 sumcheck_claims.push(claim);
                 sumcheck_instances.push(instance);
@@ -426,17 +420,17 @@ where
             }
         }
 
-        // Sample challenge, update OOD point.
+        // Sample challenge, reduce masks (borrow challenge before moving it).
         let challenge: FieldElement<F> = channel.sample_field_element();
-        ood_point = sumcheck_ood_point;
-        ood_point.push(challenge.clone());
-
-        // Reduce masks to get claims for next layer.
         for instance in sumcheck_instances {
             let n_unused = n_layers - instance_n_layers(instance);
             let mask = &layer_masks_by_instance[instance][layer - n_unused];
             claims_to_verify_by_instance[instance] = Some(mask.reduce_at_point(&challenge));
         }
+
+        // Update OOD point.
+        ood_point = sumcheck_ood_point;
+        ood_point.push(challenge);
     }
 
     let claims_to_verify_by_instance: Vec<Vec<FieldElement<F>>> = claims_to_verify_by_instance

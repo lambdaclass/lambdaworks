@@ -1,4 +1,4 @@
-use std::ops::Mul;
+use core::ops::Mul;
 
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{HasDefaultTranscript, IsField};
@@ -14,8 +14,9 @@ use lambdaworks_sumcheck::ProverError;
 use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
 
 use crate::eq_evals::EqEvaluations;
-use crate::fraction::{Fraction, Reciprocal};
+use crate::fraction::Fraction;
 use crate::layer::{gen_layers, Layer};
+use crate::MAX_DEGREE;
 use lambdaworks_math::polynomial::eq_eval;
 
 use crate::utils::random_linear_combination;
@@ -102,7 +103,7 @@ where
                 lambda,
             ),
             Layer::LogUpSingles { denominators } => {
-                eval_logup_singles_sum(&self.eq_evals, denominators, n_terms, lambda)
+                eval_logup_sum(&self.eq_evals, None, denominators, n_terms, lambda)
             }
         };
 
@@ -214,14 +215,14 @@ where
     let mut eval_at_0 = FieldElement::<F>::zero();
     let mut eval_at_2 = FieldElement::<F>::zero();
 
-    for i in 0..n_terms {
-        let get_num = |idx: usize| -> FieldElement<F> {
-            match input_numerators {
-                Some(nums) => nums[idx].clone(),
-                None => FieldElement::one(),
-            }
-        };
+    let get_num = |idx: usize| -> FieldElement<F> {
+        match input_numerators {
+            Some(nums) => nums[idx].clone(),
+            None => FieldElement::one(),
+        }
+    };
 
+    for i in 0..n_terms {
         let num_r0i0 = get_num(i * 2);
         let den_r0i0 = &input_denominators[i * 2];
         let num_r0i1 = get_num(i * 2 + 1);
@@ -253,42 +254,6 @@ where
     (eval_at_0, eval_at_2)
 }
 
-/// Evaluates the LogUp singles sum at t=0 and t=2 (numerators are all 1).
-fn eval_logup_singles_sum<F: IsField>(
-    eq_evals: &EqEvaluations<F>,
-    input_denominators: &DenseMultilinearPolynomial<F>,
-    n_terms: usize,
-    lambda: &FieldElement<F>,
-) -> (FieldElement<F>, FieldElement<F>)
-where
-    F::BaseType: Send + Sync,
-{
-    let mut eval_at_0 = FieldElement::<F>::zero();
-    let mut eval_at_2 = FieldElement::<F>::zero();
-
-    for i in 0..n_terms {
-        let den_r0i0 = &input_denominators[i * 2];
-        let den_r0i1 = &input_denominators[i * 2 + 1];
-        let den_r1i0 = &input_denominators[(n_terms + i) * 2];
-        let den_r1i1 = &input_denominators[(n_terms + i) * 2 + 1];
-
-        let den_r2i0 = &(den_r1i0 + den_r1i0) - den_r0i0;
-        let den_r2i1 = &(den_r1i1 + den_r1i1) - den_r0i1;
-
-        // 1/a + 1/b = (a+b)/(a*b)
-        let frac_r0 = Reciprocal::new(den_r0i0.clone()) + Reciprocal::new(den_r0i1.clone());
-        let frac_r2 = Reciprocal::new(den_r2i0) + Reciprocal::new(den_r2i1);
-
-        let eq_eval = &eq_evals[i];
-        eval_at_0 =
-            &eval_at_0 + &(eq_eval * &(&frac_r0.numerator + &(lambda * &frac_r0.denominator)));
-        eval_at_2 =
-            &eval_at_2 + &(eq_eval * &(&frac_r2.numerator + &(lambda * &frac_r2.denominator)));
-    }
-
-    (eval_at_0, eval_at_2)
-}
-
 /// Computes `r(t) = sum_x eq_eval((t, x), y[-k:]) * p(t, x)` from evaluations of
 /// `f(t) = sum_x eq_eval(({0}^(n - k), 0, x), y) * p(t, x)`.
 ///
@@ -308,20 +273,25 @@ fn correct_sum_as_poly_in_first_variable<F: IsField>(
     assert!(k <= n);
 
     // a_const = 1 / eq_eval((0^(n-k+1)), y[..n-k+1])
+    // eq_eval(0, y_i) = 1 - y_i, so eq_eval(0^m, y) = prod(1 - y_i).
     // This is zero when any challenge y_i = 1, probability ~(n-k+1)/p.
-    let zeros: Vec<FieldElement<F>> = vec![FieldElement::zero(); n - k + 1];
-    let a_const = eq_eval(&zeros, &y[..n - k + 1]).inv().map_err(|_| {
-        ProverError::InvalidState(
-            "eq_eval correction factor is zero (Fiat-Shamir challenge y_i = 1)".to_string(),
-        )
-    })?;
+    let a_const = y[..n - k + 1]
+        .iter()
+        .map(|yi| FieldElement::<F>::one() - yi)
+        .fold(FieldElement::<F>::one(), |acc, v| acc * v)
+        .inv()
+        .map_err(|_| {
+            ProverError::InvalidState(
+                "eq_eval correction factor is zero (Fiat-Shamir challenge y_i = 1)".to_string(),
+            )
+        })?;
 
     // Find the root of eq_eval(t, y[n-k]):
     //   eq_eval(t, y[n-k]) = t * y[n-k] + (1-t)*(1-y[n-k])
     //   0 = 1 - y[n-k] - t*(1 - 2*y[n-k])
     //   t = (1 - y[n-k]) / (1 - 2*y[n-k])
     let one = FieldElement::<F>::one();
-    let two = &one + &one;
+    let two = FieldElement::<F>::from(2u64);
     let y_nk = &y[n - k];
     let b_const = (&one - y_nk)
         * (&one - &(&two * y_nk)).inv().map_err(|_| {
@@ -342,18 +312,13 @@ fn correct_sum_as_poly_in_first_variable<F: IsField>(
     let eq_at_2 = eq_eval(std::slice::from_ref(&two), std::slice::from_ref(y_nk));
     let r_at_2 = &f_at_2 * &eq_at_2 * &a_const;
 
-    // r(b) = 0 (b is the root of eq_eval(t, y[n-k]))
-    let r_at_b = FieldElement::zero();
-
     // Interpolate degree-3 polynomial through (0, r(0)), (1, r(1)), (2, r(2)), (b, 0)
+    // r(b) = 0 because b is the root of eq_eval(t, y[n-k]).
     Ok(Polynomial::interpolate(
         &[FieldElement::zero(), one, two, b_const],
-        &[r_at_0, r_at_1, r_at_2, r_at_b],
+        &[r_at_0, r_at_1, r_at_2, FieldElement::zero()],
     )?)
 }
-
-/// Max degree of round polynomials in the GKR sumcheck.
-const MAX_DEGREE: usize = 3;
 
 /// Adapter that wraps a [`LayerOracle`] to implement the sumcheck crate's
 /// [`SumcheckProver`] trait, allowing the GKR prover to use
@@ -506,16 +471,15 @@ where
         .max()
         .expect("prove_batch_sumcheck requires at least one oracle");
 
-    let mut round_polys = Vec::new();
-    let mut assignment = Vec::new();
+    let mut round_polys = Vec::with_capacity(n_variables);
+    let mut assignment = Vec::with_capacity(n_variables);
 
     // Scale claims by doubling factor for smaller instances.
-    let two = FieldElement::<F>::from(2u64);
-    let two_inv = two.inv().unwrap();
+    let two_inv = FieldElement::<F>::from(2u64).inv().unwrap();
     for (claim, oracle) in claims.iter_mut().zip(oracles.iter()) {
         let n_unused = n_variables - oracle.n_variables();
-        for _ in 0..n_unused {
-            *claim = &*claim * &two;
+        if n_unused > 0 {
+            *claim = &*claim * &FieldElement::<F>::from(1u64 << n_unused);
         }
     }
 
@@ -656,12 +620,12 @@ where
         // Sample challenge for next layer
         let challenge: FieldElement<F> = channel.sample_field_element();
 
+        // Reduce mask at challenge point (borrow challenge before moving it)
+        claims_to_verify = mask.reduce_at_point(&challenge);
+
         // Update ood_point
         ood_point = sumcheck_ood_point;
-        ood_point.push(challenge.clone());
-
-        // Reduce mask at challenge point to get claims for next layer
-        claims_to_verify = mask.reduce_at_point(&challenge);
+        ood_point.push(challenge);
 
         sumcheck_proofs.push(sumcheck_proof);
         layer_masks.push(mask);
@@ -737,8 +701,7 @@ where
         .collect();
 
     let mut output_claims_by_instance: Vec<Option<Vec<FieldElement<F>>>> = vec![None; n_instances];
-    let mut layer_masks_by_instance: Vec<Vec<LayerMask<F>>> =
-        (0..n_instances).map(|_| Vec::new()).collect();
+    let mut layer_masks_by_instance: Vec<Vec<LayerMask<F>>> = vec![Vec::new(); n_instances];
     let mut sumcheck_proofs = Vec::new();
 
     let mut ood_point: Vec<FieldElement<F>> = Vec::new();
@@ -833,15 +796,15 @@ where
             layer_masks_by_instance[instance].push(mask.clone());
         }
 
-        // Sample challenge and update OOD point.
+        // Sample challenge, reduce masks (borrow challenge before moving it).
         let challenge: FieldElement<F> = channel.sample_field_element();
-        ood_point = sumcheck_ood_point;
-        ood_point.push(challenge.clone());
-
-        // Reduce masks to get claims for next layer.
         for (instance, mask) in sumcheck_instances.into_iter().zip(masks) {
             claims_to_verify_by_instance[instance] = Some(mask.reduce_at_point(&challenge));
         }
+
+        // Update OOD point.
+        ood_point = sumcheck_ood_point;
+        ood_point.push(challenge);
     }
 
     let output_claims_by_instance: Vec<Vec<FieldElement<F>>> = output_claims_by_instance

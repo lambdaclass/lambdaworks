@@ -35,10 +35,13 @@ impl<F: IsField> Add for Fraction<F> {
 
 impl<F: IsField> Sum for Fraction<F> {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.reduce(|a, b| a + b).unwrap_or_else(|| Fraction {
-            numerator: FieldElement::zero(),
-            denominator: FieldElement::one(),
-        })
+        iter.fold(
+            Fraction {
+                numerator: FieldElement::zero(),
+                denominator: FieldElement::one(),
+            },
+            |a, b| a + b,
+        )
     }
 }
 
