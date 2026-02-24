@@ -971,3 +971,28 @@ impl SecurityLevel {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn omega_12_is_primitive_root_of_unity() {
+        // OMEGA_12^12 == 1
+        assert_eq!(OMEGA_12.pow(12u64), Fp::one());
+        // OMEGA_12^k != 1 for k < 12
+        for k in 1..12u64 {
+            assert_ne!(OMEGA_12.pow(k), Fp::one(), "OMEGA_12^{k} should not be 1");
+        }
+    }
+
+    #[test]
+    fn omega_16_is_primitive_root_of_unity() {
+        // OMEGA_16^16 == 1
+        assert_eq!(OMEGA_16.pow(16u64), Fp::one());
+        // OMEGA_16^k != 1 for k < 16
+        for k in 1..16u64 {
+            assert_ne!(OMEGA_16.pow(k), Fp::one(), "OMEGA_16^{k} should not be 1");
+        }
+    }
+}
