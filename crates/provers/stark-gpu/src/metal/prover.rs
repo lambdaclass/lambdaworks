@@ -123,7 +123,6 @@ where
     let domain_inv_state =
         DomainInversionState::new().map_err(|e| shader_err("Domain inversions shader", e))?;
 
-    let t = std::time::Instant::now();
     let round_1 = gpu_round_1_goldilocks(
         air,
         trace,
@@ -133,9 +132,7 @@ where
         &keccak_state,
         &coset_state,
     )?;
-    eprintln!("  Phase 1 (RAP):         {:>10.2?}", t.elapsed());
 
-    let t = std::time::Instant::now();
     let round_2 = gpu_round_2_goldilocks_merkle(
         air,
         &domain,
@@ -147,13 +144,9 @@ where
         &keccak_state,
         &coset_state,
     )?;
-    eprintln!("  Phase 2 (Composition): {:>10.2?}", t.elapsed());
 
-    let t = std::time::Instant::now();
     let round_3 = gpu_round_3_goldilocks(air, &domain, &round_1, &round_2, transcript)?;
-    eprintln!("  Phase 3 (OOD):         {:>10.2?}", t.elapsed());
 
-    let t = std::time::Instant::now();
     let round_4 = gpu_round_4_goldilocks(
         air,
         &domain,
@@ -169,7 +162,6 @@ where
         &fri_square_inv_state,
         Some(&domain_inv_state),
     )?;
-    eprintln!("  Phase 4 (FRI):         {:>10.2?}", t.elapsed());
 
     Ok(StarkProof {
         trace_length: air.trace_length(),
@@ -226,19 +218,12 @@ where
         FriFoldFp3State::from_device_and_queue(&state.inner().device, &state.inner().queue)
             .map_err(|e| shader_err("FRI fold Fp3 shader", e))?;
 
-    let t = std::time::Instant::now();
     let round_1 = gpu_round_1_fp3(air, trace, &domain, transcript, &state, &keccak_state)?;
-    eprintln!("  Phase 1 (RAP):         {:>10.2?}", t.elapsed());
 
-    let t = std::time::Instant::now();
     let round_2 = gpu_round_2_fp3(air, &domain, &round_1, transcript)?;
-    eprintln!("  Phase 2 (Composition): {:>10.2?}", t.elapsed());
 
-    let t = std::time::Instant::now();
     let round_3 = gpu_round_3_fp3(air, &domain, &round_1, &round_2, transcript)?;
-    eprintln!("  Phase 3 (OOD):         {:>10.2?}", t.elapsed());
 
-    let t = std::time::Instant::now();
     let round_4 = gpu_round_4_fp3(
         air,
         &domain,
@@ -248,7 +233,6 @@ where
         transcript,
         &fri_fold_state,
     )?;
-    eprintln!("  Phase 4 (FRI):         {:>10.2?}", t.elapsed());
 
     Ok(StarkProof {
         trace_length: air.trace_length(),

@@ -743,7 +743,6 @@ where
     let blowup_factor = air.blowup_factor() as usize;
     let num_lde_rows = domain.lde_roots_of_unity_coset.len();
 
-    let t_phase2 = std::time::Instant::now();
     let zerofier_evals =
         gpu_transition_zerofier_evaluations_to_buffers(air, domain, state, coset_state);
     let lde_step_size = air.step_size() * blowup_factor;
@@ -925,8 +924,6 @@ where
     let (tree, root) =
         gpu_batch_commit_paired_from_column_buffers(&buffer_refs, lde_domain_size, keccak_state)
             .ok_or(ProvingError::EmptyCommitment)?;
-
-    eprintln!("  Phase 2 total:      {:>10.2?}", t_phase2.elapsed());
 
     Ok(GpuRound2Result {
         composition_poly_parts,
