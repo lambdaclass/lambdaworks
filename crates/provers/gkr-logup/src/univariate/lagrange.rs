@@ -149,12 +149,9 @@ pub fn univariate_to_multilinear_fft<F: IsFFTField>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::univariate::domain::CyclicDomain;
-    use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
-    use lambdaworks_math::field::traits::IsFFTField;
+    use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
 
-    const MODULUS: u64 = 897;
-    type F = U64PrimeField<MODULUS>;
+    type F = Babybear31PrimeField;
     type FE = FieldElement<F>;
 
     #[test]
