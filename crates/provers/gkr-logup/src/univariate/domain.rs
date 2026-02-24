@@ -111,12 +111,6 @@ pub fn cyclic_to_hypercube<F: IsFFTField>(values: &[FieldElement<F>]) -> Vec<Fie
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
-    use lambdaworks_math::field::traits::IsFFTField;
-
-    const MODULUS: u64 = 897;
-    type F = U64PrimeField<MODULUS>;
-    type FE = FieldElement<F>;
 
     #[test]
     fn test_bits_of_index() {

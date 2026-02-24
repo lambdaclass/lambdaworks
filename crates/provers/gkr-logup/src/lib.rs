@@ -22,6 +22,8 @@ pub use fraction::Fraction;
 pub use lambdaworks_sumcheck::ProverError;
 pub use layer::Layer;
 pub use prover::{prove, prove_batch};
+pub use univariate::iop::{prove_univariate, verify_univariate};
+pub use univariate::types::{UnivariateIopError, UnivariateIopProof};
 pub use verifier::{
     verify, verify_batch, BatchProof, BatchVerificationResult, Gate, Proof, SumcheckProof,
     VerificationResult,

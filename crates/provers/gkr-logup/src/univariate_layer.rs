@@ -1,7 +1,9 @@
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsFFTField;
+use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
 
 use crate::fraction::Fraction;
+use crate::layer::Layer;
 use crate::univariate::lagrange::UnivariateLagrange;
 use crate::univariate::Commitment;
 
@@ -158,6 +160,65 @@ where
         }
     }
 
+    /// Converts this univariate layer to a standard multilinear `Layer`.
+    ///
+    /// The `UnivariateLagrange` values are MLE evaluations on the Boolean hypercube
+    /// (indexed such that `values[i] = f(i_0, ..., i_{n-1})` with `i = sum i_k * 2^k`).
+    /// This method wraps them in `DenseMultilinearPolynomial` for use with the GKR prover.
+    pub fn to_multilinear_layer(&self) -> Layer<F> {
+        match self {
+            Self::GrandProduct { values, .. } => {
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values.values.clone()))
+            }
+            Self::LogUpGeneric {
+                numerators,
+                denominators,
+                ..
+            } => Layer::LogUpGeneric {
+                numerators: DenseMultilinearPolynomial::new(numerators.values.clone()),
+                denominators: DenseMultilinearPolynomial::new(denominators.values.clone()),
+            },
+            Self::LogUpMultiplicities {
+                numerators,
+                denominators,
+                ..
+            } => Layer::LogUpMultiplicities {
+                numerators: DenseMultilinearPolynomial::new(numerators.values.clone()),
+                denominators: DenseMultilinearPolynomial::new(denominators.values.clone()),
+            },
+            Self::LogUpSingles { denominators, .. } => Layer::LogUpSingles {
+                denominators: DenseMultilinearPolynomial::new(denominators.values.clone()),
+            },
+        }
+    }
+
+    /// Extracts all univariate value vectors from this layer.
+    ///
+    /// Returns the raw evaluation vectors in a consistent order matching the
+    /// GKR claim ordering:
+    /// - GrandProduct: `[values]`
+    /// - LogUpGeneric/LogUpMultiplicities: `[numerators, denominators]`
+    /// - LogUpSingles: `[ones, denominators]` (implicit numerator = 1 for each entry)
+    pub fn get_univariate_values(&self) -> Vec<Vec<FieldElement<F>>> {
+        match self {
+            Self::GrandProduct { values, .. } => vec![values.values.clone()],
+            Self::LogUpGeneric {
+                numerators,
+                denominators,
+                ..
+            }
+            | Self::LogUpMultiplicities {
+                numerators,
+                denominators,
+                ..
+            } => vec![numerators.values.clone(), denominators.values.clone()],
+            Self::LogUpSingles { denominators, .. } => {
+                let ones = vec![FieldElement::one(); denominators.len()];
+                vec![ones, denominators.values.clone()]
+            }
+        }
+    }
+
     pub fn set_commitments(&mut self, mut commitments: Vec<Commitment>) {
         match self {
             Self::GrandProduct { commitment, .. } => {
@@ -207,7 +268,7 @@ where
                 ..
             } => {
                 let mut r = numerator_commitment.clone().into_iter().collect::<Vec<_>>();
-                r.extend(denominator_commitment.clone().into_iter());
+                r.extend(denominator_commitment.clone());
                 r
             }
             Self::LogUpSingles {
@@ -242,7 +303,7 @@ where
     }
 
     let domain = CyclicDomain::new(log_n - 1).ok()?;
-    Some(UnivariateLagrange::new(new_values, domain).ok()?)
+    UnivariateLagrange::new(new_values, domain).ok()
 }
 
 fn next_logup_layer<F: IsFFTField>(
@@ -309,10 +370,9 @@ mod tests {
     use super::*;
     use crate::univariate::domain::CyclicDomain;
     use crate::univariate::lagrange::UnivariateLagrange;
-    use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
+    use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
 
-    const MODULUS: u64 = 897;
-    type F = U64PrimeField<MODULUS>;
+    type F = Babybear31PrimeField;
     type FE = FieldElement<F>;
 
     #[test]
