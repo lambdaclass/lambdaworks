@@ -326,16 +326,25 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
         FieldElement<F>: ByteConversion,
     {
         let [beta, gamma, alpha, zeta, upsilon] = self.compute_challenges(p, vk, public_input);
-        let zh_zeta = zeta.pow(input.n) - FieldElement::<F>::one();
 
         let k1 = &input.k1;
         let k2 = k1 * k1;
 
+        // Precompute zeta powers efficiently
+        let zeta_n = zeta.pow(input.n as u64);
+        let zeta_sq = &zeta * &zeta;
+        let zeta_n_plus_2 = &zeta_n * &zeta_sq;
+        let zeta_2n_plus_4 = &zeta_n_plus_2 * &zeta_n_plus_2;
+        let zh_zeta = &zeta_n - FieldElement::<F>::one();
+
         // We are using that zeta != 0 because is sampled outside the set of roots of unity,
         // and n != 0 because is the length of the trace.
-        let l1_zeta = ((zeta.pow(input.n as u64) - FieldElement::<F>::one())
+        let l1_zeta = (&zh_zeta
             / ((&zeta - FieldElement::<F>::one()) * FieldElement::from(input.n as u64)))
         .expect("zeta is outside roots of unity so denominator is non-zero");
+
+        // Precompute alpha^2 for reuse
+        let alpha_squared = &alpha * &alpha;
 
         // Use the following equality to compute PI(ζ)
         // without interpolating:
@@ -362,7 +371,7 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
             * (&p.c_zeta + &gamma)
             * (&p.a_zeta + &beta * &p.s1_zeta + &gamma)
             * (&p.b_zeta + &beta * &p.s2_zeta + &gamma);
-        p_constant_zeta = p_constant_zeta - &l1_zeta * &alpha * &alpha;
+        p_constant_zeta = p_constant_zeta - &l1_zeta * &alpha_squared;
         p_constant_zeta += p_pi_zeta;
 
         let p_zeta = p_constant_zeta + &p.p_non_constant_zeta;
@@ -372,14 +381,8 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
         // Compute commitment of partial evaluation of t (p = zh * t)
         let partial_t_1 = p
             .t_lo_1
-            .operate_with(
-                &p.t_mid_1
-                    .operate_with_self(zeta.pow(input.n + 2).canonical()),
-            )
-            .operate_with(
-                &p.t_hi_1
-                    .operate_with_self(zeta.pow(2 * input.n + 4).canonical()),
-            );
+            .operate_with(&p.t_mid_1.operate_with_self(zeta_n_plus_2.canonical()))
+            .operate_with(&p.t_hi_1.operate_with_self(zeta_2n_plus_4.canonical()));
 
         // Compute commitment of the non constant part of the linearization of p
         // The first term corresponds to the gates constraints
@@ -408,7 +411,7 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
         // α²*L₁(ζ)*Z(X)
         let third_term = p
             .z_1
-            .operate_with_self((&alpha * &alpha * l1_zeta).canonical());
+            .operate_with_self((&alpha_squared * l1_zeta).canonical());
 
         let p_non_constant_1 = first_term
             .operate_with(&second_term)
@@ -527,12 +530,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
@@ -564,12 +569,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
@@ -663,12 +670,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
@@ -700,12 +709,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let serialized_proof = proof.as_bytes();
         let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
@@ -741,12 +752,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         // Validation should pass for a legitimately generated proof
         let validation_result = Verifier::<_, KZG>::validate_proof_elements(&proof);
@@ -774,12 +787,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
         let result = verifier.verify_with_validation(
@@ -916,12 +931,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
 

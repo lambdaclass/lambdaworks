@@ -192,11 +192,10 @@ mod profiler {
     // ============================================
 
     fn profile_stark_fft(state: &MetalState, order: u32) -> TimingResult {
-        let n = 1usize << order;
+        let n = 1 << order;
         let input: Vec<StarkFE> = (0..n).map(|_| StarkFE::from(random::<u64>())).collect();
 
-        let twiddles_cpu =
-            get_fft_twiddles::<StarkF>(order as u64, RootsConfig::BitReverse).unwrap();
+        let twiddles_cpu = get_fft_twiddles::<StarkF>(n, RootsConfig::Natural).unwrap();
         let cpu_fn = |input: &[StarkFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
@@ -222,11 +221,10 @@ mod profiler {
     }
 
     fn profile_stark_ifft(state: &MetalState, order: u32) -> TimingResult {
-        let n = 1usize << order;
+        let n = 1 << order;
         let input: Vec<StarkFE> = (0..n).map(|_| StarkFE::from(random::<u64>())).collect();
 
-        let twiddles_cpu =
-            get_fft_twiddles::<StarkF>(order as u64, RootsConfig::BitReverseInversed).unwrap();
+        let twiddles_cpu = get_fft_twiddles::<StarkF>(n, RootsConfig::NaturalInversed).unwrap();
         let cpu_fn = |input: &[StarkFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
@@ -252,13 +250,12 @@ mod profiler {
     }
 
     fn profile_goldilocks_fft(state: &MetalState, order: u32) -> TimingResult {
-        let n = 1usize << order;
+        let n = 1 << order;
         let input: Vec<GoldilocksFE> = (0..n)
             .map(|_| GoldilocksFE::from(random::<u64>()))
             .collect();
 
-        let twiddles_cpu =
-            get_fft_twiddles::<GoldilocksF>(order as u64, RootsConfig::BitReverse).unwrap();
+        let twiddles_cpu = get_fft_twiddles::<GoldilocksF>(n, RootsConfig::Natural).unwrap();
         let cpu_fn = |input: &[GoldilocksFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
@@ -284,13 +281,13 @@ mod profiler {
     }
 
     fn profile_goldilocks_ifft(state: &MetalState, order: u32) -> TimingResult {
-        let n = 1usize << order;
+        let n = 1 << order;
         let input: Vec<GoldilocksFE> = (0..n)
             .map(|_| GoldilocksFE::from(random::<u64>()))
             .collect();
 
         let twiddles_cpu =
-            get_fft_twiddles::<GoldilocksF>(order as u64, RootsConfig::BitReverseInversed).unwrap();
+            get_fft_twiddles::<GoldilocksF>(n, RootsConfig::NaturalInversed).unwrap();
         let cpu_fn = |input: &[GoldilocksFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
@@ -320,7 +317,7 @@ mod profiler {
     // ============================================
 
     fn profile_m31_cfft(state: &MetalState, order: u32) -> TimingResult {
-        let coset_size = 1usize << order;
+        let coset_size = 1 << order;
         let _coset = Coset::<Mersenne31Field>::new_standard(order);
         let input: Vec<M31FE> = (0..coset_size)
             .map(|_| M31FE::from(&random::<u32>()))
@@ -349,7 +346,7 @@ mod profiler {
     }
 
     fn profile_m31_icfft(state: &MetalState, order: u32) -> TimingResult {
-        let coset_size = 1usize << order;
+        let coset_size = 1 << order;
         let _coset = Coset::<Mersenne31Field>::new_standard(order);
         let input: Vec<M31FE> = (0..coset_size)
             .map(|_| M31FE::from(&random::<u32>()))
@@ -382,7 +379,7 @@ mod profiler {
     // ============================================
 
     fn profile_m31_butterfly(state: &MetalState, order: u32) -> TimingResult {
-        let n = 1usize << order;
+        let n = 1 << order;
         let input: Vec<M31FE> = (0..n).map(|_| M31FE::from(&random::<u32>())).collect();
         let coset = Coset::new_standard(order);
         let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);
@@ -585,16 +582,15 @@ mod profiler {
         println!("  PROFILING GOLDILOCKS FIELD FFT/IFFT");
         println!("{}", "=".repeat(100));
 
-        let mut goldilocks_fft_results = Vec::new();
+        let mut goldilocks_results = Vec::new();
         for &order in &orders {
             println!("  Profiling Goldilocks FFT with order {}...", order);
-            goldilocks_fft_results.push(profile_goldilocks_fft(&state, order));
+            goldilocks_results.push(profile_goldilocks_fft(&state, order));
         }
 
-        let mut goldilocks_ifft_results = Vec::new();
         for &order in &orders {
             println!("  Profiling Goldilocks IFFT with order {}...", order);
-            goldilocks_ifft_results.push(profile_goldilocks_ifft(&state, order));
+            goldilocks_results.push(profile_goldilocks_ifft(&state, order));
         }
 
         println!("\n{}", "=".repeat(100));
@@ -626,8 +622,7 @@ mod profiler {
         print_results_table(&vec![
             stark_fft_results.clone(),
             stark_ifft_results.clone(),
-            goldilocks_fft_results.clone(),
-            goldilocks_ifft_results.clone(),
+            goldilocks_results.clone(),
             cfft_results.clone(),
             icfft_results.clone(),
             butterfly_results.clone(),
@@ -636,8 +631,7 @@ mod profiler {
         analyze_results(&vec![
             stark_fft_results,
             stark_ifft_results,
-            goldilocks_fft_results,
-            goldilocks_ifft_results,
+            goldilocks_results,
             cfft_results,
             icfft_results,
             butterfly_results,
