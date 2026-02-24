@@ -187,6 +187,7 @@ where
     fn boundary_constraints(
         &self,
         _rap_challenges: &[FieldElement<Self::Field>],
+        _bus_public_inputs: Option<&crate::lookup::BusPublicInputs<Self::Field>>,
     ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_main(0, 0, self.pub_inputs.a0.clone());
         let a1 = BoundaryConstraint::new_main(1, 0, self.pub_inputs.a1.clone());

@@ -13,6 +13,7 @@ members = [
     "crates/provers/stark-gpu",
     "crates/provers/sumcheck",
     "crates/provers/gkr",
+    "crates/provers/gkr-logup",
     "crates/provers/winterfell_adapter",
     "examples/merkle-tree-cli",
     "examples/prove-miden",
@@ -46,6 +47,7 @@ lambdaworks-groth16 = { path = "./crates/provers/groth16" }
 lambdaworks-circom-adapter = { path = "./crates/provers/groth16/circom-adapter" }
 lambdaworks-sumcheck = { path = "./crates/provers/sumcheck" }
 lambdaworks-sumcheck-gkr = { path = "./crates/provers/gkr" }
+lambdaworks-gkr-logup = { path = "./crates/provers/gkr-logup" }
 lambdaworks-winterfell-adapter = { path = "./crates/provers/winterfell_adapter" }
 stark-platinum-prover = { path = "./crates/provers/stark" }
 iai-callgrind = "0.3.1"

@@ -118,7 +118,10 @@ pub trait IsStarkVerifier<
 
         // <<<< Receive challenge: 𝛽
         let beta = transcript.sample_field_element();
-        let num_boundary_constraints = air.boundary_constraints(&rap_challenges).constraints.len();
+        let num_boundary_constraints = air
+            .boundary_constraints(&rap_challenges, proof.bus_public_inputs.as_ref())
+            .constraints
+            .len();
 
         let num_transition_constraints = air.context().num_transition_constraints;
 
@@ -235,7 +238,8 @@ pub trait IsStarkVerifier<
         domain: &Domain<Field>,
         challenges: &Challenges<FieldExtension>,
     ) -> bool {
-        let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
+        let boundary_constraints =
+            air.boundary_constraints(&challenges.rap_challenges, proof.bus_public_inputs.as_ref());
 
         let trace_length = air.trace_length();
         let number_of_b_constraints = boundary_constraints.constraints.len();
@@ -750,6 +754,31 @@ pub trait IsStarkVerifier<
         // Verify there are enough queries
         if proof.query_list.len() < air.context().proof_options.fri_number_of_queries {
             return false;
+        }
+
+        // Validate bus_public_inputs presence and length against AIR layout.
+        // A dishonest prover could omit bus_public_inputs entirely (None) to
+        // bypass boundary constraints, or submit fewer initial_terms than
+        // expected to skip term boundary constraints.
+        if air.has_bus_interactions() && proof.bus_public_inputs.is_none() {
+            error!("AIR has bus interactions but proof is missing bus_public_inputs");
+            return false;
+        }
+        if let Some(bus_inputs) = &proof.bus_public_inputs {
+            let num_aux = air.num_auxiliary_rap_columns();
+            if num_aux == 0 {
+                error!("Proof has bus_public_inputs but AIR has no auxiliary columns");
+                return false;
+            }
+            let expected_interactions = num_aux - 1;
+            if bus_inputs.initial_terms.len() != expected_interactions {
+                error!(
+                    "initial_terms length mismatch: got {}, expected {}",
+                    bus_inputs.initial_terms.len(),
+                    expected_interactions
+                );
+                return false;
+            }
         }
 
         #[cfg(feature = "instruments")]
