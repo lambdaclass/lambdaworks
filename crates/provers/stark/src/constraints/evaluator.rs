@@ -27,6 +27,7 @@ pub struct ConstraintEvaluator<
     PI,
 > {
     boundary_constraints: BoundaryConstraints<FieldExtension>,
+    logup_table_offset: FieldElement<FieldExtension>,
     phantom: PhantomData<(Field, PI)>,
 }
 impl<Field, FieldExtension, PI> ConstraintEvaluator<Field, FieldExtension, PI>
@@ -41,8 +42,19 @@ where
     ) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges, bus_public_inputs);
 
+        let logup_table_offset = match bus_public_inputs {
+            Some(bpi) => {
+                let n = FieldElement::<FieldExtension>::from(air.trace_length() as u64);
+                &bpi.table_contribution
+                    * n.inv()
+                        .expect("trace_length is a power-of-2, so it has an inverse")
+            }
+            None => FieldElement::zero(),
+        };
+
         Self {
             boundary_constraints,
+            logup_table_offset,
             phantom: PhantomData::<(Field, PI)> {},
         }
     }
@@ -224,6 +236,7 @@ where
                         &frame,
                         &periodic_values,
                         rap_challenges,
+                        &self.logup_table_offset,
                     );
                     let evaluations_transition =
                         air.compute_transition(&transition_evaluation_context);
@@ -271,6 +284,7 @@ where
                     &frame,
                     &periodic_values_buffer,
                     rap_challenges,
+                    &self.logup_table_offset,
                 );
 
                 // Use buffer-reuse variant to avoid allocation

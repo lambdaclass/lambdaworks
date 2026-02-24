@@ -93,6 +93,16 @@ pub fn validate_trace<
         .map(|(trace_steps, constraint)| trace_steps - constraint.end_exemptions())
         .collect();
 
+    let logup_table_offset = match bus_public_inputs {
+        Some(bpi) => {
+            let n = FieldElement::<FieldExtension>::from(air.trace_length() as u64);
+            &bpi.table_contribution
+                * n.inv()
+                    .expect("trace_length is a power-of-2, so it has an inverse")
+        }
+        None => FieldElement::zero(),
+    };
+
     // Iterate over trace and compute transitions
     for step in 0..lde_trace.num_steps() {
         let frame = Frame::read_step_from_lde(&lde_trace, step, &air.context().transition_offsets);
@@ -100,8 +110,12 @@ pub fn validate_trace<
             .iter()
             .map(|col| col[step].clone())
             .collect();
-        let transition_evaluation_context =
-            TransitionEvaluationContext::new_prover(&frame, &periodic_values, rap_challenges);
+        let transition_evaluation_context = TransitionEvaluationContext::new_prover(
+            &frame,
+            &periodic_values,
+            rap_challenges,
+            &logup_table_offset,
+        );
         let evaluations = air.compute_transition(&transition_evaluation_context);
 
         // Iterate over each transition evaluation. When the evaluated step is not from

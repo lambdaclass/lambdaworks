@@ -194,11 +194,13 @@ where
         frame: &'a Frame<'a, F, E>,
         periodic_values: &'a [FieldElement<F>],
         rap_challenges: &'a [FieldElement<E>],
+        logup_table_offset: &'a FieldElement<E>,
     },
     Verifier {
         frame: &'a Frame<'a, E, E>,
         periodic_values: &'a [FieldElement<E>],
         rap_challenges: &'a [FieldElement<E>],
+        logup_table_offset: &'a FieldElement<E>,
     },
 }
 
@@ -211,11 +213,13 @@ where
         frame: &'a Frame<'a, F, E>,
         periodic_values: &'a [FieldElement<F>],
         rap_challenges: &'a [FieldElement<E>],
+        logup_table_offset: &'a FieldElement<E>,
     ) -> Self {
         Self::Prover {
             frame,
             periodic_values,
             rap_challenges,
+            logup_table_offset,
         }
     }
 
@@ -223,11 +227,13 @@ where
         frame: &'a Frame<'a, E, E>,
         periodic_values: &'a [FieldElement<E>],
         rap_challenges: &'a [FieldElement<E>],
+        logup_table_offset: &'a FieldElement<E>,
     ) -> Self {
         Self::Verifier {
             frame,
             periodic_values,
             rap_challenges,
+            logup_table_offset,
         }
     }
 }

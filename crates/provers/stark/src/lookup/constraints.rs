@@ -140,19 +140,14 @@ where
 // Lookup Accumulated Constraint (degree 1)
 // =============================================================================
 
-/// Constraint for the accumulated column.
+/// Circular constraint for the accumulated column.
 ///
-/// Verifies: `acc[i+1] - acc[i] - Σ terms[i+1] = 0`
+/// Verifies: `acc[(i+1) mod N] - acc[i] - Σ terms[(i+1) mod N] + L/N = 0`
 ///
-/// Reads terms from the *next* row (row i+1). Combined with boundary
-/// constraints `term[k][0] = initial_terms[k]` and `acc[0] = Σ initial_terms`,
-/// this ensures all rows 0..N-1 are covered by the accumulation chain.
-///
-/// Uses `end_exemptions = 1` so the constraint covers rows 0..N-2.
-/// The transition connects terms at rows 1..N-1; row 0 terms are pinned
-/// by boundary constraints on the term columns.
-///
-/// The boundary constraint `acc[N-1] = final_sum` pins the accumulated column.
+/// With `end_exemptions = 0` and `transition_offsets = [0, 1]`, the framework
+/// naturally wraps from row N-1 back to row 0. The `logup_table_offset = L/N`
+/// is subtracted each row so the accumulated column wraps to its starting value,
+/// eliminating the need for any LogUp-specific boundary constraints.
 pub(crate) struct LookupAccumulatedConstraint {
     constraint_idx: usize,
     num_term_columns: usize,
@@ -183,7 +178,7 @@ where
     }
 
     fn end_exemptions(&self) -> usize {
-        1
+        0
     }
 
     fn evaluate(
@@ -196,6 +191,7 @@ where
             second_step: &TableView<A, B>,
             acc_column_idx: usize,
             num_term_columns: usize,
+            logup_table_offset: &FieldElement<B>,
         ) -> FieldElement<B> {
             let acc_curr = first_step.get_aux_evaluation_element(0, acc_column_idx);
             let acc_next = second_step.get_aux_evaluation_element(0, acc_column_idx);
@@ -204,21 +200,31 @@ where
                 .map(|i| second_step.get_aux_evaluation_element(0, i).clone())
                 .sum();
 
-            acc_next - acc_curr - terms_sum
+            acc_next - acc_curr - terms_sum + logup_table_offset
         }
 
         let res = match evaluation_context {
-            TransitionEvaluationContext::Prover { frame, .. } => evaluate_accumulated_constraint(
+            TransitionEvaluationContext::Prover {
+                frame,
+                logup_table_offset,
+                ..
+            } => evaluate_accumulated_constraint(
                 frame.get_evaluation_step(0),
                 frame.get_evaluation_step(1),
                 self.acc_column_idx,
                 self.num_term_columns,
+                logup_table_offset,
             ),
-            TransitionEvaluationContext::Verifier { frame, .. } => evaluate_accumulated_constraint(
+            TransitionEvaluationContext::Verifier {
+                frame,
+                logup_table_offset,
+                ..
+            } => evaluate_accumulated_constraint(
                 frame.get_evaluation_step(0),
                 frame.get_evaluation_step(1),
                 self.acc_column_idx,
                 self.num_term_columns,
+                logup_table_offset,
             ),
         };
 

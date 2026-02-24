@@ -221,25 +221,16 @@ impl BusInteraction {
 
 /// Public inputs for a table's accumulated LogUp column.
 ///
-/// Contains the initial term values (for row-0 boundary constraints) and the
-/// final accumulated value (for cross-table bus balance check).
+/// Contains the total table contribution `L = Σ all terms across all rows`.
+/// With the circular transition constraint, no boundary constraints are needed
+/// for the LogUp columns — the constraint `acc[(i+1) mod N] - acc[i] - Σ terms[(i+1) mod N] + L/N = 0`
+/// wraps naturally from row N-1 back to row 0.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(bound = "")]
 pub struct BusPublicInputs<E: IsField> {
-    /// Term column values at row 0 (one per interaction).
-    /// Used for boundary constraints that enforce `term_i(0) = initial_terms[i]`.
-    pub initial_terms: Vec<FieldElement<E>>,
-    /// Accumulated column value at last row.
-    pub final_accumulated: FieldElement<E>,
-}
-
-// =============================================================================
-// Auxiliary Trace Build Data
-// =============================================================================
-
-/// Container for interaction data needed to build aux trace.
-pub struct AuxiliaryTraceBuildData {
-    pub interactions: Vec<BusInteraction>,
+    /// Total table contribution: sum of all term values across all rows and columns.
+    /// For cross-table bus balance, the sum of `table_contribution` across all tables must be zero.
+    pub table_contribution: FieldElement<E>,
 }
 
 // =============================================================================

@@ -295,12 +295,23 @@ pub trait IsStarkVerifier<
         let num_main_trace_columns =
             proof.trace_ood_evaluations.width - air.num_auxiliary_rap_columns();
 
+        let logup_table_offset = match &proof.bus_public_inputs {
+            Some(bpi) => {
+                let n = FieldElement::<FieldExtension>::from(air.trace_length() as u64);
+                &bpi.table_contribution
+                    * n.inv()
+                        .expect("trace_length is a power-of-2, so it has an inverse")
+            }
+            None => FieldElement::zero(),
+        };
+
         let ood_frame =
             (proof.trace_ood_evaluations).into_frame(num_main_trace_columns, air.step_size());
         let transition_evaluation_context = TransitionEvaluationContext::new_verifier(
             &ood_frame,
             &periodic_values,
             &challenges.rap_challenges,
+            &logup_table_offset,
         );
         let transition_ood_frame_evaluations =
             air.compute_transition(&transition_evaluation_context);
@@ -756,29 +767,16 @@ pub trait IsStarkVerifier<
             return false;
         }
 
-        // Validate bus_public_inputs presence and length against AIR layout.
+        // Validate bus_public_inputs presence against AIR layout.
         // A dishonest prover could omit bus_public_inputs entirely (None) to
-        // bypass boundary constraints, or submit fewer initial_terms than
-        // expected to skip term boundary constraints.
+        // bypass the circular transition constraint's offset.
         if air.has_bus_interactions() && proof.bus_public_inputs.is_none() {
             error!("AIR has bus interactions but proof is missing bus_public_inputs");
             return false;
         }
-        if let Some(bus_inputs) = &proof.bus_public_inputs {
-            let num_aux = air.num_auxiliary_rap_columns();
-            if num_aux == 0 {
-                error!("Proof has bus_public_inputs but AIR has no auxiliary columns");
-                return false;
-            }
-            let expected_interactions = num_aux - 1;
-            if bus_inputs.initial_terms.len() != expected_interactions {
-                error!(
-                    "initial_terms length mismatch: got {}, expected {}",
-                    bus_inputs.initial_terms.len(),
-                    expected_interactions
-                );
-                return false;
-            }
+        if proof.bus_public_inputs.is_some() && !air.has_bus_interactions() {
+            error!("Proof has bus_public_inputs but AIR has no bus interactions");
+            return false;
         }
 
         #[cfg(feature = "instruments")]

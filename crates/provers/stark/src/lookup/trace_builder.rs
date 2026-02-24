@@ -89,34 +89,53 @@ where
     Ok(column)
 }
 
-/// Builds the accumulated column that sums all term columns across rows.
+/// Builds the accumulated column with circular offset for the LogUp argument.
 ///
-/// `acc[0] = Σ term_columns[0]`  (sum of all terms at row 0)
-/// `acc[i] = acc[i-1] + Σ term_columns[i]`  for i > 0
+/// Returns `(accumulated_column, table_contribution)` where:
+/// - `table_contribution = L = Σ all terms across all rows and columns`
+/// - `offset_per_row = L / N` (subtracted each row so the column wraps circularly)
+/// - `acc[0] = row_sum[0] - offset_per_row`
+/// - `acc[i] = acc[i-1] + row_sum[i] - offset_per_row` for i > 0
 ///
-/// Takes pre-computed term column vectors (column-major layout for cache-friendly
-/// sequential access within each column).
+/// The circular property ensures `acc[N-1] = 0`, so the transition constraint
+/// `acc[(i+1) mod N] - acc[i] - Σ terms[(i+1) mod N] + L/N = 0` holds for ALL rows
+/// including the wrap from row N-1 back to row 0.
 pub fn build_accumulated_column<E: IsField>(
     term_columns: &[Vec<FieldElement<E>>],
-) -> Vec<FieldElement<E>> {
+) -> (Vec<FieldElement<E>>, FieldElement<E>) {
     if term_columns.is_empty() {
-        return vec![];
+        return (vec![], FieldElement::<E>::zero());
     }
 
     let trace_len = term_columns[0].len();
+
+    // Compute L = Σ all terms across all rows and columns
+    let mut table_contribution = FieldElement::<E>::zero();
+    for term_col in term_columns {
+        for val in term_col {
+            table_contribution = &table_contribution + val;
+        }
+    }
+
+    // offset_per_row = L / N
+    let n = FieldElement::<E>::from(trace_len as u64);
+    let offset_per_row = &table_contribution
+        * n.inv()
+            .expect("trace_length is a power-of-2, so it has an inverse");
+
     let mut accumulated_col = Vec::with_capacity(trace_len);
     let mut accumulated = FieldElement::<E>::zero();
 
     for row in 0..trace_len {
         let mut row_sum = FieldElement::<E>::zero();
         for term_col in term_columns {
-            row_sum += term_col[row].clone();
+            row_sum = &row_sum + &term_col[row];
         }
-        accumulated += row_sum;
+        accumulated = &accumulated + &row_sum - &offset_per_row;
         accumulated_col.push(accumulated.clone());
     }
 
-    accumulated_col
+    (accumulated_col, table_contribution)
 }
 
 /// Compute multiplicity from main trace columns for a given row.
