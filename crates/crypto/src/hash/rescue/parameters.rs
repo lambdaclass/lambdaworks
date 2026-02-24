@@ -901,44 +901,26 @@ pub const MDS_MATRIX_160: [[Fp; 16]; 16] = [
     ],
 ];
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum SecurityLevel {
     Sec128,
     Sec160,
 }
 
-pub fn get_state_size(security_level: &SecurityLevel) -> usize {
-    match security_level {
-        SecurityLevel::Sec128 => 12,
-        SecurityLevel::Sec160 => 16,
-    }
+#[derive(Clone, Copy)]
+pub enum MdsMethod {
+    /// Use standard matrix multiplication.
+    MatrixMultiplication,
+    /// Use Number Theoretic Transform for multiplication.
+    Ntt,
+    /// Use Karatsuba algorithm for multiplication.
+    Karatsuba,
 }
 
-pub fn get_capacity(security_level: &SecurityLevel) -> usize {
-    match security_level {
-        SecurityLevel::Sec128 => 4,
-        SecurityLevel::Sec160 => 6,
-    }
-}
-
-pub fn get_round_constants(level: &SecurityLevel) -> &'static [Fp] {
-    match level {
-        SecurityLevel::Sec128 => &ROUND_CONSTANTS_128,
-        SecurityLevel::Sec160 => &ROUND_CONSTANTS_160,
-    }
-}
-
-pub enum MdsVector {
-    Mds128([Fp; 12]),
-    Mds160([Fp; 16]),
-}
-
-pub fn get_mds_vector(level: SecurityLevel) -> MdsVector {
-    match level {
-        SecurityLevel::Sec128 => MdsVector::Mds128(MDS_VECTOR_128),
-        SecurityLevel::Sec160 => MdsVector::Mds160(MDS_VECTOR_160),
-    }
-}
+/// Primitive 12th root of unity in the Goldilocks field.
+pub const OMEGA_12: Fp = Fp::const_from_raw(281474976645120);
+/// Primitive 16th root of unity in the Goldilocks field.
+pub const OMEGA_16: Fp = Fp::const_from_raw(17293822564807737345);
 
 #[allow(clippy::large_enum_variant)]
 pub enum MdsMatrix {
@@ -946,18 +928,71 @@ pub enum MdsMatrix {
     Mds160([[Fp; 16]; 16]),
 }
 
-pub fn get_mds_matrix(level: &SecurityLevel) -> MdsMatrix {
-    match level {
-        SecurityLevel::Sec128 => MdsMatrix::Mds128(MDS_MATRIX_128),
-        SecurityLevel::Sec160 => MdsMatrix::Mds160(MDS_MATRIX_160),
+impl SecurityLevel {
+    pub fn state_size(self) -> usize {
+        match self {
+            SecurityLevel::Sec128 => 12,
+            SecurityLevel::Sec160 => 16,
+        }
+    }
+
+    pub fn capacity(self) -> usize {
+        match self {
+            SecurityLevel::Sec128 => 4,
+            SecurityLevel::Sec160 => 6,
+        }
+    }
+
+    pub fn round_constants(self) -> &'static [Fp] {
+        match self {
+            SecurityLevel::Sec128 => &ROUND_CONSTANTS_128,
+            SecurityLevel::Sec160 => &ROUND_CONSTANTS_160,
+        }
+    }
+
+    pub fn mds_vector(self) -> &'static [Fp] {
+        match self {
+            SecurityLevel::Sec128 => &MDS_VECTOR_128,
+            SecurityLevel::Sec160 => &MDS_VECTOR_160,
+        }
+    }
+
+    pub fn mds_matrix(self) -> MdsMatrix {
+        match self {
+            SecurityLevel::Sec128 => MdsMatrix::Mds128(MDS_MATRIX_128),
+            SecurityLevel::Sec160 => MdsMatrix::Mds160(MDS_MATRIX_160),
+        }
+    }
+
+    pub fn omega(self) -> Fp {
+        match self {
+            SecurityLevel::Sec128 => OMEGA_12,
+            SecurityLevel::Sec160 => OMEGA_16,
+        }
     }
 }
 
-impl MdsVector {
-    pub fn as_slice(&self) -> &[Fp] {
-        match self {
-            MdsVector::Mds128(ref vec) => vec,
-            MdsVector::Mds160(ref vec) => vec,
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn omega_12_is_primitive_root_of_unity() {
+        // OMEGA_12^12 == 1
+        assert_eq!(OMEGA_12.pow(12u64), Fp::one());
+        // OMEGA_12^k != 1 for k < 12
+        for k in 1..12u64 {
+            assert_ne!(OMEGA_12.pow(k), Fp::one(), "OMEGA_12^{k} should not be 1");
+        }
+    }
+
+    #[test]
+    fn omega_16_is_primitive_root_of_unity() {
+        // OMEGA_16^16 == 1
+        assert_eq!(OMEGA_16.pow(16u64), Fp::one());
+        // OMEGA_16^k != 1 for k < 16
+        for k in 1..16u64 {
+            assert_ne!(OMEGA_16.pow(k), Fp::one(), "OMEGA_16^{k} should not be 1");
         }
     }
 }
