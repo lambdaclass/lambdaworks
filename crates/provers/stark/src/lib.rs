@@ -10,6 +10,7 @@ pub mod examples;
 pub mod frame;
 pub mod fri;
 pub mod grinding;
+pub mod lookup;
 pub mod multi_table_prover;
 pub mod multi_table_verifier;
 pub mod proof;

@@ -2,6 +2,7 @@ use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
 use crate::domain::Domain;
+use crate::lookup::BusPublicInputs;
 use crate::trace::LDETraceTable;
 use crate::traits::{TransitionEvaluationContext, AIR};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
@@ -36,8 +37,9 @@ where
     pub fn new(
         air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         rap_challenges: &[FieldElement<FieldExtension>],
+        bus_public_inputs: Option<&BusPublicInputs<FieldExtension>>,
     ) -> Self {
-        let boundary_constraints = air.boundary_constraints(rap_challenges);
+        let boundary_constraints = air.boundary_constraints(rap_challenges, bus_public_inputs);
 
         Self {
             boundary_constraints,

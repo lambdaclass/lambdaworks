@@ -1,5 +1,6 @@
 use super::domain::Domain;
 use super::traits::{TransitionEvaluationContext, AIR};
+use crate::lookup::BusPublicInputs;
 use crate::{frame::Frame, trace::LDETraceTable};
 use lambdaworks_math::field::traits::IsSubFieldOf;
 use lambdaworks_math::{
@@ -22,6 +23,7 @@ pub fn validate_trace<
     aux_trace_polys: &[Polynomial<FieldElement<FieldExtension>>],
     domain: &Domain<Field>,
     rap_challenges: &[FieldElement<FieldExtension>],
+    bus_public_inputs: Option<&BusPublicInputs<FieldExtension>>,
 ) -> bool {
     info!("Starting constraints validation over trace...");
     let mut ret = true;
@@ -63,7 +65,7 @@ pub fn validate_trace<
         .collect();
 
     // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
-    air.boundary_constraints(rap_challenges)
+    air.boundary_constraints(rap_challenges, bus_public_inputs)
         .constraints
         .iter()
         .for_each(|constraint| {
