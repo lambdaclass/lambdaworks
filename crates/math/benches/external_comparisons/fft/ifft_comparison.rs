@@ -1,7 +1,7 @@
 //! External comparison benchmarks: Lambdaworks vs Plonky3 (IFFT / Interpolation)
 //!
 //! Compares inverse FFT performance (evaluations -> coefficients):
-//! - Lambdaworks Polynomial::interpolate_fft
+//! - Lambdaworks Bowers IFFT (via inverse twiddles + 1/N scaling)
 //! - Plonky3 Radix2Dit::idft / idft_batch
 //!
 //! This is critical for STARKs when recovering polynomial coefficients
@@ -9,11 +9,14 @@
 //!
 //! Sizes: 2^12, 2^14, 2^16, 2^18
 
-use criterion::{black_box, BenchmarkId, Criterion, Throughput};
+use criterion::{black_box, BatchSize, BenchmarkId, Criterion, Throughput};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use rayon::prelude::*;
 
 // Lambdaworks
+use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
+use lambdaworks_math::fft::cpu::bowers_fft::{bowers_fft_opt_fused, LayerTwiddles};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
@@ -41,14 +44,34 @@ pub fn bench_goldilocks_lambdaworks(c: &mut Criterion) {
     let mut rng = StdRng::seed_from_u64(SEED);
 
     for size in SIZES {
-        // Generate random evaluations (simulating FFT output)
+        let order = size.trailing_zeros() as u64;
         let evals: Vec<FE> = (0..size).map(|_| FE::from(rng.gen::<u64>())).collect();
+
+        // Precompute inverse twiddles (matches P3's memoization)
+        let inverse_twiddles =
+            LayerTwiddles::<F>::new_inverse(order).expect("Failed to create inverse twiddles");
+        let inv_n = FE::from(size as u64).inv().unwrap();
 
         group.throughput(Throughput::Elements(size as u64));
 
-        group.bench_with_input(BenchmarkId::new("ifft", size), &evals, |b, e| {
-            b.iter(|| black_box(Polynomial::interpolate_fft::<F>(e).unwrap()))
-        });
+        group.bench_with_input(
+            BenchmarkId::new("ifft", size),
+            &(evals, inverse_twiddles.clone(), inv_n),
+            |b, (evals, inv_tw, scale)| {
+                b.iter_batched(
+                    || evals.clone(),
+                    |mut data| {
+                        bowers_fft_opt_fused(&mut data, inv_tw).unwrap();
+                        in_place_bit_reverse_permute(&mut data);
+                        for v in data.iter_mut() {
+                            *v *= scale;
+                        }
+                        black_box(data)
+                    },
+                    BatchSize::LargeInput,
+                )
+            },
+        );
     }
     group.finish();
 }
@@ -122,8 +145,8 @@ pub fn bench_babybear_plonky3(c: &mut Criterion) {
 // BATCH IFFT BENCHMARKS (multiple polynomials)
 // ============================================
 
-const BATCH_SIZES: [usize; 3] = [4, 8, 16];
-const BATCH_POLY_SIZES: [usize; 3] = [1 << 12, 1 << 14, 1 << 16];
+const BATCH_SIZES: [usize; 1] = [64];
+const BATCH_POLY_SIZES: [usize; 3] = [1 << 16, 1 << 18, 1 << 20];
 
 pub fn bench_goldilocks_batch_ifft_lambdaworks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Goldilocks Batch IFFT Lambdaworks");
@@ -134,8 +157,12 @@ pub fn bench_goldilocks_batch_ifft_lambdaworks(c: &mut Criterion) {
     let mut rng = StdRng::seed_from_u64(SEED);
 
     for poly_size in BATCH_POLY_SIZES {
+        let order = poly_size.trailing_zeros() as u64;
+        let inverse_twiddles =
+            LayerTwiddles::<F>::new_inverse(order).expect("Failed to create inverse twiddles");
+        let inv_n = FE::from(poly_size as u64).inv().unwrap();
+
         for batch_size in BATCH_SIZES {
-            // Generate batch of evaluation vectors
             let evals_batch: Vec<Vec<FE>> = (0..batch_size)
                 .map(|_| (0..poly_size).map(|_| FE::from(rng.gen::<u64>())).collect())
                 .collect();
@@ -147,13 +174,22 @@ pub fn bench_goldilocks_batch_ifft_lambdaworks(c: &mut Criterion) {
 
             group.bench_with_input(
                 BenchmarkId::new(&bench_name, poly_size),
-                &evals_batch,
-                |b, batch| {
-                    b.iter(|| {
-                        for evals in batch {
-                            black_box(Polynomial::interpolate_fft::<F>(evals).unwrap());
-                        }
-                    })
+                &(evals_batch, inverse_twiddles.clone(), inv_n),
+                |b, (batch, inv_tw, scale)| {
+                    b.iter_batched(
+                        || batch.clone(),
+                        |mut batch_data| {
+                            batch_data.par_iter_mut().for_each(|data| {
+                                bowers_fft_opt_fused(data, inv_tw).unwrap();
+                                in_place_bit_reverse_permute(data);
+                                for v in data.iter_mut() {
+                                    *v *= scale;
+                                }
+                                black_box(&data);
+                            });
+                        },
+                        BatchSize::LargeInput,
+                    )
                 },
             );
         }

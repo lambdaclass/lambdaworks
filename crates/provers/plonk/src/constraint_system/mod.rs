@@ -305,12 +305,14 @@ mod tests {
         // 2. Generate proof
         let random_generator = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_inputs,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_inputs,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         // Verifier
         let verifier = Verifier::new(kzg);

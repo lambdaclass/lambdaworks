@@ -5,6 +5,7 @@
 
 use crate::prover::{ProofResult, ProverError};
 use crate::Channel;
+use core::ops::Mul;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
@@ -15,7 +16,6 @@ use lambdaworks_math::{
     polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
     traits::ByteConversion,
 };
-use std::ops::Mul;
 
 /// Validates that all polynomial factors have the same number of variables.
 ///
@@ -88,6 +88,50 @@ where
         &mut self,
         r_prev: Option<&FieldElement<F>>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError>;
+}
+
+/// Runs the sumcheck protocol using an external transcript/channel.
+///
+/// Unlike [`run_sumcheck_protocol`], this function does NOT create or initialize
+/// a transcript. The caller is responsible for managing the channel state.
+/// This is useful when the sumcheck is part of a larger protocol (e.g., GKR)
+/// that needs a shared transcript across multiple sumcheck instances.
+///
+/// Returns `(round_polys, assignment)` where:
+/// - `round_polys`: the univariate polynomial sent in each round
+/// - `assignment`: the challenge sampled after each round
+#[allow(clippy::type_complexity)]
+pub fn run_sumcheck_with_channel<F, P, T>(
+    prover: &mut P,
+    channel: &mut T,
+) -> Result<(Vec<Polynomial<FieldElement<F>>>, Vec<FieldElement<F>>), ProverError>
+where
+    F: IsField,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+    P: SumcheckProver<F>,
+    T: IsTranscript<F>,
+{
+    let num_vars = prover.num_vars();
+    let mut round_polys = Vec::with_capacity(num_vars);
+    let mut assignment = Vec::with_capacity(num_vars);
+    let mut current_challenge: Option<FieldElement<F>> = None;
+
+    for _j in 0..num_vars {
+        let g_j = prover.round(current_challenge.as_ref())?;
+
+        for coeff in g_j.coefficients() {
+            channel.append_field_element(coeff);
+        }
+
+        round_polys.push(g_j);
+
+        let challenge = channel.sample_field_element();
+        assignment.push(challenge.clone());
+        current_challenge = Some(challenge);
+    }
+
+    Ok((round_polys, assignment))
 }
 
 /// Runs the sumcheck protocol using the provided prover and returns the proof.
@@ -230,7 +274,7 @@ where
 
     let mut evaluations = vec![FieldElement::zero(); num_eval_points];
 
-    for (t, eval) in evaluations.iter_mut().enumerate().take(num_eval_points) {
+    for (t, eval) in evaluations.iter_mut().enumerate() {
         let t_fe: FieldElement<F> = FieldElement::from(t as u64);
         let mut sum = FieldElement::zero();
 
