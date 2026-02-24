@@ -22,6 +22,7 @@ pub mod constraints;
 pub mod fields;
 pub mod fri;
 pub mod merkle;
+pub mod ntt;
 pub mod polynomial;
 pub mod prover;
 pub mod sumcheck;
@@ -37,5 +38,5 @@ pub use fields::{
 pub use fri::{FriParams, FriProof, FriProver, FriVerifier};
 pub use merkle::{MerkleNode, MerkleProof, MerkleTree};
 pub use polynomial::MultilinearPolynomial;
-pub use prover::{BiniusProof, BiniusProver};
+pub use prover::{BiniusProof, BiniusProofV2, BiniusProver, ProverError};
 pub use verifier::{BiniusVerifier, VerificationError};

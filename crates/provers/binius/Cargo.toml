@@ -8,6 +8,7 @@ description = "Binius prover implementation for binary field SNARKs"
 [dependencies]
 lambdaworks-math = { path = "../../math" }
 lambdaworks-crypto = { path = "../../crypto" }
+lambdaworks-sumcheck = { path = "../sumcheck" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0"
 tracing = "0.1"

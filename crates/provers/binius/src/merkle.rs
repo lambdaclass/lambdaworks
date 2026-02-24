@@ -6,7 +6,7 @@
 use crate::fields::tower::Tower;
 use sha2::{Digest, Sha256};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MerkleNode([u8; 32]);
 
 impl MerkleNode {
@@ -37,12 +37,6 @@ impl MerkleNode {
 
     pub fn to_array(&self) -> [u8; 32] {
         self.0
-    }
-}
-
-impl Default for MerkleNode {
-    fn default() -> Self {
-        Self([0u8; 32])
     }
 }
 
@@ -142,7 +136,7 @@ impl MerkleTree {
 
         // Traverse up to root (but don't include root in proof)
         while current_index > 0 {
-            let sibling_index = if current_index % 2 == 0 {
+            let sibling_index = if current_index.is_multiple_of(2) {
                 // Even: sibling is to the left
                 current_index - 1
             } else {
@@ -162,7 +156,7 @@ impl MerkleTree {
         let mut index = proof.index;
 
         for sibling in &proof.proof {
-            current_hash = if index % 2 == 0 {
+            current_hash = if index.is_multiple_of(2) {
                 let mut combined = [0u8; 64];
                 combined[..32].copy_from_slice(&current_hash.0);
                 combined[32..].copy_from_slice(&sibling.0);

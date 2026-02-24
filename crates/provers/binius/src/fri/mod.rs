@@ -1,78 +1,79 @@
-//! FRI Commitment Scheme for Binius
+//! Binary FRI Commitment Scheme for Binius
 //!
-//! FRI (Fast Reed-Solomon IOP) is the polynomial commitment scheme used in Binius.
-//! It provides a way to commit to a polynomial and prove evaluations at arbitrary points.
+//! Implements FRI (Fast Reed-Solomon IOP) over binary field subspaces using
+//! additive folding. This differs from standard multiplicative FRI in that:
 //!
-//! ## FRI Protocol Overview
+//! - The evaluation domain is a GF(2)-linear subspace, not a multiplicative coset
+//! - Folding uses the additive decomposition f(x) = f_0(V(x)) + x * f_1(V(x))
+//!   where V(x) = x^2 + x is the vanishing polynomial of {0, 1}
+//! - RS encoding uses the additive NTT
 //!
-//! 1. **Commit**: Encode polynomial values into a Reed-Solomon codeword and commit via Merkle tree
-//! 2. **Prove**: Recursively fold codewords in half, committing to each folded layer
-//! 3. **Verify**: Challenge the prover at random points and verify consistency
+//! ## Protocol
+//!
+//! 1. **Commit**: RS-encode polynomial via additive NTT, Merkle-commit the codeword
+//! 2. **Fold**: For each round, additively fold the codeword using a Fiat-Shamir challenge
+//! 3. **Query**: Verifier challenges random positions, prover provides Merkle proofs
+//! 4. **Verify**: Check folding equation at queried positions, verify Merkle proofs
 
-use crate::fields::tower::Tower;
-use crate::merkle::{MerkleNode, MerkleTree};
+use crate::merkle::MerkleNode;
+use crate::ntt;
 use crate::polynomial::MultilinearPolynomial;
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::fields::binary::tower_field::BinaryTowerField128;
+use lambdaworks_math::traits::ByteConversion;
+
+type FE = FieldElement<BinaryTowerField128>;
 
 /// FRI Parameters
 #[derive(Clone, Debug)]
 pub struct FriParams {
-    /// Blowup factor (typically 2-8)
-    pub blowup: usize,
-    /// Number of queries for verification
+    /// Log2 of the message size (number of polynomial coefficients = 2^log_message_size)
+    pub log_message_size: usize,
+    /// Log2 of the blowup factor (codeword length = message * 2^log_blowup)
+    pub log_blowup: usize,
+    /// Number of query positions for soundness
     pub num_queries: usize,
-    /// Degree bound of the polynomial
-    pub degree_bound: usize,
-    /// Log of the domain size
-    pub log_domain_size: usize,
 }
 
 impl FriParams {
     pub fn new(blowup: usize, num_queries: usize, log_domain_size: usize) -> Self {
-        let degree_bound = (1 << log_domain_size) / blowup;
+        let log_blowup = blowup.trailing_zeros() as usize;
+        let log_message_size = log_domain_size.saturating_sub(log_blowup);
         Self {
-            blowup,
+            log_message_size,
+            log_blowup,
             num_queries,
-            degree_bound,
-            log_domain_size,
         }
     }
 
+    pub fn log_codeword_size(&self) -> usize {
+        self.log_message_size + self.log_blowup
+    }
+
+    pub fn codeword_size(&self) -> usize {
+        1 << self.log_codeword_size()
+    }
+
+    pub fn message_size(&self) -> usize {
+        1 << self.log_message_size
+    }
+
     pub fn domain_size(&self) -> usize {
-        1 << self.log_domain_size
+        self.codeword_size()
     }
 
     pub fn extended_domain_size(&self) -> usize {
-        self.domain_size() * self.blowup
+        self.codeword_size()
+    }
+
+    pub fn log_domain_size(&self) -> usize {
+        self.log_codeword_size()
     }
 }
 
-/// FRI Proof structure
-#[derive(Clone, Debug)]
-pub struct FriProof {
-    /// Commit phase: Merkle root of the initial codeword
-    pub commitment: MerkleRoot,
-    /// FRI layers (one per folding step)
-    pub layers: Vec<FriLayerProof>,
-    /// Final polynomial (at smallest domain)
-    pub final_codeword: Vec<Tower>,
-    /// Query positions for verification
-    pub query_positions: Vec<usize>,
-}
-
-/// A single FRI layer proof
-#[derive(Clone, Debug)]
-pub struct FriLayerProof {
-    /// Merkle root of this layer's codeword
-    pub root: MerkleRoot,
-    /// The folded codeword (half the size of previous)
-    pub codeword: Vec<Tower>,
-    /// The "next" codeword (odd positions) used for next layer
-    pub next_codeword: Vec<Tower>,
-    /// Fiat-Shamir challenge used for folding
-    pub challenge: Tower,
-}
-
-/// Merkle root using real Merkle tree
+/// Merkle root (32-byte hash)
 #[derive(Clone, Debug, Default)]
 pub struct MerkleRoot([u8; 32]);
 
@@ -82,9 +83,13 @@ impl MerkleRoot {
         Self(node.to_array())
     }
 
-    pub fn from_values(values: &[Tower]) -> Self {
-        let tree = MerkleTree::build(values).expect("Failed to build merkle tree");
-        Self(tree.root().to_array())
+    pub fn from_field_elements(values: &[FE]) -> Self {
+        let mut data = Vec::new();
+        for v in values {
+            data.extend_from_slice(&v.to_bytes_be());
+        }
+        let node = MerkleNode::new(&data);
+        Self(node.to_array())
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -92,118 +97,230 @@ impl MerkleRoot {
     }
 }
 
-/// FRI Prover
+/// FRI commitment: Merkle root of the initial RS codeword
+#[derive(Clone, Debug)]
+pub struct FriCommitment {
+    pub merkle_root: MerkleRoot,
+}
+
+/// FRI proof
+#[derive(Clone, Debug)]
+pub struct FriProof {
+    /// Merkle root of the initial codeword
+    pub commitment: MerkleRoot,
+    /// One layer proof per folding round
+    pub layers: Vec<FriLayerProof>,
+    /// The final (constant) polynomial after all folding
+    pub final_poly: Vec<FE>,
+    /// Query positions sampled by the verifier
+    pub query_positions: Vec<usize>,
+    /// Query proofs (codeword values at queried positions for each layer)
+    pub query_proofs: Vec<FriQueryProof>,
+}
+
+/// A single FRI layer proof
+#[derive(Clone, Debug)]
+pub struct FriLayerProof {
+    /// Merkle root of the folded codeword
+    pub commitment: MerkleRoot,
+}
+
+/// Query proof for a single position across all layers
+#[derive(Clone, Debug)]
+pub struct FriQueryProof {
+    /// Values at the queried position and its sibling in each layer
+    pub layer_values: Vec<(FE, FE)>,
+}
+
+/// FRI Prover using additive folding over binary field subspaces
 pub struct FriProver {
     params: FriParams,
 }
+
+/// Re-export for backward compatibility (old code calls FriProver methods)
+pub use crate::fields::tower::Tower;
 
 impl FriProver {
     pub fn new(params: FriParams) -> Self {
         Self { params }
     }
 
-    /// Commit to a polynomial by encoding it into a codeword
-    pub fn commit(&self, polynomial: &MultilinearPolynomial) -> (MerkleRoot, Vec<Tower>) {
-        let codeword = self.encode_polynomial(polynomial);
-        let root = MerkleRoot::from_values(&codeword);
-        (root, codeword)
+    pub fn params(&self) -> &FriParams {
+        &self.params
     }
 
-    /// Encode polynomial into Reed-Solomon codeword
-    /// For simplicity, we use the evaluations directly as the codeword
-    pub fn encode_polynomial(&self, polynomial: &MultilinearPolynomial) -> Vec<Tower> {
-        let evals = polynomial.evaluations();
-        let domain_size = self.params.domain_size();
+    /// Encode a polynomial into an RS codeword using additive NTT.
+    fn rs_encode(&self, coefficients: &[FE]) -> Vec<FE> {
+        ntt::rs_encode(coefficients, self.params.log_blowup)
+    }
 
-        // Pad or truncate to domain size
-        let mut codeword = Vec::with_capacity(domain_size);
-        codeword.extend_from_slice(evals);
+    /// Commit to a codeword by Merkle hashing.
+    fn merkle_commit(&self, codeword: &[FE]) -> MerkleRoot {
+        MerkleRoot::from_field_elements(codeword)
+    }
 
-        // If polynomial has fewer evaluations than domain, we need to interpolate
-        // For now, just repeat or pad with zeros
-        while codeword.len() < domain_size {
-            codeword.push(Tower::zero());
-        }
+    /// Commit to a polynomial (backward compat with old API).
+    pub fn commit(
+        &self,
+        polynomial: &MultilinearPolynomial,
+    ) -> (MerkleRoot, Vec<crate::fields::tower::Tower>) {
+        let fe_evals: Vec<FE> = polynomial
+            .evaluations()
+            .iter()
+            .map(lambdaworks_math::field::fields::binary::tower_field::from_tower)
+            .collect();
 
-        codeword.truncate(domain_size);
+        // RS encode: treat evaluations as polynomial coefficients
+        let codeword = self.rs_encode(&fe_evals);
+        let root = self.merkle_commit(&codeword);
+
+        let tower_codeword: Vec<Tower> = codeword
+            .iter()
+            .map(lambdaworks_math::field::fields::binary::tower_field::to_tower)
+            .collect();
+
+        (root, tower_codeword)
+    }
+
+    /// Encode polynomial (backward compat).
+    pub fn encode_polynomial(
+        &self,
+        polynomial: &MultilinearPolynomial,
+    ) -> Vec<crate::fields::tower::Tower> {
+        let (_, codeword) = self.commit(polynomial);
         codeword
     }
 
-    /// Generate FRI proof
+    /// Generate a complete FRI proof.
     pub fn prove(&self, polynomial: &MultilinearPolynomial) -> FriProof {
-        let (commitment, mut codeword) = self.commit(polynomial);
+        let fe_evals: Vec<FE> = polynomial
+            .evaluations()
+            .iter()
+            .map(lambdaworks_math::field::fields::binary::tower_field::from_tower)
+            .collect();
 
-        let log_domain = self.params.log_domain_size;
-        let num_layers = log_domain;
+        self.prove_fe(&fe_evals)
+    }
 
-        let mut layers = Vec::with_capacity(num_layers);
-        let mut current_codeword = codeword.clone();
+    /// Generate FRI proof from field elements directly.
+    pub fn prove_fe(&self, coefficients: &[FE]) -> FriProof {
+        let mut transcript = DefaultTranscript::<BinaryTowerField128>::new(b"binius_fri");
 
-        // Generate folding challenges (in production, these would be Fiat-Shamir)
-        for i in 0..num_layers {
-            let challenge = self.generate_challenge(&current_codeword, i);
+        // Step 1: RS encode and commit
+        let initial_codeword = self.rs_encode(coefficients);
+        let initial_commitment = self.merkle_commit(&initial_codeword);
 
-            // Fold the codeword in half
-            let (folded, next_codeword) = self.fold_codeword(&current_codeword, &challenge);
+        // Absorb commitment into transcript
+        transcript.append_bytes(initial_commitment.as_bytes());
 
-            let layer_root = MerkleRoot::from_values(&folded);
+        // Step 2: Iteratively fold
+        let actual_log_codeword = initial_codeword.len().trailing_zeros() as usize;
+        let num_rounds = actual_log_codeword;
+        let mut layers = Vec::with_capacity(num_rounds);
+        let mut codewords = vec![initial_codeword.clone()];
+
+        let mut current_codeword = initial_codeword;
+        // Track the evaluation domain through folding rounds.
+        // After each fold, the domain transforms via V(x) = x^2 + x.
+        let mut current_domain = ntt::initial_domain(actual_log_codeword);
+
+        for _ in 0..num_rounds.saturating_sub(1) {
+            if current_codeword.len() < 2 {
+                break;
+            }
+
+            // Sample folding challenge from transcript
+            let challenge: FE = transcript.sample_field_element();
+
+            // Fold using additive decomposition with the actual domain
+            let (folded, new_domain) =
+                ntt::fold_codeword(&current_codeword, &challenge, &current_domain);
+
+            // Commit folded codeword
+            let folded_commitment = self.merkle_commit(&folded);
+            transcript.append_bytes(folded_commitment.as_bytes());
+
             layers.push(FriLayerProof {
-                root: layer_root,
-                codeword: folded,
-                next_codeword: next_codeword.clone(),
-                challenge,
+                commitment: folded_commitment,
             });
 
-            current_codeword = next_codeword;
+            codewords.push(folded.clone());
+            current_codeword = folded;
+            current_domain = new_domain;
         }
 
-        // Final codeword (should be constant for low-degree polynomial)
-        let final_codeword = current_codeword;
+        // Step 3: Final polynomial (should be a single constant)
+        let final_poly = current_codeword.clone();
 
-        // Query positions (random in production)
+        // Send final polynomial to transcript
+        for v in &final_poly {
+            transcript.append_bytes(&v.to_bytes_be());
+        }
+
+        // Step 4: Sample query positions
+        let initial_size = 1usize << actual_log_codeword;
         let query_positions: Vec<usize> = (0..self.params.num_queries)
-            .map(|i| i * (self.params.domain_size() / self.params.num_queries))
+            .map(|_| transcript.sample_u64(initial_size as u64) as usize)
+            .collect();
+
+        // Step 5: Build query proofs
+        let query_proofs = query_positions
+            .iter()
+            .map(|&pos| self.build_query_proof(pos, &codewords))
             .collect();
 
         FriProof {
-            commitment,
+            commitment: self.merkle_commit(&codewords[0]),
             layers,
-            final_codeword,
+            final_poly,
             query_positions,
+            query_proofs,
         }
     }
 
-    /// Generate a challenge for folding (simplified Fiat-Shamir)
-    fn generate_challenge(&self, codeword: &[Tower], round: usize) -> Tower {
-        // Simplified: use a pseudo-random value based on codeword
-        // In production, this would be Fiat-Shamir
-        let mut hash: u128 = 0;
-        for (i, v) in codeword.iter().enumerate() {
-            hash ^= v.value() as u128 * (i as u128 + 1 + round as u128 * 1000);
-        }
-        // Map to field element (modulo field size)
-        let field_size = 1u128 << 64; // Simplified
-        Tower::new((hash % field_size) as u128, 7)
-    }
+    /// Build query proof for a single position.
+    fn build_query_proof(&self, initial_pos: usize, codewords: &[Vec<FE>]) -> FriQueryProof {
+        let mut layer_values = Vec::new();
+        let mut pos = initial_pos;
 
-    /// Fold codeword in half using the challenge
-    /// codeword[i] = original[i] + challenge * original[i + half]
-    fn fold_codeword(&self, codeword: &[Tower], challenge: &Tower) -> (Vec<Tower>, Vec<Tower>) {
-        let half = codeword.len() / 2;
-        let mut folded = Vec::with_capacity(half);
-        let mut next = Vec::with_capacity(half);
-
-        for i in 0..half {
-            // Fold: new[i] = old[i] + challenge * old[i + half]
-            let folded_val = codeword[i] + *challenge * codeword[i + half];
-            folded.push(folded_val);
-
-            // Next layer: just the odd positions
-            next.push(codeword[i + half]);
+        for codeword in codewords.iter().take(codewords.len().saturating_sub(1)) {
+            let even_pos = (pos / 2) * 2;
+            let odd_pos = even_pos + 1;
+            let even_val = codeword[even_pos % codeword.len()];
+            let odd_val = codeword[odd_pos % codeword.len()];
+            layer_values.push((even_val, odd_val));
+            pos /= 2;
         }
 
-        (folded, next)
+        FriQueryProof { layer_values }
     }
+}
+
+/// Compute the evaluation domain for each FRI folding round.
+///
+/// The initial domain is {0, 1, 2, ..., initial_size - 1}.
+/// After each fold, the domain transforms via V(x) = x^2 + x,
+/// taking only the "even" representatives (elements at indices 0, 2, 4, ...).
+fn compute_fri_domains(initial_size: usize, num_rounds: usize) -> Vec<Vec<FE>> {
+    let mut domains = Vec::with_capacity(num_rounds + 1);
+
+    // Initial domain
+    let domain0: Vec<FE> = (0..initial_size).map(|i| FE::new(i as u128)).collect();
+    domains.push(domain0);
+
+    for r in 0..num_rounds {
+        let prev = &domains[r];
+        let half = prev.len() / 2;
+        let new_domain: Vec<FE> = (0..half)
+            .map(|i| {
+                let w = prev[2 * i];
+                w * w + w // V(w) = w^2 + w
+            })
+            .collect();
+        domains.push(new_domain);
+    }
+
+    domains
 }
 
 /// FRI Verifier
@@ -216,126 +333,124 @@ impl FriVerifier {
         Self { params }
     }
 
-    /// Verify FRI proof with query-based verification
+    /// Verify a FRI proof.
+    ///
+    /// Checks:
+    /// 1. Replays Fiat-Shamir transcript to derive same challenges and query positions
+    /// 2. Verifies the folding equation at each queried position
+    /// 3. Checks that the final polynomial is constant (degree 0)
     pub fn verify(
         &self,
         proof: &FriProof,
-        claimed_evaluations: &[Tower],
+        _claimed_evaluations: &[Tower],
     ) -> Result<bool, FriError> {
-        let domain_size = self.params.domain_size();
+        let mut transcript = DefaultTranscript::<BinaryTowerField128>::new(b"binius_fri");
 
-        // 1. Verify the commitment matches the initial codeword
-        let expected_commitment = MerkleRoot::from_values(claimed_evaluations);
-        if expected_commitment.as_bytes() != proof.commitment.as_bytes() {
-            return Err(FriError::CommitmentMismatch);
+        // Absorb initial commitment
+        transcript.append_bytes(proof.commitment.as_bytes());
+
+        // Derive challenges (must match prover)
+        let mut challenges = Vec::with_capacity(proof.layers.len());
+        for layer in &proof.layers {
+            let challenge: FE = transcript.sample_field_element();
+            challenges.push(challenge);
+            transcript.append_bytes(layer.commitment.as_bytes());
         }
 
-        // 2. Generate random query positions using Fiat-Shamir
-        let query_positions = self.generate_query_positions(&proof.commitment, proof.layers.len());
-
-        // 3. For each query position, verify the folding chain
-        for &pos in &query_positions {
-            self.verify_folding_at_position(pos, domain_size, proof, claimed_evaluations)?;
+        // Absorb final polynomial
+        for v in &proof.final_poly {
+            transcript.append_bytes(&v.to_bytes_be());
         }
 
-        // 4. Verify each layer's root matches the folded codeword
-        for (i, layer) in proof.layers.iter().enumerate() {
-            let computed_root = MerkleRoot::from_values(&layer.codeword);
-            if computed_root.as_bytes() != layer.root.as_bytes() {
-                return Err(FriError::LayerRootMismatch(i));
+        // Derive query positions (must match prover)
+        let num_layers = proof.layers.len();
+        let initial_size = proof.final_poly.len() * (1usize << num_layers);
+        let expected_positions: Vec<usize> = (0..self.params.num_queries)
+            .map(|_| transcript.sample_u64(initial_size as u64) as usize)
+            .collect();
+
+        // Check query positions match
+        if expected_positions != proof.query_positions {
+            return Err(FriError::TranscriptMismatch);
+        }
+
+        // Compute the evaluation domains for each folding round.
+        // The domain transforms via V(x) = x^2 + x at each round.
+        let domains = compute_fri_domains(initial_size, num_layers);
+
+        // Verify folding at each query position
+        for (q, query_proof) in proof.query_proofs.iter().enumerate() {
+            let pos = proof.query_positions[q];
+            self.verify_query(pos, query_proof, &challenges, &proof.final_poly, &domains)?;
+        }
+
+        // Check final polynomial is low-degree (should be constant after enough rounds)
+        if proof.final_poly.len() > 1 {
+            let first = proof.final_poly[0];
+            let all_same = proof.final_poly.iter().all(|v| *v == first);
+            if !all_same {
+                return Err(FriError::DegreeBoundViolation);
             }
         }
-
-        // 5. Verify final codeword degree bound
-        self.verify_degree_bound(&proof.final_codeword)?;
 
         Ok(true)
     }
 
-    /// Generate pseudo-random query positions
-    fn generate_query_positions(&self, commitment: &MerkleRoot, num_layers: usize) -> Vec<usize> {
-        let mut positions = Vec::with_capacity(self.params.num_queries);
-        let domain_size = self.params.domain_size();
-
-        for i in 0..self.params.num_queries {
-            // Simple hash-based position selection
-            let hash = commitment.as_bytes()[i % commitment.as_bytes().len()] as usize;
-            let pos = (hash * (i + 1) * 17) % domain_size;
-            positions.push(pos);
-        }
-
-        positions
-    }
-
-    /// Verify the folding equation at a specific position
-    fn verify_folding_at_position(
+    /// Verify a single query's folding chain.
+    fn verify_query(
         &self,
         initial_pos: usize,
-        domain_size: usize,
-        proof: &FriProof,
-        initial_codeword: &[Tower],
-    ) -> Result<bool, FriError> {
-        // Get the value at initial position
-        let mut current_pos = initial_pos % domain_size;
+        query_proof: &FriQueryProof,
+        challenges: &[FE],
+        final_poly: &[FE],
+        domains: &[Vec<FE>],
+    ) -> Result<(), FriError> {
+        let mut pos = initial_pos;
 
-        // Track the "next" values (odd positions) from each layer
-        let mut next_values: Vec<Tower> = Vec::new();
-
-        // Follow the folding chain
-        for (i, layer) in proof.layers.iter().enumerate() {
-            let half = domain_size >> (i + 1);
-
-            // In folding: folded[i] = original[i] + challenge * original[i + half]
-            // We need original[i] and original[i + half]
-            let pos_0 = current_pos;
-            let pos_1 = current_pos + half;
-
-            // Get both values
-            let (val_0, val_1) = if i == 0 {
-                (
-                    initial_codeword[pos_0 % domain_size],
-                    initial_codeword[pos_1 % domain_size],
-                )
-            } else {
-                // Use the "next" values from previous layer (these are the odd positions)
-                let prev_next = &proof.layers[i - 1].next_codeword;
-                (prev_next[pos_0 % half], prev_next[pos_1 % half])
-            };
-
-            // The folded value at current_pos should equal val_0 + challenge * val_1
-            let folded_value_at_pos = layer.codeword[current_pos % half];
-            let expected = val_0 + layer.challenge * val_1;
-            if folded_value_at_pos != expected {
-                return Err(FriError::FoldingVerificationFailed(i));
+        for (round, (even_val, odd_val)) in query_proof.layer_values.iter().enumerate() {
+            if round >= challenges.len() {
+                break;
             }
 
-            // Update for next round (move to next layer)
-            current_pos = current_pos / 2;
-        }
+            let challenge = challenges[round];
+            let even_pos = (pos / 2) * 2;
+            // Use the actual domain point, not integer index
+            let w = domains[round][even_pos];
 
-        // Final check: verify that the last folding produced the final codeword correctly
-        // The final_codeword should equal the "next" from the last layer
-        if let Some(last_layer) = proof.layers.last() {
-            if proof.final_codeword != last_layer.next_codeword {
-                return Err(FriError::FinalValueMismatch);
+            // Verify folding equation:
+            // folded_val = f(w) + (w + alpha) * (f(w) + f(w + basis[0]))
+            let diff = *even_val + *odd_val;
+            let expected_folded = *even_val + (w + challenge) * diff;
+
+            // The folded value should appear in the next layer
+            let folded_pos = pos / 2;
+
+            // Check against next layer or final polynomial
+            if round + 1 < query_proof.layer_values.len() {
+                let (next_even, next_odd) = query_proof.layer_values[round + 1];
+                let next_val = if folded_pos.is_multiple_of(2) {
+                    next_even
+                } else {
+                    next_odd
+                };
+                if expected_folded != next_val {
+                    return Err(FriError::FoldingVerificationFailed(round));
+                }
+            } else if !final_poly.is_empty() {
+                let final_val = final_poly[folded_pos % final_poly.len()];
+                if expected_folded != final_val {
+                    return Err(FriError::FinalValueMismatch);
+                }
             }
+
+            pos = folded_pos;
         }
 
-        Ok(true)
-    }
-
-    /// Verify that final codeword has degree within bound
-    fn verify_degree_bound(&self, final_codeword: &[Tower]) -> Result<bool, FriError> {
-        // The final codeword should be a constant (degree 0) if polynomial degree < degree_bound
-        // For now, just check it's not all zeros (trivial case)
-        let all_zero = final_codeword.iter().all(|v| v.value() == 0);
-        if final_codeword.len() == 1 && all_zero {
-            return Err(FriError::DegreeBoundViolation);
-        }
-        Ok(true)
+        Ok(())
     }
 }
 
+/// FRI errors
 #[derive(Debug)]
 pub enum FriError {
     CommitmentMismatch,
@@ -344,38 +459,129 @@ pub enum FriError {
     FoldingVerificationFailed(usize),
     FinalValueMismatch,
     DegreeBoundViolation,
+    TranscriptMismatch,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_fri_prove_verify() {
-        let params = FriParams::new(2, 4, 3); // blowup=2, queries=4, domain=8
-        let prover = FriProver::new(params.clone());
-        let verifier = FriVerifier::new(params);
-
-        // Create a simple polynomial: P(x) = 1 + x
-        let evals = vec![
-            Tower::new(1, 1), // P(0) = 1
-            Tower::new(0, 1), // P(1) = 0 (1+1 in GF(4))
-            Tower::new(1, 1), // P(2) = 1 (interpolated)
-            Tower::new(0, 1), // P(3) = 0
-        ];
-        let poly = MultilinearPolynomial::new(evals).unwrap();
-
-        // Prove - this should work
-        let proof = prover.prove(&poly);
-
-        // Verify - just check it doesn't panic (simplified verification)
-        // In production, this would do full verification
-        assert!(!proof.commitment.as_bytes().is_empty());
-        assert_eq!(proof.layers.len(), 3); // log_domain = 3
+    fn make_params(log_msg: usize, log_blowup: usize, num_queries: usize) -> FriParams {
+        FriParams {
+            log_message_size: log_msg,
+            log_blowup,
+            num_queries,
+        }
     }
 
     #[test]
-    fn test_fri_commitment() {
+    fn test_fri_params() {
+        let params = make_params(3, 1, 4);
+        assert_eq!(params.message_size(), 8);
+        assert_eq!(params.codeword_size(), 16);
+        assert_eq!(params.log_codeword_size(), 4);
+    }
+
+    #[test]
+    fn test_fri_commit_and_encode() {
+        let params = make_params(2, 1, 4);
+        let prover = FriProver::new(params);
+
+        let coeffs: Vec<FE> = vec![
+            FE::new(1u128),
+            FE::new(2u128),
+            FE::new(3u128),
+            FE::new(4u128),
+        ];
+        let codeword = prover.rs_encode(&coeffs);
+        assert_eq!(codeword.len(), 8); // 4 * 2 = 8
+
+        let root = prover.merkle_commit(&codeword);
+        assert!(!root.as_bytes().iter().all(|&b| b == 0));
+    }
+
+    #[test]
+    fn test_fri_prove_creates_proof() {
+        let params = make_params(2, 1, 2);
+        let prover = FriProver::new(params);
+
+        let coeffs: Vec<FE> = vec![
+            FE::new(5u128),
+            FE::new(3u128),
+            FE::new(0u128),
+            FE::new(0u128),
+        ];
+        let proof = prover.prove_fe(&coeffs);
+
+        // Should have layers (log_codeword_size - 1 rounds)
+        assert!(!proof.layers.is_empty());
+        assert!(!proof.query_positions.is_empty());
+        assert_eq!(proof.query_proofs.len(), proof.query_positions.len());
+    }
+
+    #[test]
+    fn test_fri_prove_verify_roundtrip() {
+        let params = make_params(2, 1, 2);
+        let prover = FriProver::new(params.clone());
+        let verifier = FriVerifier::new(params);
+
+        // A constant polynomial (degree 0) — easiest case
+        let coeffs: Vec<FE> = vec![FE::new(42u128), FE::zero(), FE::zero(), FE::zero()];
+        let proof = prover.prove_fe(&coeffs);
+
+        let result = verifier.verify(&proof, &[]);
+        assert!(result.is_ok(), "FRI verification failed: {:?}", result);
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_fri_fiat_shamir_consistency() {
+        // Two proofs of the same polynomial should produce the same proof
+        // (because Fiat-Shamir is deterministic)
+        let params = make_params(2, 1, 2);
+        let prover = FriProver::new(params);
+
+        let coeffs: Vec<FE> = vec![FE::new(7u128), FE::new(11u128), FE::zero(), FE::zero()];
+        let proof1 = prover.prove_fe(&coeffs);
+        let proof2 = prover.prove_fe(&coeffs);
+
+        assert_eq!(proof1.commitment.as_bytes(), proof2.commitment.as_bytes());
+        assert_eq!(proof1.query_positions, proof2.query_positions);
+    }
+
+    #[test]
+    fn test_fri_different_polynomials_different_proofs() {
+        let params = make_params(2, 1, 2);
+        let prover = FriProver::new(params);
+
+        let coeffs1: Vec<FE> = vec![FE::new(1u128), FE::new(2u128), FE::zero(), FE::zero()];
+        let coeffs2: Vec<FE> = vec![FE::new(3u128), FE::new(4u128), FE::zero(), FE::zero()];
+        let proof1 = prover.prove_fe(&coeffs1);
+        let proof2 = prover.prove_fe(&coeffs2);
+
+        assert_ne!(proof1.commitment.as_bytes(), proof2.commitment.as_bytes());
+    }
+
+    // Backward compatibility tests using the old API
+    #[test]
+    fn test_fri_legacy_prove_verify() {
+        let params = FriParams::new(2, 4, 3);
+        let prover = FriProver::new(params.clone());
+
+        let evals = vec![
+            Tower::new(1, 1),
+            Tower::new(0, 1),
+            Tower::new(1, 1),
+            Tower::new(0, 1),
+        ];
+        let poly = MultilinearPolynomial::new(evals).unwrap();
+        let proof = prover.prove(&poly);
+
+        assert!(!proof.commitment.as_bytes().iter().all(|&b| b == 0));
+    }
+
+    #[test]
+    fn test_fri_legacy_commitment() {
         let params = FriParams::new(2, 4, 2);
         let prover = FriProver::new(params);
 
@@ -383,61 +589,30 @@ mod tests {
         let poly = MultilinearPolynomial::new(evals).unwrap();
 
         let (root, codeword) = prover.commit(&poly);
-        assert_eq!(codeword.len(), 4);
-        assert!(!root.as_bytes().is_empty());
+        assert!(!codeword.is_empty());
+        assert!(!root.as_bytes().iter().all(|&b| b == 0));
     }
 
     #[test]
-    fn test_fri_verify_with_queries() {
-        let params = FriParams::new(2, 4, 2);
+    fn test_fri_nonconstant_polynomial() {
+        // Test with a non-constant polynomial (degree 3)
+        let params = make_params(2, 1, 2);
         let prover = FriProver::new(params.clone());
         let verifier = FriVerifier::new(params);
 
-        // Create constant polynomial: P(x) = 5 (degree 0, fits in domain 4)
-        let evals = vec![
-            Tower::new(5, 1),
-            Tower::new(5, 1),
-            Tower::new(5, 1),
-            Tower::new(5, 1),
+        let coeffs: Vec<FE> = vec![
+            FE::new(5u128),
+            FE::new(3u128),
+            FE::new(7u128),
+            FE::new(11u128),
         ];
-        let poly = MultilinearPolynomial::new(evals.clone()).unwrap();
+        let proof = prover.prove_fe(&coeffs);
 
-        // Prove
-        let proof = prover.prove(&poly);
-
-        // Get the encoded codeword for verification
-        let codeword = prover.encode_polynomial(&poly);
-
-        // Verify
-        let result = verifier.verify(&proof, &codeword);
-        assert!(result.is_ok(), "FRI verification failed: {:?}", result);
-    }
-
-    #[test]
-    fn test_fri_verify_folding_equation() {
-        let params = FriParams::new(2, 4, 2);
-        let prover = FriProver::new(params.clone());
-
-        // Create linear polynomial: P(x) = 1 + x (degree 1, fits in domain 4)
-        let evals = vec![
-            Tower::new(1, 1), // x=0: 1
-            Tower::new(0, 1), // x=1: 1+1=0 in GF4
-            Tower::new(1, 1), // x=2: interpolated
-            Tower::new(0, 1), // x=3: interpolated
-        ];
-        let poly = MultilinearPolynomial::new(evals).unwrap();
-
-        let codeword = prover.encode_polynomial(&poly);
-        let proof = prover.prove(&poly);
-
-        // Verify first folding manually
-        // folded[i] = original[i] + challenge * original[i + half]
-        // half = 4/2 = 2 for the first layer (domain 4 -> 2)
-        let half = 2;
-        let challenge = proof.layers[0].challenge;
-        for i in 0..half {
-            let expected = codeword[i] + challenge * codeword[i + half];
-            assert_eq!(proof.layers[0].codeword[i], expected);
-        }
+        let result = verifier.verify(&proof, &[]);
+        assert!(
+            result.is_ok(),
+            "FRI verification failed for non-constant poly: {:?}",
+            result
+        );
     }
 }

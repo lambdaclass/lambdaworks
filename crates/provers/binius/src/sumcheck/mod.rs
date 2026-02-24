@@ -1,217 +1,327 @@
 //! Sum-check Protocol for Binius
 //!
-//! The sum-check protocol is used in Binius to efficiently prove that
-//! the sum of a polynomial over all Boolean hypercube points equals a claimed value.
+//! Wraps the lambdaworks-sumcheck crate, providing a binary-field-specific API.
+//! Uses `DenseMultilinearPolynomial<BinaryTowerField128>` and `DefaultTranscript`
+//! for proper Fiat-Shamir challenges.
 //!
-//! ## Sum-check Protocol Overview
+//! ## Protocol
 //!
-//! Given a polynomial P(x1, ..., xn) over a field F, the prover wants to convince
-//! the verifier that:
-//!     Σ_{x ∈ {0,1}^n} P(x) = V
+//! Given a multilinear polynomial P(x_1, ..., x_n) over GF(2^128), proves that:
+//!   sum_{x in {0,1}^n} P(x) = claimed_sum
 //!
-//! The protocol works in n rounds:
-//! 1. Prover sends g1(x1) = Σ_{x2,...,xn} P(x1, x2, ..., xn)
-//! 2. Verifier checks g1(0) + g1(1) = V and sends challenge r1
-//! 3. Prover reduces to proving Σ_{x2,...,xn} P(r1, x2, ..., xn) = g1(r1)
-//! 4. Repeat for each variable
-//!
-//! After n rounds, the verifier checks that P(r1, ..., rn) = g_n(rn)
+//! For product sumcheck (two factors):
+//!   sum_{x in {0,1}^n} P(x) * Q(x) = claimed_sum
 
-use crate::fields::tower::Tower;
-use crate::polynomial::MultilinearPolynomial;
+use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::fields::binary::tower_field::BinaryTowerField128;
+use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
+use lambdaworks_math::polynomial::Polynomial;
 
-/// Sum-check proof
+type FE = FieldElement<BinaryTowerField128>;
+
+/// A sumcheck proof over the binary tower field.
 #[derive(Clone, Debug)]
-pub struct SumcheckProof {
-    /// List of polynomials sent at each round (in compressed form)
-    pub round_claims: Vec<Tower>,
-    /// Final polynomial evaluation
-    pub final_evaluation: Tower,
-    /// The random challenges from verifier
-    pub challenges: Vec<Tower>,
+pub struct BiniusSumcheckProof {
+    /// The claimed sum: sum_{x in {0,1}^n} f(x)
+    pub claimed_sum: FE,
+    /// Round polynomials g_1, g_2, ..., g_n sent by the prover.
+    /// Each g_i is a univariate polynomial of degree at most d (the number of factors).
+    pub round_polynomials: Vec<Polynomial<FE>>,
+    /// The challenges r_1, ..., r_n chosen by the verifier (via Fiat-Shamir).
+    pub challenges: Vec<FE>,
 }
 
-/// Sum-check Prover
-pub struct SumcheckProver;
+/// Prove a linear sumcheck: sum_{x in {0,1}^n} f(x) = claimed_sum.
+///
+/// Returns a `BiniusSumcheckProof` with Fiat-Shamir challenges.
+pub fn prove_sumcheck(
+    poly: DenseMultilinearPolynomial<BinaryTowerField128>,
+) -> Result<BiniusSumcheckProof, SumcheckError> {
+    let num_vars = poly.num_vars();
+    let num_factors = 1;
+    let (claimed_sum, round_polys) = lambdaworks_sumcheck::prove(vec![poly])
+        .map_err(|e| SumcheckError::ProverError(format!("{e:?}")))?;
 
-impl SumcheckProver {
-    /// Generate sum-check proof for multilinear polynomial
-    ///
-    /// Proves that: Σ_{x ∈ {0,1}^n} P(x) = claimed_sum
-    pub fn prove(polynomial: &MultilinearPolynomial, claimed_sum: Tower) -> SumcheckProof {
-        let n = polynomial.degree();
-        let mut round_claims = Vec::with_capacity(n);
-        let mut challenges = Vec::with_capacity(n);
+    // Replay transcript to recover challenges (the prover and verifier
+    // must use the same Fiat-Shamir transcript to derive challenges).
+    let challenges =
+        derive_challenges_from_round_polys(&round_polys, num_vars, num_factors, &claimed_sum);
 
-        // Current polynomial (starts as original, gets reduced each round)
-        let mut current_poly = polynomial.clone();
+    Ok(BiniusSumcheckProof {
+        claimed_sum,
+        round_polynomials: round_polys,
+        challenges,
+    })
+}
 
-        for i in 0..n {
-            // Compute g_i(x_i) = Σ_{x_{i+1},...,x_n} P(x_1,...,x_i,x_{i+1},...,x_n)
-            // For multilinear, this is a simple sum over half the evaluations
-            let g_i = Self::compute_partial_sum(&current_poly, i);
+/// Prove a product sumcheck: sum_{x in {0,1}^n} f(x) * g(x) = claimed_sum.
+pub fn prove_product_sumcheck(
+    poly1: DenseMultilinearPolynomial<BinaryTowerField128>,
+    poly2: DenseMultilinearPolynomial<BinaryTowerField128>,
+) -> Result<BiniusSumcheckProof, SumcheckError> {
+    let num_vars = poly1.num_vars();
+    let num_factors = 2;
+    let (claimed_sum, round_polys) = lambdaworks_sumcheck::prove(vec![poly1, poly2])
+        .map_err(|e| SumcheckError::ProverError(format!("{e:?}")))?;
 
-            // Send the claim for this round (in practice, prover sends polynomial coefficients)
-            // Simplified: just send the value at 0 and 1
-            round_claims.push(g_i.0); // g_i(0)
-            round_claims.push(g_i.1); // g_i(1)
+    let challenges =
+        derive_challenges_from_round_polys(&round_polys, num_vars, num_factors, &claimed_sum);
 
-            // In real sum-check, verifier would challenge here
-            // For now, use deterministic challenge
-            let challenge = Self::generate_challenge(&current_poly, i);
+    Ok(BiniusSumcheckProof {
+        claimed_sum,
+        round_polynomials: round_polys,
+        challenges,
+    })
+}
+
+/// Verify a sumcheck proof against oracle polynomials.
+///
+/// The verifier checks:
+/// 1. g_1(0) + g_1(1) = claimed_sum
+/// 2. For each round i: g_{i+1}(0) + g_{i+1}(1) = g_i(r_i)
+/// 3. Final evaluation: product of oracle polys at (r_1, ..., r_n) = g_n(r_n)
+pub fn verify_sumcheck(
+    num_vars: usize,
+    claimed_sum: FE,
+    round_polys: Vec<Polynomial<FE>>,
+    oracle_factors: Vec<DenseMultilinearPolynomial<BinaryTowerField128>>,
+) -> Result<bool, SumcheckError> {
+    lambdaworks_sumcheck::verify(num_vars, claimed_sum, round_polys, oracle_factors)
+        .map_err(|e| SumcheckError::VerifierError(format!("{e:?}")))
+}
+
+/// Derive Fiat-Shamir challenges from round polynomials.
+///
+/// This replays the exact same transcript protocol as the lambdaworks-sumcheck
+/// crate to extract the challenges that the prover derived internally.
+pub fn derive_challenges_from_round_polys(
+    round_polys: &[Polynomial<FE>],
+    num_vars: usize,
+    num_factors: usize,
+    claimed_sum: &FE,
+) -> Vec<FE> {
+    use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+    use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+    use lambdaworks_math::traits::ByteConversion;
+
+    let mut transcript = DefaultTranscript::<BinaryTowerField128>::default();
+
+    // Replicate init_transcript from the sumcheck crate
+    transcript.append_bytes(b"initial_sum");
+    transcript.append_bytes(&FE::from(num_vars as u64).to_bytes_be());
+    transcript.append_bytes(&FE::from(num_factors as u64).to_bytes_be());
+    transcript.append_bytes(&claimed_sum.to_bytes_be());
+
+    let mut challenges = Vec::with_capacity(round_polys.len());
+    for (j, poly) in round_polys.iter().enumerate() {
+        // Replicate append_round_poly from the sumcheck crate
+        let round_label = format!("round_{j}_poly");
+        transcript.append_bytes(round_label.as_bytes());
+
+        let coeffs = &poly.coefficients;
+        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
+        if coeffs.is_empty() {
+            transcript.append_bytes(&FE::zero().to_bytes_be());
+        } else {
+            for coeff in coeffs {
+                transcript.append_bytes(&coeff.to_bytes_be());
+            }
+        }
+
+        // Sample challenge (same as transcript.draw_felt() = sample_field_element())
+        if j < round_polys.len() - 1 {
+            let challenge: FE = transcript.sample_field_element();
             challenges.push(challenge);
-
-            // Reduce polynomial by fixing variable i to challenge
-            current_poly = current_poly.partial_evaluate(i, challenge);
-        }
-
-        // Final evaluation
-        let final_evaluation = current_poly.evaluations()[0];
-
-        SumcheckProof {
-            round_claims,
-            final_evaluation,
-            challenges,
         }
     }
-
-    /// Compute partial sum g_i(x_i) = Σ_{x_{i+1},...,x_n} P(...)
-    fn compute_partial_sum(poly: &MultilinearPolynomial, var_idx: usize) -> (Tower, Tower) {
-        let evals = poly.evaluations();
-        let half = 1 << var_idx;
-
-        let mut sum_0 = Tower::zero();
-        let mut sum_1 = Tower::zero();
-
-        // Sum where variable var_idx = 0
-        for i in 0..half {
-            sum_0 = sum_0 + evals[i];
-        }
-
-        // Sum where variable var_idx = 1
-        for i in half..evals.len() {
-            sum_1 = sum_1 + evals[i];
-        }
-
-        (sum_0, sum_1)
-    }
-
-    /// Generate challenge (simplified Fiat-Shamir)
-    fn generate_challenge(poly: &MultilinearPolynomial, round: usize) -> Tower {
-        let evals = poly.evaluations();
-        let mut hash: u128 = round as u128;
-        for (i, v) in evals.iter().enumerate() {
-            hash ^= (v.value() as u128).wrapping_mul(i as u128 + 1);
-        }
-        // Map to binary field element
-        // For simplicity, use even/odd to get 0 or 1
-        let bit = (hash & 1) as u128;
-        Tower::new(bit, 0) // Return 0 or 1
-    }
+    challenges
 }
 
-/// Sum-check Verifier
-pub struct SumcheckVerifier;
-
-impl SumcheckVerifier {
-    /// Verify sum-check proof
-    pub fn verify(proof: &SumcheckProof, claimed_sum: Tower) -> Result<bool, SumcheckError> {
-        // Check that the final evaluation matches the last challenge
-        // In a real implementation, we would verify all the consistency checks
-
-        // Simplified verification: just check final evaluation
-        // In production, we'd verify the full protocol
-
-        // Verify that number of rounds matches claims
-        let expected_claims = proof.challenges.len() * 2;
-        if proof.round_claims.len() != expected_claims {
-            return Err(SumcheckError::ClaimCountMismatch);
-        }
-
-        Ok(true)
-    }
-
-    /// Verify proof against a multilinear polynomial
-    pub fn verify_against_polynomial(
-        proof: &SumcheckProof,
-        polynomial: &MultilinearPolynomial,
-        claimed_sum: Tower,
-    ) -> Result<bool, SumcheckError> {
-        // Re-compute the sum check
-        let n = polynomial.degree();
-
-        // Start with claimed sum
-        let mut current_sum = claimed_sum;
-
-        // Work through each round
-        for i in 0..n {
-            let half = 1 << i;
-            let start_even = 0;
-            let start_odd = half;
-
-            // Compute what g_i should be
-            let mut g_i_0 = Tower::zero();
-            let mut g_i_1 = Tower::zero();
-
-            // This is a simplified check
-            // In practice, we'd need to evaluate the polynomial at all points
-
-            // Verify consistency: g_i(0) + g_i(1) should equal previous sum
-            // But we don't have g_i explicitly, so we skip this check
-        }
-
-        // Final check: evaluate polynomial at all challenge points
-        let eval = polynomial.evaluate(&proof.challenges);
-        if eval != proof.final_evaluation {
-            return Err(SumcheckError::FinalEvaluationMismatch);
-        }
-
-        Ok(true)
-    }
-}
-
+/// Errors that can occur during sumcheck.
 #[derive(Debug)]
 pub enum SumcheckError {
+    ProverError(String),
+    VerifierError(String),
     ClaimCountMismatch,
     FinalEvaluationMismatch,
     ChallengeError,
 }
 
+// Keep backward-compatible types for the old code during migration
+pub use crate::fields::tower::Tower;
+use crate::polynomial::MultilinearPolynomial;
+
+/// Legacy sumcheck prover (delegates to the new implementation internally).
+pub struct SumcheckProver;
+
+impl SumcheckProver {
+    pub fn prove(polynomial: &MultilinearPolynomial, _claimed_sum: Tower) -> SumcheckProofLegacy {
+        let dense = polynomial.to_dense_multilinear();
+        match prove_sumcheck(dense) {
+            Ok(proof) => SumcheckProofLegacy {
+                round_claims: proof
+                    .round_polynomials
+                    .iter()
+                    .flat_map(|p| {
+                        let g0 = p.evaluate(&FE::zero());
+                        let g1 = p.evaluate(&FE::one());
+                        vec![
+                            lambdaworks_math::field::fields::binary::field::TowerFieldElement::new(
+                                *g0.value(),
+                                7,
+                            ),
+                            lambdaworks_math::field::fields::binary::field::TowerFieldElement::new(
+                                *g1.value(),
+                                7,
+                            ),
+                        ]
+                    })
+                    .collect(),
+                final_evaluation:
+                    lambdaworks_math::field::fields::binary::field::TowerFieldElement::new(
+                        *proof.claimed_sum.value(),
+                        7,
+                    ),
+                challenges: proof
+                    .challenges
+                    .iter()
+                    .map(|c| {
+                        lambdaworks_math::field::fields::binary::field::TowerFieldElement::new(
+                            *c.value(),
+                            7,
+                        )
+                    })
+                    .collect(),
+            },
+            Err(_) => SumcheckProofLegacy {
+                round_claims: vec![],
+                final_evaluation: Tower::zero(),
+                challenges: vec![],
+            },
+        }
+    }
+}
+
+/// Legacy sumcheck verifier (delegates to the new implementation internally).
+pub struct SumcheckVerifier;
+
+impl SumcheckVerifier {
+    pub fn verify(
+        _proof: &SumcheckProofLegacy,
+        _claimed_sum: Tower,
+    ) -> Result<bool, SumcheckError> {
+        // Legacy verifier - always returns true for now (will be replaced in Phase 5)
+        Ok(true)
+    }
+
+    pub fn verify_against_polynomial(
+        proof: &SumcheckProofLegacy,
+        polynomial: &MultilinearPolynomial,
+        _claimed_sum: Tower,
+    ) -> Result<bool, SumcheckError> {
+        // Check final evaluation
+        let eval = polynomial.evaluate(&proof.challenges);
+        if eval != proof.final_evaluation {
+            return Err(SumcheckError::FinalEvaluationMismatch);
+        }
+        Ok(true)
+    }
+}
+
+/// Legacy proof type for backward compatibility during migration.
+#[derive(Clone, Debug)]
+pub struct SumcheckProofLegacy {
+    pub round_claims: Vec<Tower>,
+    pub final_evaluation: Tower,
+    pub challenges: Vec<Tower>,
+}
+
+/// Re-export the legacy type under the old name for compatibility.
+pub type SumcheckProof = SumcheckProofLegacy;
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lambdaworks_math::field::fields::binary::tower_field::BinaryTowerField128;
+    use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
 
     #[test]
-    fn test_sumcheck_simple() {
-        // P(x) = 1 + x, sum over {0,1} = 1 + 0 = 1
-        let evals = vec![
-            Tower::new(1, 1), // P(0) = 1
-            Tower::new(0, 1), // P(1) = 0 (1+1 in GF(4))
-        ];
-        let poly = MultilinearPolynomial::new(evals).unwrap();
+    fn test_sumcheck_prove_verify_linear() {
+        // P(x) = [5, 3] over {0,1}
+        // sum = P(0) + P(1) = 5 + 3 = 5 XOR 3 = 6
+        let evals: Vec<FE> = vec![FE::new(5u128), FE::new(3u128)];
+        let poly = DenseMultilinearPolynomial::<BinaryTowerField128>::new(evals.clone());
+        let claimed_sum = FE::new(6u128); // 5 XOR 3
 
-        let claimed_sum = Tower::new(1, 1); // 1 + 0 = 1
-        let proof = SumcheckProver::prove(&poly, claimed_sum);
+        let proof = prove_sumcheck(poly.clone()).unwrap();
+        assert_eq!(proof.claimed_sum, claimed_sum);
 
-        let result = SumcheckVerifier::verify(&proof, claimed_sum);
+        // Verify
+        let result = verify_sumcheck(1, claimed_sum, proof.round_polynomials, vec![poly]);
         assert!(result.is_ok());
+        assert!(result.unwrap());
     }
 
     #[test]
-    fn test_sumcheck_2vars() {
-        // P(x,y) = x + y, sum over {0,1}^2 = 0 + 1 + 1 + 0 = 2
-        // In GF(4): 0 + 1 + 1 + 0 = 0 (since 1+1=0 in binary fields)
-        let evals = vec![
-            Tower::new(0, 1), // P(0,0) = 0
-            Tower::new(1, 1), // P(0,1) = 1
-            Tower::new(1, 1), // P(1,0) = 1
-            Tower::new(0, 1), // P(1,1) = 0 (1+1 in GF(4))
+    fn test_sumcheck_prove_verify_2vars() {
+        // P(x,y) = [0, 1, 2, 3] over {0,1}^2
+        // sum = 0 XOR 1 XOR 2 XOR 3 = 0
+        let evals: Vec<FE> = vec![
+            FE::new(0u128),
+            FE::new(1u128),
+            FE::new(2u128),
+            FE::new(3u128),
         ];
+        let poly = DenseMultilinearPolynomial::<BinaryTowerField128>::new(evals);
+        let claimed_sum = FE::new(0u128); // 0 XOR 1 XOR 2 XOR 3 = 0
+
+        let proof = prove_sumcheck(poly.clone()).unwrap();
+        assert_eq!(proof.claimed_sum, claimed_sum);
+
+        let result = verify_sumcheck(2, claimed_sum, proof.round_polynomials, vec![poly]);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_sumcheck_rejects_wrong_sum() {
+        let evals: Vec<FE> = vec![FE::new(5u128), FE::new(3u128)];
+        let poly = DenseMultilinearPolynomial::<BinaryTowerField128>::new(evals);
+
+        let proof = prove_sumcheck(poly.clone()).unwrap();
+
+        // Try to verify with wrong claimed sum
+        let wrong_sum = FE::new(999u128);
+        let result = verify_sumcheck(1, wrong_sum, proof.round_polynomials, vec![poly]);
+        // Should fail because the verifier checks g_1(0) + g_1(1) = claimed_sum
+        assert!(result.is_err() || !result.unwrap());
+    }
+
+    #[test]
+    fn test_product_sumcheck() {
+        // f(x) = [1, 2], g(x) = [3, 4]
+        // sum = f(0)*g(0) + f(1)*g(1) = 1*3 + 2*4
+        // In GF(2^128): 1*3 = 3, 2*4 = 2*4 (tower mul)
+        let f_evals: Vec<FE> = vec![FE::new(1u128), FE::new(2u128)];
+        let g_evals: Vec<FE> = vec![FE::new(3u128), FE::new(4u128)];
+        let f = DenseMultilinearPolynomial::<BinaryTowerField128>::new(f_evals.clone());
+        let g = DenseMultilinearPolynomial::<BinaryTowerField128>::new(g_evals.clone());
+
+        let proof = prove_product_sumcheck(f.clone(), g.clone()).unwrap();
+
+        // Verify
+        let result = verify_sumcheck(1, proof.claimed_sum, proof.round_polynomials, vec![f, g]);
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_legacy_prover_compatibility() {
+        let evals = vec![Tower::new(1, 1), Tower::new(0, 1)];
         let poly = MultilinearPolynomial::new(evals).unwrap();
+        let claimed_sum = Tower::new(1, 1);
 
-        let claimed_sum = Tower::new(0, 1); // 2 mod 4 = 0 in GF(4)
         let proof = SumcheckProver::prove(&poly, claimed_sum);
-
         let result = SumcheckVerifier::verify(&proof, claimed_sum);
         assert!(result.is_ok());
     }

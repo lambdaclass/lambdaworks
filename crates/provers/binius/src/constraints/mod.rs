@@ -98,7 +98,7 @@ impl ShiftedValue {
 
     /// Combine with another shifted value using bitwise AND
     /// Returns new shifted values that represent the AND result
-    pub fn and(&self, other: &ShiftedValue) -> Vec<ShiftedValue> {
+    pub fn and(&self, _other: &ShiftedValue) -> Vec<ShiftedValue> {
         // For AND, we need to match bits at same positions
         // This returns the constraint that: self_bit * other_bit = result_bit
         vec![*self] // Placeholder - actual implementation uses constraint system
@@ -132,7 +132,7 @@ impl ShiftedPolynomial {
             for (i, &bit) in bits.iter().enumerate() {
                 value |= bit << i;
             }
-            result = result + Tower::new(value, term.value.level) * self.coefficient;
+            result += Tower::new(value, term.value.level) * self.coefficient;
         }
         result
     }
@@ -153,20 +153,17 @@ impl ShiftedConstraintBuilder {
     /// This is more efficient than per-bit constraints:
     /// Instead of 64 constraints for 64-bit AND, we use shifted indices
     /// to create fewer polynomial constraints
-    pub fn and_shifted(&mut self, a: ShiftedValue, b: ShiftedValue, output: Variable) -> Variable {
+    pub fn and_shifted(
+        &mut self,
+        a: ShiftedValue,
+        _b: ShiftedValue,
+        _output: Variable,
+    ) -> Variable {
         // The output must satisfy: output_bits[i] = a_bits[i] AND b_bits[i] for all i
         // This is enforced by the constraint: a * b = output in the polynomial
-
-        let result = self.cs.new_variable(a.value.level);
-
-        // Generate the constraint: a * b - output = 0
-        // In terms of shifted values, this means:
-        // Σ (a_i * 2^{shift_a+i}) * Σ (b_j * 2^{shift_b+j}) = Σ (output_k * 2^k)
-
         // For Binius, we generate a polynomial constraint that encodes this
         // The constraint is multilinear in the variables
-
-        result
+        self.cs.new_variable(a.value.level)
     }
 
     /// Split a large variable into multiple shifted values
@@ -183,7 +180,7 @@ impl ShiftedConstraintBuilder {
     }
 
     /// Combine multiple shifted values back into a single value
-    pub fn combine_shifted(&self, shifted_values: &[ShiftedValue], output: Variable) -> Variable {
+    pub fn combine_shifted(&self, _shifted_values: &[ShiftedValue], output: Variable) -> Variable {
         // This creates constraints that verify the combination is correct
         output
     }
@@ -420,7 +417,7 @@ impl ConstraintSystem {
     }
 
     /// Execute a single gate and update witness values
-    fn execute_gate(&self, gate: &Gate, values: &mut Vec<Tower>) {
+    fn execute_gate(&self, gate: &Gate, values: &mut [Tower]) {
         match gate {
             Gate::And { a, b, output } => {
                 let a_val = values[a.index];
@@ -478,6 +475,32 @@ impl ConstraintSystem {
         }
     }
 
+    /// Convert a witness to a DenseMultilinearPolynomial over BinaryTowerField128.
+    ///
+    /// The witness values (Tower elements) are converted to FieldElement<BinaryTowerField128>,
+    /// padded to a power-of-two length, and wrapped in a DenseMultilinearPolynomial
+    /// suitable for use with `BiniusProver::prove_polynomial`.
+    pub fn witness_to_dense_poly(
+        &self,
+        witness: &Witness,
+    ) -> lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial<
+        lambdaworks_math::field::fields::binary::tower_field::BinaryTowerField128,
+    > {
+        use lambdaworks_math::field::element::FieldElement;
+        use lambdaworks_math::field::fields::binary::tower_field::{
+            from_tower, BinaryTowerField128,
+        };
+
+        let mut evals: Vec<FieldElement<BinaryTowerField128>> =
+            witness.values.iter().map(from_tower).collect();
+
+        // Pad to next power of 2
+        let n = evals.len().next_power_of_two();
+        evals.resize(n, FieldElement::zero());
+
+        lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial::new(evals)
+    }
+
     /// Generate polynomial constraints from gates
     ///
     /// This converts the gate-level constraints into multilinear polynomial
@@ -530,8 +553,8 @@ impl ConstraintSystem {
 
         for bit in 0..num_bits {
             // Get actual bit values from witness
-            let a_bit = (witness.get(*a).value() >> bit) & 1;
-            let b_bit = (witness.get(*b).value() >> bit) & 1;
+            let _a_bit = (witness.get(*a).value() >> bit) & 1;
+            let _b_bit = (witness.get(*b).value() >> bit) & 1;
             let output_bit = (witness.get(*output).value() >> bit) & 1;
 
             // Quadratic constraint: a * b = output
@@ -579,7 +602,7 @@ impl ConstraintSystem {
         // Simpler: generate per-bit constraints using: output = a + b - a*b (in binary fields)
         let num_bits = 1 << a.level;
 
-        for bit in 0..num_bits {
+        for _bit in 0..num_bits {
             let mut coeffs = vec![Tower::zero(); self.num_variables];
             coeffs[a.index] = Tower::new(1, a.level);
             coeffs[b.index] = Tower::new(1, b.level);
@@ -620,7 +643,7 @@ impl ConstraintSystem {
 
         for bit in 0..num_bits {
             let target_bit = (target_val >> bit) & 1;
-            let source_bit = (source_val >> ((bit + shift) % num_bits)) & 1;
+            let _source_bit = (source_val >> ((bit + shift) % num_bits)) & 1;
 
             let mut coeffs = vec![Tower::zero(); self.num_variables];
             coeffs[value.index] = Tower::new(1, value.level);
@@ -674,10 +697,10 @@ impl ConstraintSystem {
     ) -> Vec<Constraint> {
         let mut constraints = Vec::new();
 
-        let cond_val = witness.get(*cond).value();
-        let a_val = witness.get(*a).value();
-        let b_val = witness.get(*b).value();
-        let output_val = witness.get(*output).value();
+        let _cond_val = witness.get(*cond).value();
+        let _a_val = witness.get(*a).value();
+        let _b_val = witness.get(*b).value();
+        let _output_val = witness.get(*output).value();
 
         // If cond = 1: output = a
         // If cond = 0: output = b
@@ -778,10 +801,10 @@ mod tests {
         let b = builder.input();
 
         // Compute a AND b
-        let c = builder.cs.and(a, b);
+        let _c = builder.cs.and(a, b);
 
         // Compute a * b
-        let d = builder.cs.mul(a, b);
+        let _d = builder.cs.mul(a, b);
 
         let cs = builder.build();
 
@@ -927,7 +950,7 @@ mod tests {
         // Create AND circuit
         let a = cs.new_byte();
         let b = cs.new_byte();
-        let c = cs.and(a, b);
+        let _c = cs.and(a, b);
 
         // Execute
         let witness = cs.execute(&[
