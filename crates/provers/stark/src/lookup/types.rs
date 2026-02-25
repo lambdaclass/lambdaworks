@@ -221,25 +221,38 @@ impl BusInteraction {
 
 /// Public inputs for a table's accumulated LogUp column.
 ///
-/// Contains the initial term values (for row-0 boundary constraints) and the
-/// final accumulated value (for cross-table bus balance check).
+/// Contains the total table contribution `L = Σ all terms across all rows`.
+/// With the circular transition constraint, no boundary constraints are needed
+/// for the LogUp columns — the constraint `acc[(i+1) mod N] - acc[i] - Σ terms[(i+1) mod N] + L/N = 0`
+/// wraps naturally from row N-1 back to row 0.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(bound = "")]
 pub struct BusPublicInputs<E: IsField> {
-    /// Term column values at row 0 (one per interaction).
-    /// Used for boundary constraints that enforce `term_i(0) = initial_terms[i]`.
-    pub initial_terms: Vec<FieldElement<E>>,
-    /// Accumulated column value at last row.
-    pub final_accumulated: FieldElement<E>,
+    /// Total table contribution: sum of all term values across all rows and columns.
+    /// For cross-table bus balance, the sum of `table_contribution` across all tables must be zero.
+    pub table_contribution: FieldElement<E>,
 }
 
-// =============================================================================
-// Auxiliary Trace Build Data
-// =============================================================================
+impl<E: IsField> BusPublicInputs<E> {
+    /// Computes `L / N`, the per-row offset for the circular accumulated column.
+    pub fn offset_per_row(&self, trace_length: usize) -> FieldElement<E> {
+        let n = FieldElement::<E>::from(trace_length as u64);
+        &self.table_contribution
+            * n.inv()
+                .expect("trace_length is a power-of-2, so it has an inverse")
+    }
+}
 
-/// Container for interaction data needed to build aux trace.
-pub struct AuxiliaryTraceBuildData {
-    pub interactions: Vec<BusInteraction>,
+/// Computes the LogUp table offset from optional bus public inputs.
+/// Returns `L/N` if present, zero otherwise.
+pub fn logup_table_offset<E: IsField>(
+    bus_public_inputs: Option<&BusPublicInputs<E>>,
+    trace_length: usize,
+) -> FieldElement<E> {
+    match bus_public_inputs {
+        Some(bpi) => bpi.offset_per_row(trace_length),
+        None => FieldElement::zero(),
+    }
 }
 
 // =============================================================================

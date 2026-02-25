@@ -52,11 +52,13 @@ impl TransitionConstraint<StarkField, StarkField> for BitConstraint {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             }
             | TransitionEvaluationContext::Verifier {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             } => (frame, periodic_values, rap_challenges),
         };
 
@@ -110,11 +112,13 @@ impl TransitionConstraint<StarkField, StarkField> for ZeroFlagConstraint {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             }
             | TransitionEvaluationContext::Verifier {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             } => (frame, periodic_values, rap_challenges),
         };
 
