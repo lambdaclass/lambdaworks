@@ -4,7 +4,7 @@ An implementation of the LogUp-GKR protocol for efficient lookup arguments, base
 
 ## Overview
 
-LogUp-GKR combines logarithmic derivative lookups with the GKR interactive proof protocol. Instead of committing to intermediate accumulator columns (as in standard LogUp), the prover only commits to a single multiplicities column, reducing the commitment cost significantly.
+LogUp-GKR combines logarithmic derivative lookups with the GKR interactive proof protocol. In standard LogUp, the prover commits to intermediate accumulator columns. Here, it commits only to a single multiplicities column, which cuts the commitment cost significantly.
 
 The core idea: to prove that a set of values comes from a valid table, express the lookup as a fractional sum identity
 
@@ -26,7 +26,7 @@ Output:     n/d              <- 1 element (the total sum)
 Input: fractions             <- 2^k elements
 ```
 
-### Layer types
+### Layer Types
 
 | Layer | Gate operation | Columns | Use case |
 |-------|---------------|---------|----------|
@@ -39,22 +39,99 @@ The fraction addition gate computes `(n_a * d_b + n_b * d_a) / (d_a * d_b)`, kep
 
 ## Protocol
 
+### Multilinear GKR
+
 For each layer (from output to input), the prover runs a sumcheck over:
 
 $$g(x) = \text{eq}(x, y) \cdot \big(\text{numer}(x) + \lambda \cdot \text{denom}(x)\big)$$
 
-where $\lambda$ is a random challenge that combines the numerator and denominator columns into a single polynomial, and $\text{eq}(x, y)$ is the multilinear equality polynomial linking the current layer's evaluation point to the previous one. Round polynomials have degree 3.
+where $\lambda$ is a random challenge combining the numerator and denominator columns into a single polynomial, and $\text{eq}(x, y)$ is the multilinear equality polynomial linking the current layer's evaluation point to the previous one. Round polynomials have degree 3.
 
 The verifier checks each layer by:
 1. Verifying the sumcheck (round consistency: `g(0) + g(1) == claim`, degree $\leq 3$)
 2. Checking the circuit gate locally using the **mask** (evaluations at 0 and 1 for each column)
 3. Sampling a challenge to reduce the mask into claims for the next layer
 
-After processing all layers, the verifier obtains an out-of-domain point and claimed evaluations at the input layer, which must be checked externally against the actual input data.
+After processing all layers, the verifier holds an out-of-domain point and claimed evaluations at the input layer. These must be checked externally against the actual input data.
+
+### Univariate IOP
+
+The multilinear GKR protocol above leaves one problem open: how to check the input layer claims. If the input columns are committed as multilinear extensions over $\{0,1\}^n$, the verifier can check directly. But in practice, we want to commit polynomials in univariate form on a cyclic domain $H = \{\omega^i : i \in [0, N)\}$, which is what FRI and KZG operate on.
+
+The univariate IOP bridges this gap. Given a multilinear polynomial $f$ with univariate representation $u_f(X)$ on $H$, the evaluation $f(t_0, \ldots, t_{n-1})$ equals the inner product
+
+$$f(t) = \sum_{i=0}^{N-1} u_f(\omega^i) \cdot c_i(t)$$
+
+where $c_i(t) = \text{eq}(\iota(i), t)$ is the **Lagrange column** -- mapping the cyclic domain to the Boolean hypercube via the bit-decomposition map $\iota$. This reduces the GKR input check to an inner product between the committed polynomial and a column the verifier can compute.
+
+The protocol proceeds in two phases:
+
+**Phase 1 (Transparent):** The prover sends raw polynomial values as Fiat-Shamir commitments. Proof size is $O(N)$.
+
+**Phase 2 (PCS-based):** The prover commits via a polynomial commitment scheme (e.g., FRI with Merkle roots) and uses a **univariate sumcheck** to reduce the inner product check to a single point evaluation. Proof size is $O(\log^2 N)$.
+
+The univariate sumcheck identity:
+
+$$u_f(X) \cdot C_t(X) - \frac{v}{N} = q(X) \cdot (X^N - 1) + X \cdot r'(X)$$
+
+where $q(X)$ and $r'(X)$ are auxiliary polynomials (degree $\leq N-2$). This holds if and only if $\sum_{x \in H} u_f(x) \cdot C_t(x) = v$.
+
+**Phase 2 prover flow:**
+1. Commit each input column via PCS
+2. Run multilinear GKR, obtaining evaluation claims at a random point $r$
+3. Sample $\lambda$, combine claims via random linear combination
+4. Compute Lagrange column, combine columns with $\lambda$ powers
+5. Run univariate sumcheck: compute $q(X)$ and $r'(X)$, commit via PCS
+6. Sample challenge $z$, batch-open all polynomials at $z$
+
+**Phase 2 verifier flow:**
+1. Absorb commitments, run GKR verification
+2. Sample $\lambda$, combine claims to get $v$
+3. Absorb $q, r'$ commitments, sample $z$
+4. Verify batch opening at $z$
+5. Compute $C_t(z)$ via barycentric Lagrange interpolation
+6. Check: $u_f(z) \cdot C_t(z) - v/N = q(z) \cdot (z^N - 1) + z \cdot r'(z)$
+
+## Architecture
+
+```
+gkr-logup/
+├── src/
+│   ├── lib.rs                  # Public API and re-exports
+│   ├── prover.rs               # GKR prover (LayerOracle, sumcheck adapter)
+│   ├── verifier.rs             # GKR verifier (Gate types, proof verification)
+│   ├── layer.rs                # Input layer types (GrandProduct, LogUp variants)
+│   ├── fraction.rs             # Fraction arithmetic for LogUp gates
+│   ├── eq_evals.rs             # Equality polynomial evaluations
+│   ├── utils.rs                # RLC, Horner evaluation, MLE folding
+│   ├── univariate/
+│   │   ├── mod.rs              # Module exports
+│   │   ├── iop.rs              # Univariate IOP prover/verifier (Phase 1 + Phase 2)
+│   │   ├── types.rs            # Proof types (UnivariateIopProof, UnivariateIopProofV2)
+│   │   ├── pcs.rs              # PCS trait + TransparentPcs implementation
+│   │   ├── sumcheck.rs         # Univariate sumcheck (prove/verify, barycentric eval)
+│   │   ├── lagrange_column.rs  # Lagrange column computation + constraint verification
+│   │   ├── lagrange.rs         # Univariate Lagrange form + FFT transforms
+│   │   ├── domain.rs           # Cyclic domain (roots of unity, bit decomposition)
+│   │   └── commitment.rs       # Legacy commitment trait (Phase 1)
+│   ├── univariate_layer.rs     # Univariate layer types wrapping UnivariateLagrange
+│   └── fri/
+│       ├── mod.rs              # FRI prover entry point (commit + query)
+│       ├── types.rs            # FriConfig, FriProof, FriQueryRound, FriError
+│       ├── fold.rs             # Polynomial folding (even/odd split + challenge)
+│       ├── commit.rs           # FRI commit phase (iterative fold + Merkle)
+│       ├── query.rs            # FRI query decommitments
+│       ├── verify.rs           # FRI verification (fold consistency + Merkle proofs)
+│       └── pcs.rs              # FRI PCS adapter (DEEP technique for arbitrary openings)
+└── examples/
+    ├── logup_gkr.rs                # Multilinear LogUp-GKR (singles + read-only memory)
+    ├── univariate_logup_gkr.rs     # Univariate IOP (grand product, singles, multiplicities)
+    └── caulk_style.rs              # Caulk-style: univariate -> multilinear -> GKR
+```
 
 ## API
 
-### Single instance
+### Multilinear GKR
 
 ```rust
 use lambdaworks_gkr_logup::{prove, verify, Gate, Layer};
@@ -67,7 +144,7 @@ let input = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![
 
 // Prove
 let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-let (proof, prover_artifact) = prove(&mut prover_channel, input);
+let (proof, prover_artifact) = prove(&mut prover_channel, input)?;
 
 // Verify (partial — returns claims to check against the input layer)
 let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
@@ -75,7 +152,7 @@ let result = verify(Gate::GrandProduct, &proof, &mut verifier_channel)?;
 // result.ood_point, result.claims_to_verify
 ```
 
-### Batch (multiple instances)
+### Batch (Multiple Instances)
 
 ```rust
 use lambdaworks_gkr_logup::{prove_batch, verify_batch, Gate, Layer};
@@ -99,29 +176,122 @@ let result = verify_batch(
 // result.claims_to_verify_by_instance[0], result.claims_to_verify_by_instance[1]
 ```
 
+### Univariate IOP -- Phase 1 (Transparent)
+
+```rust
+use lambdaworks_gkr_logup::univariate::iop::{prove_univariate, verify_univariate};
+use lambdaworks_gkr_logup::univariate_layer::UnivariateLayer;
+use lambdaworks_gkr_logup::univariate::domain::CyclicDomain;
+use lambdaworks_gkr_logup::univariate::lagrange::UnivariateLagrange;
+use lambdaworks_gkr_logup::verifier::Gate;
+
+// Build a univariate grand product layer on a cyclic domain of size 8
+let values: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
+let domain = CyclicDomain::new(3)?; // log2(8) = 3
+let uni = UnivariateLagrange::new(values, domain)?;
+
+let layer = UnivariateLayer::GrandProduct { values: uni, commitment: None };
+
+// Prove (transparent commitments: raw values in Fiat-Shamir transcript)
+let mut prover_transcript = DefaultTranscript::<F>::new(b"grand_product");
+let (proof, result) = prove_univariate(&mut prover_transcript, layer)?;
+
+// Verify
+let mut verifier_transcript = DefaultTranscript::<F>::new(b"grand_product");
+verify_univariate(Gate::GrandProduct, &proof, &mut verifier_transcript)?;
+```
+
+### Univariate IOP -- Phase 2 (FRI PCS)
+
+```rust
+use lambdaworks_gkr_logup::univariate::iop::{prove_with_pcs, verify_with_pcs};
+use lambdaworks_gkr_logup::fri::pcs::FriPcs;
+use lambdaworks_gkr_logup::verifier::Gate;
+
+// Same layer construction as Phase 1...
+let layer = UnivariateLayer::GrandProduct { values: uni, commitment: None };
+
+// Prove with FRI PCS (Merkle root commitments, succinct proofs)
+let mut prover_transcript = DefaultTranscript::<F>::new(b"grand_product_v2");
+let (proof, result) = prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer)?;
+
+// Verify
+let mut verifier_transcript = DefaultTranscript::<F>::new(b"grand_product_v2");
+verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript)?;
+```
+
+### Custom PCS
+
+The `UnivariatePcs` trait lets you plug in any polynomial commitment scheme:
+
+```rust
+pub trait UnivariatePcs<F: IsFFTField> {
+    type Commitment: Clone + Debug;
+    type ProverState;
+    type BatchOpeningProof: Clone + Debug;
+
+    fn commit(evals_on_h: &[FieldElement<F>], transcript: &mut T)
+        -> Result<(Self::Commitment, Self::ProverState), PcsError>;
+    fn batch_open(states: &[&Self::ProverState], z: &FieldElement<F>, transcript: &mut T)
+        -> Result<(Vec<FieldElement<F>>, Self::BatchOpeningProof), PcsError>;
+    fn verify_batch_opening(commitments: &[&Self::Commitment], z: &FieldElement<F>,
+        values: &[FieldElement<F>], proof: &Self::BatchOpeningProof, transcript: &mut T)
+        -> Result<(), PcsError>;
+}
+```
+
+Two implementations are provided:
+- **`TransparentPcs`** -- raw values appended to transcript (Phase 1, $O(N)$ proof size)
+- **`FriPcs`** -- FRI with DEEP technique for arbitrary-point openings ($O(\log^2 N)$ proof size)
+
 ## Examples
 
-### Read-only memory check
+### Read-Only Memory Check
 
 Proves that a set of memory accesses all read from a valid ROM table:
 
 ```
-cargo run -p lambdaworks-gkr-logup --example read_only_memory
+cargo run -p lambdaworks-gkr-logup --example logup_gkr
 ```
 
-Two batch instances: `LogUpSingles` for accesses ($\sum 1/(z - a_i)$) and `LogUpMultiplicities` for the table ($\sum m_j/(z - t_j)$). If accesses are valid, both sides produce the same fraction.
+Two batch instances: `LogUpSingles` for accesses ($\sum 1/(z - a_i)$) and `LogUpMultiplicities` for the table ($\sum m_j/(z - t_j)$). If the accesses are valid, both sides produce the same fraction.
 
-### Range check
-
-Proves that values are in the range $[0, 2^n)$ by treating the range as a ROM table:
+### Univariate IOP
 
 ```
-cargo run -p lambdaworks-gkr-logup --example range_check
+cargo run -p lambdaworks-gkr-logup --example univariate_logup_gkr
+```
+
+Three examples: grand product, LogUp singles, and LogUp multiplicities -- all using univariate commitments on a cyclic domain.
+
+### Caulk-Style Transform
+
+```
+cargo run -p lambdaworks-gkr-logup --example caulk_style
+```
+
+Demonstrates the FFT-based transform from univariate to multilinear representation, then runs the standard multilinear GKR prover.
+
+## Running Tests
+
+```bash
+# All tests (100 tests)
+cargo test -p lambdaworks-gkr-logup
+
+# Only FRI tests
+cargo test -p lambdaworks-gkr-logup fri
+
+# Only univariate sumcheck tests
+cargo test -p lambdaworks-gkr-logup sumcheck
+
+# Only univariate IOP tests (Phase 1 + Phase 2)
+cargo test -p lambdaworks-gkr-logup univariate::iop
 ```
 
 ## References
 
 - [Papini and Haböck. "Improving logarithmic derivative lookups using GKR" (2023)](https://eprint.iacr.org/2023/1284)
-- [Gruen. "Some Improvements for the PIOP for ZeroCheck" (2024)](https://eprint.iacr.org/2024/108) — `correct_sum_as_poly_in_first_variable` optimization (section 3.2)
+- [Gruen. "Some Improvements for the PIOP for ZeroCheck" (2024)](https://eprint.iacr.org/2024/108) -- `correct_sum_as_poly_in_first_variable` optimization (section 3.2)
 - [stwo reference implementation (StarkWare)](https://github.com/starkware-libs/stwo)
-- [Haböck. "Multivariate lookups based on logarithmic derivatives" (2022)](https://eprint.iacr.org/2022/1530) — original LogUp paper
+- [Haböck. "Multivariate lookups based on logarithmic derivatives" (2022)](https://eprint.iacr.org/2022/1530) -- original LogUp paper
+- [Ben-Sasson et al. "Aurora: Transparent Succinct Arguments for R1CS" (2019)](https://eprint.iacr.org/2018/828) -- univariate sumcheck technique
