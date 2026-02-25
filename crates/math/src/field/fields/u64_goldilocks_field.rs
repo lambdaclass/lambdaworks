@@ -986,13 +986,6 @@ impl ByteConversion for FieldElement<Degree2GoldilocksExtensionField> {
     }
 }
 
-#[cfg(feature = "alloc")]
-impl AsBytes for FieldElement<Degree2GoldilocksExtensionField> {
-    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
-        self.to_bytes_be()
-    }
-}
-
 // =====================================================
 // CUBIC EXTENSION (Fp3)
 // =====================================================
@@ -1156,23 +1149,6 @@ impl IsSubFieldOf<Degree3GoldilocksExtensionField> for Goldilocks64Field {
 
 /// Field element type for the cubic extension
 pub type Fp3E = FieldElement<Degree3GoldilocksExtensionField>;
-
-// =====================================================
-// DEFAULT TRANSCRIPT SUPPORT
-// =====================================================
-
-impl HasDefaultTranscript for Goldilocks64Field {
-    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
-        let mut sample = [0u8; 8];
-        loop {
-            rng.fill(&mut sample);
-            let int_sample = u64::from_be_bytes(sample);
-            if int_sample < GOLDILOCKS_PRIME {
-                return FieldElement::from(int_sample);
-            }
-        }
-    }
-}
 
 impl HasDefaultTranscript for Degree2GoldilocksExtensionField {
     fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
