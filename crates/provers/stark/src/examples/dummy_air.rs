@@ -55,11 +55,13 @@ where
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             }
             | TransitionEvaluationContext::Verifier {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             } => (frame, periodic_values, rap_challenges),
         };
 
@@ -115,11 +117,13 @@ where
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             }
             | TransitionEvaluationContext::Verifier {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             } => (frame, periodic_values, rap_challenges),
         };
 

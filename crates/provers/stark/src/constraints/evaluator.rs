@@ -2,7 +2,7 @@ use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
 use crate::domain::Domain;
-use crate::lookup::BusPublicInputs;
+use crate::lookup::types::{logup_table_offset, BusPublicInputs};
 use crate::trace::LDETraceTable;
 use crate::traits::{TransitionEvaluationContext, AIR};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
@@ -24,30 +24,33 @@ use std::time::Instant;
 pub struct ConstraintEvaluator<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsField,
-    PI,
 > {
     boundary_constraints: BoundaryConstraints<FieldExtension>,
-    phantom: PhantomData<(Field, PI)>,
+    logup_table_offset: FieldElement<FieldExtension>,
+    phantom: PhantomData<Field>,
 }
-impl<Field, FieldExtension, PI> ConstraintEvaluator<Field, FieldExtension, PI>
+impl<Field, FieldExtension> ConstraintEvaluator<Field, FieldExtension>
 where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsField,
 {
-    pub fn new(
+    pub fn new<PI>(
         air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         rap_challenges: &[FieldElement<FieldExtension>],
         bus_public_inputs: Option<&BusPublicInputs<FieldExtension>>,
     ) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges, bus_public_inputs);
 
+        let logup_table_offset = logup_table_offset(bus_public_inputs, air.trace_length());
+
         Self {
             boundary_constraints,
-            phantom: PhantomData::<(Field, PI)> {},
+            logup_table_offset,
+            phantom: PhantomData,
         }
     }
 
-    pub(crate) fn evaluate(
+    pub(crate) fn evaluate<PI>(
         &self,
         air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         lde_trace: &LDETraceTable<Field, FieldExtension>,
@@ -224,6 +227,7 @@ where
                         &frame,
                         &periodic_values,
                         rap_challenges,
+                        &self.logup_table_offset,
                     );
                     let evaluations_transition =
                         air.compute_transition(&transition_evaluation_context);
@@ -271,6 +275,7 @@ where
                     &frame,
                     &periodic_values_buffer,
                     rap_challenges,
+                    &self.logup_table_offset,
                 );
 
                 // Use buffer-reuse variant to avoid allocation

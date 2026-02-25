@@ -7,10 +7,7 @@ use lambdaworks_math::field::{
 };
 
 use crate::{
-    constraints::{
-        boundary::{BoundaryConstraint, BoundaryConstraints},
-        transition::TransitionConstraint,
-    },
+    constraints::{boundary::BoundaryConstraints, transition::TransitionConstraint},
     context::AirContext,
     proof::options::ProofOptions,
     prover::ProvingError,
@@ -200,12 +197,8 @@ where
             }
         }
 
-        // Collect initial term values (row 0) for boundary constraints
-        let initial_terms: Vec<FieldElement<E>> =
-            term_columns.iter().map(|col| col[0].clone()).collect();
-
-        // Build accumulated column from column-major data
-        let accumulated = build_accumulated_column(&term_columns);
+        // Build accumulated column with circular offset
+        let (accumulated, table_contribution) = build_accumulated_column(&term_columns);
 
         // Write accumulated column to trace
         let acc_col_idx = num_interactions;
@@ -213,56 +206,17 @@ where
             trace.set_aux(row, acc_col_idx, value.clone());
         }
 
-        let final_accumulated = accumulated
-            .last()
-            .cloned()
-            .unwrap_or_else(FieldElement::zero);
-
-        Ok(Some(BusPublicInputs {
-            initial_terms,
-            final_accumulated,
-        }))
+        Ok(Some(BusPublicInputs { table_contribution }))
     }
 
     fn boundary_constraints(
         &self,
         rap_challenges: &[FieldElement<Self::FieldExtension>],
-        bus_public_inputs: Option<&BusPublicInputs<Self::FieldExtension>>,
+        _bus_public_inputs: Option<&BusPublicInputs<Self::FieldExtension>>,
     ) -> BoundaryConstraints<Self::FieldExtension> {
-        let mut constraints = vec![];
-
-        // LogUp boundary constraints (only if interactions exist and bus_public_inputs provided):
-        // 1. Pin each term column at row 0: term[k](0) = initial_terms[k]
-        // 2. Pin acc[0] = Σ initial_terms
-        // 3. Pin acc[N-1] = final_accumulated
-        //
-        // Pinning row-0 terms prevents the prover from injecting offsets
-        // into acc[0]. For multi-table systems the caller verifies
-        // Σ final_accumulated across all tables equals 0.
-        if let Some(bus_inputs) = bus_public_inputs {
-            let acc_col_idx = self.interactions.len();
-
-            // Boundary constraint per term column at row 0.
-            for (i, term_value) in bus_inputs.initial_terms.iter().enumerate() {
-                constraints.push(BoundaryConstraint::new_aux(i, 0, term_value.clone()));
-            }
-
-            // acc[0] = Σ initial_terms
-            let initial_acc: FieldElement<Self::FieldExtension> =
-                bus_inputs.initial_terms.iter().cloned().sum();
-            constraints.push(BoundaryConstraint::new_aux(acc_col_idx, 0, initial_acc));
-
-            // acc[N-1] = final_accumulated
-            constraints.push(BoundaryConstraint::new_aux(
-                acc_col_idx,
-                self.trace_length - 1,
-                bus_inputs.final_accumulated.clone(),
-            ));
-        }
-
-        // User-defined boundary constraints
-        constraints.extend(B::boundary_constraints(&self.pub_inputs, rap_challenges));
-
+        // No LogUp-specific boundary constraints needed: the circular transition
+        // constraint handles everything. Only user-defined constraints remain.
+        let constraints = B::boundary_constraints(&self.pub_inputs, rap_challenges);
         BoundaryConstraints::from_constraints(constraints)
     }
 
@@ -534,9 +488,9 @@ mod tests {
             .expect("aux trace build failed")
             .expect("bus public inputs should be Some for non-empty interactions");
 
-        // The accumulated column should end at 0 for a balanced bus where
-        // sender and receiver have identical values with multiplicity 1
-        assert_eq!(bus_inputs.final_accumulated, FieldElement::<E>::zero());
+        // For a balanced bus (sender and receiver have identical values with
+        // multiplicity 1), the table_contribution should be 0
+        assert_eq!(bus_inputs.table_contribution, FieldElement::<E>::zero());
 
         // Full prove/verify
         let proof = Prover::prove(&air, &mut trace, &mut DefaultTranscript::<E>::new(&[]))
@@ -588,9 +542,9 @@ mod tests {
             .unwrap()
             .expect("bus public inputs should be Some for non-empty interactions");
 
-        let final_acc_a = bus_inputs_a.final_accumulated;
-        // Sender-only table should NOT balance individually
-        assert_ne!(final_acc_a, FieldElement::<E>::zero());
+        let table_contribution_a = bus_inputs_a.table_contribution;
+        // Sender-only table should NOT have zero table_contribution
+        assert_ne!(table_contribution_a, FieldElement::<E>::zero());
 
         // --- Table B: receiver only (same values) ---
         let main_b = vec![values];
@@ -618,15 +572,15 @@ mod tests {
             .unwrap()
             .expect("bus public inputs should be Some for non-empty interactions");
 
-        let final_acc_b = bus_inputs_b.final_accumulated;
-        // Receiver-only table should NOT balance individually
-        assert_ne!(final_acc_b, FieldElement::<E>::zero());
+        let table_contribution_b = bus_inputs_b.table_contribution;
+        // Receiver-only table should NOT have zero table_contribution
+        assert_ne!(table_contribution_b, FieldElement::<E>::zero());
 
-        // --- Cross-table check: Σ final_accumulated = 0 ---
+        // --- Cross-table check: Σ table_contribution = 0 ---
         assert_eq!(
-            final_acc_a + final_acc_b,
+            table_contribution_a + table_contribution_b,
             FieldElement::<E>::zero(),
-            "Cross-table bus balance failed: sender + receiver should sum to zero"
+            "Cross-table bus balance failed: sender + receiver table contributions should sum to zero"
         );
     }
 
@@ -690,22 +644,21 @@ mod tests {
         );
     }
 
-    /// A proof where initial_terms has fewer elements than expected is rejected.
+    /// A proof where table_contribution is tampered with is rejected.
     #[test]
-    fn test_initial_terms_length_mismatch_rejected() {
+    fn test_tampered_table_contribution_rejected() {
         let (air, _, mut proof) = make_balanced_proof();
 
-        // Truncate initial_terms to empty — AIR has 2 interactions so expected length is 2
+        // Tamper with table_contribution by adding 1
         proof
             .bus_public_inputs
             .as_mut()
             .expect("bus_public_inputs must be Some")
-            .initial_terms
-            .clear();
+            .table_contribution += FieldElement::<E>::one();
 
         assert!(
             !Verifier::verify(&proof, &air, &mut DefaultTranscript::<E>::new(&[])),
-            "Proof with initial_terms length mismatch must be rejected"
+            "Proof with tampered table_contribution must be rejected"
         );
     }
 }
