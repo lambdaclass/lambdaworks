@@ -1,20 +1,20 @@
 # LogUp-GKR
 
-An implementation of the LogUp-GKR protocol for efficient lookup arguments, based on ["Improving logarithmic derivative lookups using GKR"](https://eprint.iacr.org/2023/1284) by Papini and Haböck.
+Implementation of the LogUp-GKR protocol for efficient lookup arguments, following ["Improving logarithmic derivative lookups using GKR"](https://eprint.iacr.org/2023/1284) by Papini and Haböck.
 
 ## Overview
 
-LogUp-GKR combines logarithmic derivative lookups with the GKR interactive proof protocol. In standard LogUp, the prover commits to intermediate accumulator columns. Here, it commits only to a single multiplicities column, which cuts the commitment cost significantly.
+LogUp-GKR replaces the intermediate accumulator columns of standard LogUp with a single multiplicities column, using the GKR interactive proof protocol to verify the accumulation. This cuts commitment cost significantly.
 
-The core idea: to prove that a set of values comes from a valid table, express the lookup as a fractional sum identity
+The lookup is expressed as a fractional sum identity:
 
 $$\sum_i \frac{1}{z - a_i} = \sum_j \frac{m_j}{z - t_j}$$
 
-where $a_i$ are the accessed values, $t_j$ are table entries, and $m_j$ are multiplicities. This fractional sum is computed via a binary tree of fraction additions, which forms the GKR circuit.
+where $a_i$ are accessed values, $t_j$ are table entries, and $m_j$ are multiplicities. The prover evaluates this fractional sum through a binary tree of fraction additions, which forms the GKR circuit.
 
 ## Circuit Structure
 
-The circuit is a binary tree where each layer has half the elements of the layer below. The input layer sits at the bottom and the output (a single fraction) at the root.
+The circuit is a binary tree. Each layer has half the elements of the layer below, with the input fractions at the bottom and a single accumulated fraction at the root.
 
 ```
 Output:     n/d              <- 1 element (the total sum)
@@ -35,52 +35,52 @@ Input: fractions             <- 2^k elements
 | `LogUpMultiplicities` | same as Generic | 2 (base-field num, den) | Table side with integer multiplicities |
 | `LogUpSingles` | `1/a + 1/b = (a+b)/(a*b)` | 2 (implicit num=1, den) | Access side where all numerators are 1 |
 
-The fraction addition gate computes `(n_a * d_b + n_b * d_a) / (d_a * d_b)`, kept in projective form to avoid field inversions.
+Fraction addition computes `(n_a * d_b + n_b * d_a) / (d_a * d_b)`, kept in projective form to avoid field inversions.
 
 ## Protocol
 
 ### Multilinear GKR
 
-For each layer (from output to input), the prover runs a sumcheck over:
+The prover works layer by layer from output to input. At each layer, it runs a sumcheck over:
 
 $$g(x) = \text{eq}(x, y) \cdot \big(\text{numer}(x) + \lambda \cdot \text{denom}(x)\big)$$
 
-where $\lambda$ is a random challenge combining the numerator and denominator columns into a single polynomial, and $\text{eq}(x, y)$ is the multilinear equality polynomial linking the current layer's evaluation point to the previous one. Round polynomials have degree 3.
+Here $\lambda$ is a random challenge that combines the numerator and denominator columns into a single polynomial, and $\text{eq}(x, y)$ is the multilinear equality polynomial linking the current layer's evaluation point to the previous one. The resulting round polynomials have degree 3.
 
-The verifier checks each layer by:
-1. Verifying the sumcheck (round consistency: `g(0) + g(1) == claim`, degree $\leq 3$)
-2. Checking the circuit gate locally using the **mask** (evaluations at 0 and 1 for each column)
-3. Sampling a challenge to reduce the mask into claims for the next layer
+For each layer, the verifier:
+1. Checks the sumcheck (round consistency: `g(0) + g(1) == claim`, degree $\leq 3$)
+2. Checks the circuit gate locally using the **mask** (evaluations at 0 and 1 for each column)
+3. Samples a challenge to reduce the mask into claims for the next layer
 
-After processing all layers, the verifier holds an out-of-domain point and claimed evaluations at the input layer. These must be checked externally against the actual input data.
+After all layers are processed, the verifier holds an out-of-domain point and claimed evaluations at the input layer. These claims must be checked externally against the actual input data.
 
 ### Univariate IOP
 
-The multilinear GKR protocol above leaves one problem open: how to check the input layer claims. If the input columns are committed as multilinear extensions over $\{0,1\}^n$, the verifier can check directly. But in practice, we want to commit polynomials in univariate form on a cyclic domain $H = \{\omega^i : i \in [0, N)\}$, which is what FRI and KZG operate on.
+The multilinear protocol leaves one problem open: how to verify the input layer claims. If the input columns are committed as multilinear extensions over $\{0,1\}^n$, the verifier can check them directly. But in practice, polynomials are committed in univariate form on a cyclic domain $H = \{\omega^i : i \in [0, N)\}$ -- the natural setting for FRI and KZG.
 
 The univariate IOP bridges this gap. Given a multilinear polynomial $f$ with univariate representation $u_f(X)$ on $H$, the evaluation $f(t_0, \ldots, t_{n-1})$ equals the inner product
 
 $$f(t) = \sum_{i=0}^{N-1} u_f(\omega^i) \cdot c_i(t)$$
 
-where $c_i(t) = \text{eq}(\iota(i), t)$ is the **Lagrange column** -- mapping the cyclic domain to the Boolean hypercube via the bit-decomposition map $\iota$. This reduces the GKR input check to an inner product between the committed polynomial and a column the verifier can compute.
+where $c_i(t) = \text{eq}(\iota(i), t)$ is the **Lagrange column** -- it maps the cyclic domain to the Boolean hypercube via the bit-decomposition map $\iota$. This reduces the GKR input check to an inner product between the committed polynomial and a column the verifier can compute on its own.
 
-The protocol proceeds in two phases:
+Two phases provide different tradeoffs:
 
 **Phase 1 (Transparent):** The prover sends raw polynomial values as Fiat-Shamir commitments. Proof size is $O(N)$.
 
-**Phase 2 (PCS-based):** The prover commits via a polynomial commitment scheme (e.g., FRI with Merkle roots) and uses a **univariate sumcheck** to reduce the inner product check to a single point evaluation. Proof size is $O(\log^2 N)$.
+**Phase 2 (PCS-based):** The prover commits via a polynomial commitment scheme (e.g., FRI with Merkle roots) and uses a **univariate sumcheck** to reduce the inner product to a single point evaluation. Proof size is $O(\log^2 N)$.
 
-The univariate sumcheck identity:
+The univariate sumcheck relies on the identity:
 
 $$u_f(X) \cdot C_t(X) - \frac{v}{N} = q(X) \cdot (X^N - 1) + X \cdot r'(X)$$
 
-where $q(X)$ and $r'(X)$ are auxiliary polynomials (degree $\leq N-2$). This holds if and only if $\sum_{x \in H} u_f(x) \cdot C_t(x) = v$.
+where $q(X)$ and $r'(X)$ are auxiliary polynomials of degree $\leq N-2$. This holds if and only if $\sum_{x \in H} u_f(x) \cdot C_t(x) = v$.
 
 **Phase 2 prover flow:**
 1. Commit each input column via PCS
 2. Run multilinear GKR, obtaining evaluation claims at a random point $r$
 3. Sample $\lambda$, combine claims via random linear combination
-4. Compute Lagrange column, combine columns with $\lambda$ powers
+4. Compute the Lagrange column, combine columns with powers of $\lambda$
 5. Run univariate sumcheck: compute $q(X)$ and $r'(X)$, commit via PCS
 6. Sample challenge $z$, batch-open all polynomials at $z$
 
@@ -126,7 +126,7 @@ gkr-logup/
 └── examples/
     ├── logup_gkr.rs                # Multilinear LogUp-GKR (singles + read-only memory)
     ├── univariate_logup_gkr.rs     # Univariate IOP (grand product, singles, multiplicities)
-    └── caulk_style.rs              # Caulk-style: univariate -> multilinear -> GKR
+    └── univariate_to_multilinear.rs # IFFT + bit-reversal: univariate -> multilinear -> GKR
 ```
 
 ## API
@@ -222,7 +222,7 @@ verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transc
 
 ### Custom PCS
 
-The `UnivariatePcs` trait lets you plug in any polynomial commitment scheme:
+The `UnivariatePcs` trait accepts any polynomial commitment scheme:
 
 ```rust
 pub trait UnivariatePcs<F: IsFFTField> {
@@ -248,13 +248,13 @@ Two implementations are provided:
 
 ### Read-Only Memory Check
 
-Proves that a set of memory accesses all read from a valid ROM table:
+Proves that a set of memory accesses all hit a valid ROM table:
 
 ```
 cargo run -p lambdaworks-gkr-logup --example logup_gkr
 ```
 
-Two batch instances: `LogUpSingles` for accesses ($\sum 1/(z - a_i)$) and `LogUpMultiplicities` for the table ($\sum m_j/(z - t_j)$). If the accesses are valid, both sides produce the same fraction.
+This runs two batch instances: `LogUpSingles` for the access side ($\sum 1/(z - a_i)$) and `LogUpMultiplicities` for the table side ($\sum m_j/(z - t_j)$). When the accesses are valid, both sides produce the same fraction.
 
 ### Univariate IOP
 
@@ -262,15 +262,15 @@ Two batch instances: `LogUpSingles` for accesses ($\sum 1/(z - a_i)$) and `LogUp
 cargo run -p lambdaworks-gkr-logup --example univariate_logup_gkr
 ```
 
-Three examples: grand product, LogUp singles, and LogUp multiplicities -- all using univariate commitments on a cyclic domain.
+Runs three examples -- grand product, LogUp singles, and LogUp multiplicities -- all using univariate commitments on a cyclic domain.
 
-### Caulk-Style Transform
+### Univariate-to-Multilinear Transform
 
 ```
-cargo run -p lambdaworks-gkr-logup --example caulk_style
+cargo run -p lambdaworks-gkr-logup --example univariate_to_multilinear
 ```
 
-Demonstrates the FFT-based transform from univariate to multilinear representation, then runs the standard multilinear GKR prover.
+Takes polynomial evaluations in cyclic domain order (as committed by FRI or KZG), converts them to multilinear extension layout via IFFT + bit-reversal, and runs the standard multilinear GKR prover. This is the alternative to the univariate IOP: instead of bridging at the protocol level, convert the data upfront.
 
 ## Running Tests
 
