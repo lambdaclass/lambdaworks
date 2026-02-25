@@ -14,8 +14,6 @@ use core::hint::unreachable_unchecked;
 use crate::errors::CreationError;
 use crate::field::traits::{HasDefaultTranscript, IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
 use crate::field::{element::FieldElement, errors::FieldError};
-#[cfg(feature = "alloc")]
-use crate::traits::AsBytes;
 use crate::traits::ByteConversion;
 
 // =====================================================

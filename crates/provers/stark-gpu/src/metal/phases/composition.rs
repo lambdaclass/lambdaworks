@@ -549,7 +549,7 @@ where
     A: AIR<Field = F, FieldExtension = F>,
 {
     let num_boundary = air
-        .boundary_constraints(&round_1_result.rap_challenges)
+        .boundary_constraints(&round_1_result.rap_challenges, None)
         .constraints
         .len();
     let num_transition = air.context().num_transition_constraints;
@@ -564,8 +564,11 @@ where
         blowup_factor,
     );
 
-    let evaluator =
-        ConstraintEvaluator::<F, F, A::PublicInputs>::new(air, &round_1_result.rap_challenges);
+    let evaluator = ConstraintEvaluator::<F, F, A::PublicInputs>::new(
+        air,
+        &round_1_result.rap_challenges,
+        None,
+    );
     let constraint_evaluations = evaluator.evaluate(
         air,
         &lde_trace,
@@ -627,7 +630,7 @@ where
     type FpE = FieldElement<F>;
 
     let num_boundary = air
-        .boundary_constraints(&round_1_result.rap_challenges)
+        .boundary_constraints(&round_1_result.rap_challenges, None)
         .constraints
         .len();
     let num_transition = air.context().num_transition_constraints;
@@ -644,7 +647,7 @@ where
     let num_lde_rows = lde_trace.num_rows();
 
     // Pre-compute boundary evaluations on CPU.
-    let boundary_constraints = air.boundary_constraints(&round_1_result.rap_challenges);
+    let boundary_constraints = air.boundary_constraints(&round_1_result.rap_challenges, None);
     let boundary_evals = compute_boundary_evaluations(
         &boundary_constraints,
         &lde_trace,
@@ -733,7 +736,7 @@ where
     type FpE = FieldElement<F>;
 
     let num_boundary = air
-        .boundary_constraints(&round_1_result.rap_challenges)
+        .boundary_constraints(&round_1_result.rap_challenges, None)
         .constraints
         .len();
     let num_transition = air.context().num_transition_constraints;
@@ -747,7 +750,7 @@ where
         gpu_transition_zerofier_evaluations_to_buffers(air, domain, state, coset_state);
     let lde_step_size = air.step_size() * blowup_factor;
 
-    let boundary_constraints = air.boundary_constraints(&round_1_result.rap_challenges);
+    let boundary_constraints = air.boundary_constraints(&round_1_result.rap_challenges, None);
 
     // Check if retained GPU buffers from Phase 1 are available.
     let has_gpu_bufs = round_1_result
@@ -961,7 +964,7 @@ where
 
     let beta: Fp3E = transcript.sample_field_element();
     let num_boundary = air
-        .boundary_constraints(&round_1_result.rap_challenges)
+        .boundary_constraints(&round_1_result.rap_challenges, None)
         .constraints
         .len();
     let num_transition = air.context().num_transition_constraints;
@@ -980,8 +983,11 @@ where
         blowup_factor,
     );
 
-    let evaluator =
-        ConstraintEvaluator::<F, Fp3, A::PublicInputs>::new(air, &round_1_result.rap_challenges);
+    let evaluator = ConstraintEvaluator::<F, Fp3, A::PublicInputs>::new(
+        air,
+        &round_1_result.rap_challenges,
+        None,
+    );
     let constraint_evaluations = evaluator.evaluate(
         air,
         &lde_trace,

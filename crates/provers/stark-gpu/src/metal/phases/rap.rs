@@ -93,8 +93,8 @@ where
     let rap_challenges = air.build_rap_challenges(transcript);
 
     let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root) =
-        if air.has_trace_interaction() {
-            air.build_auxiliary_trace(trace, &rap_challenges);
+        if air.has_aux_trace() {
+            air.build_auxiliary_trace(trace, &rap_challenges)?;
             let aux_columns = trace.columns_aux();
             let aux_polys = interpolate_columns_gpu(&aux_columns, state)?;
             let aux_lde_evals =
@@ -168,36 +168,35 @@ where
     transcript.append_bytes(&main_merkle_root);
     let rap_challenges = air.build_rap_challenges(transcript);
 
-    let (aux_merkle_tree, aux_merkle_root, aux_gpu_bufs, aux_trace_evals) =
-        if air.has_trace_interaction() {
-            air.build_auxiliary_trace(trace, &rap_challenges);
-            let aux_columns = trace.columns_aux();
-            let aux_evals: Vec<Vec<FieldElement<Goldilocks64Field>>> = aux_columns.clone();
+    let (aux_merkle_tree, aux_merkle_root, aux_gpu_bufs, aux_trace_evals) = if air.has_aux_trace() {
+        air.build_auxiliary_trace(trace, &rap_challenges)?;
+        let aux_columns = trace.columns_aux();
+        let aux_evals: Vec<Vec<FieldElement<Goldilocks64Field>>> = aux_columns.clone();
 
-            let (aux_lde_buffers, aux_lde_domain_size) = gpu_lde_from_evaluations(
-                &aux_columns,
-                blowup_factor,
-                &coset_offset,
-                coset_state,
-                state.inner(),
-            )
-            .map_err(|e| ProvingError::FieldOperationError(format!("GPU aux LDE error: {e}")))?;
+        let (aux_lde_buffers, aux_lde_domain_size) = gpu_lde_from_evaluations(
+            &aux_columns,
+            blowup_factor,
+            &coset_offset,
+            coset_state,
+            state.inner(),
+        )
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU aux LDE error: {e}")))?;
 
-            let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
-            let (aux_tree, aux_root) =
-                gpu_batch_commit_from_column_buffers(&buf_refs, aux_lde_domain_size, keccak_state)
-                    .ok_or(ProvingError::EmptyCommitment)?;
+        let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
+        let (aux_tree, aux_root) =
+            gpu_batch_commit_from_column_buffers(&buf_refs, aux_lde_domain_size, keccak_state)
+                .ok_or(ProvingError::EmptyCommitment)?;
 
-            transcript.append_bytes(&aux_root);
-            (
-                Some(aux_tree),
-                Some(aux_root),
-                Some(aux_lde_buffers),
-                aux_evals,
-            )
-        } else {
-            (None, None, None, Vec::new())
-        };
+        transcript.append_bytes(&aux_root);
+        (
+            Some(aux_tree),
+            Some(aux_root),
+            Some(aux_lde_buffers),
+            aux_evals,
+        )
+    } else {
+        (None, None, None, Vec::new())
+    };
 
     // Pre-compute LDE coset points as a GPU buffer once (reused by Phase 2 and Phase 4).
     let coset_raw: Vec<u64> = to_raw_u64(&_domain.lde_roots_of_unity_coset);
@@ -287,8 +286,8 @@ where
     let rap_challenges = air.build_rap_challenges(transcript);
 
     let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root) =
-        if air.has_trace_interaction() {
-            air.build_auxiliary_trace(trace, &rap_challenges);
+        if air.has_aux_trace() {
+            air.build_auxiliary_trace(trace, &rap_challenges)?;
 
             let aux_columns = trace.columns_aux();
             let aux_polys: Vec<Polynomial<Fp3E>> = aux_columns

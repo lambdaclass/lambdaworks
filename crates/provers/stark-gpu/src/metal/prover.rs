@@ -65,6 +65,7 @@ where
         query_list: round_4.query_list,
         deep_poly_openings: round_4.deep_poly_openings,
         nonce: round_4.nonce,
+        bus_public_inputs: None,
     })
 }
 
@@ -175,6 +176,7 @@ where
         query_list: round_4.query_list,
         deep_poly_openings: round_4.deep_poly_openings,
         nonce: round_4.nonce,
+        bus_public_inputs: None,
     })
 }
 
@@ -246,6 +248,7 @@ where
         query_list: round_4.query_list,
         deep_poly_openings: round_4.deep_poly_openings,
         nonce: round_4.nonce,
+        bus_public_inputs: None,
     })
 }
 
