@@ -49,7 +49,6 @@
 //! - [Cairo Whitepaper](https://eprint.iacr.org/2021/1063) - AIR for CPU execution
 
 use std::collections::HashMap;
-use std::ops::Div;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::{
@@ -99,9 +98,13 @@ fn compute_base_zerofier<F: IsFFTField>(
 
     if let Some(exemptions_period_val) = exemptions_period {
         let last_exponent = blowup_factor * exemptions_period_val;
-        (0..last_exponent)
-            .map(|exponent| {
-                let x = lde_root.pow(exponent);
+        let lde_root = lde_root.clone();
+        let (numerators, mut denominators): (Vec<_>, Vec<_>) =
+            std::iter::successors(Some(FieldElement::one()), move |prev| {
+                Some(prev * &lde_root)
+            })
+            .take(last_exponent)
+            .map(|x| {
                 let offset_times_x = coset_offset * &x;
                 let offset_exponent = trace_length
                     * periodic_exemptions_offset.expect(
@@ -114,23 +117,32 @@ fn compute_base_zerofier<F: IsFFTField>(
                 let denominator = offset_times_x.pow(trace_length / period)
                     - trace_primitive_root.pow(offset * trace_length / period);
 
-                // Safety: The denominator is non-zero because the coset offset ensures
-                // lde_root powers are disjoint from trace_primitive_root powers
-                numerator.div(denominator).expect(
-                    "zerofier denominator should be non-zero: coset offset ensures disjoint domains"
-                )
+                (numerator, denominator)
             })
+            .unzip();
+
+        FieldElement::inplace_batch_inverse(&mut denominators).expect(
+            "zerofier denominator should be non-zero: coset offset ensures disjoint domains",
+        );
+
+        numerators
+            .iter()
+            .zip(denominators.iter())
+            .map(|(n, d)| n * d)
             .collect()
     } else {
         // Standard case: compute 1/(x^(n/period) - g^(offset*n/period))
         let last_exponent = blowup_factor * period;
-        let mut evaluations = (0..last_exponent)
-            .map(|exponent| {
-                let x = lde_root.pow(exponent);
-                (coset_offset * &x).pow(trace_length / period)
-                    - trace_primitive_root.pow(offset * trace_length / period)
-            })
-            .collect_vec();
+        let lde_root = lde_root.clone();
+        let mut evaluations = std::iter::successors(Some(FieldElement::one()), move |prev| {
+            Some(prev * &lde_root)
+        })
+        .take(last_exponent)
+        .map(|x| {
+            (coset_offset * &x).pow(trace_length / period)
+                - trace_primitive_root.pow(offset * trace_length / period)
+        })
+        .collect_vec();
 
         FieldElement::inplace_batch_inverse(&mut evaluations)
             .expect("batch inverse failed: zerofier evaluation contains zero element");
