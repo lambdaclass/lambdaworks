@@ -76,6 +76,7 @@ where
                 frame,
                 periodic_values: _periodic_values,
                 rap_challenges: _rap_challenges,
+                ..
             } => {
                 let first_step = frame.get_evaluation_step(0);
                 let second_step = frame.get_evaluation_step(1);
@@ -96,6 +97,7 @@ where
                 frame,
                 periodic_values: _periodic_values,
                 rap_challenges: _rap_challenges,
+                ..
             } => {
                 let first_step = frame.get_evaluation_step(0);
                 let second_step = frame.get_evaluation_step(1);
@@ -168,6 +170,7 @@ where
                 frame,
                 periodic_values: _periodic_values,
                 rap_challenges: _rap_challenges,
+                ..
             } => {
                 let first_step = frame.get_evaluation_step(0);
                 let second_step = frame.get_evaluation_step(1);
@@ -190,6 +193,7 @@ where
                 frame,
                 periodic_values: _periodic_values,
                 rap_challenges: _rap_challenges,
+                ..
             } => {
                 let first_step = frame.get_evaluation_step(0);
                 let second_step = frame.get_evaluation_step(1);
@@ -266,6 +270,7 @@ where
                 frame,
                 periodic_values: _periodic_values,
                 rap_challenges,
+                ..
             } => {
                 let first_step = frame.get_evaluation_step(0);
                 let second_step = frame.get_evaluation_step(1);
@@ -305,6 +310,7 @@ where
                 frame,
                 periodic_values: _periodic_values,
                 rap_challenges,
+                ..
             } => {
                 let first_step = frame.get_evaluation_step(0);
                 let second_step = frame.get_evaluation_step(1);
