@@ -12,7 +12,7 @@ type F = Degree4BabyBearExtensionField;
 type FE = FieldElement<F>;
 
 fn main() {
-    println!("=== Caulk-Style: Univariate → Multilinear → GKR ===\n");
+    println!("=== Univariate → Multilinear → GKR ===\n");
 
     test_univariate_to_multilinear_logup();
 
@@ -52,7 +52,7 @@ fn test_univariate_to_multilinear_logup() {
     println!("  Layer n_variables: {}", layer.n_variables());
 
     // Use existing multivariate prover
-    let mut transcript = DefaultTranscript::<F>::new(b"caulk_test");
+    let mut transcript = DefaultTranscript::<F>::new(b"uni_to_mle");
 
     match prover::prove(&mut transcript, layer) {
         Ok((proof, _verification_result)) => {
@@ -61,11 +61,11 @@ fn test_univariate_to_multilinear_logup() {
 
             // Verify using existing verifier
             let gate = Gate::LogUp;
-            let mut transcript_verify = DefaultTranscript::<F>::new(b"caulk_test");
+            let mut transcript_verify = DefaultTranscript::<F>::new(b"uni_to_mle");
 
             match verify(gate, &proof, &mut transcript_verify) {
                 Ok(_) => {
-                    println!("  ✓ Verification successful! Caulk-style works!");
+                    println!("  ✓ Verification successful!");
                 }
                 Err(e) => {
                     println!("  ✗ Verification error: {:?}", e);
