@@ -233,6 +233,28 @@ pub struct BusPublicInputs<E: IsField> {
     pub table_contribution: FieldElement<E>,
 }
 
+impl<E: IsField> BusPublicInputs<E> {
+    /// Computes `L / N`, the per-row offset for the circular accumulated column.
+    pub fn offset_per_row(&self, trace_length: usize) -> FieldElement<E> {
+        let n = FieldElement::<E>::from(trace_length as u64);
+        &self.table_contribution
+            * n.inv()
+                .expect("trace_length is a power-of-2, so it has an inverse")
+    }
+}
+
+/// Computes the LogUp table offset from optional bus public inputs.
+/// Returns `L/N` if present, zero otherwise.
+pub fn logup_table_offset<E: IsField>(
+    bus_public_inputs: Option<&BusPublicInputs<E>>,
+    trace_length: usize,
+) -> FieldElement<E> {
+    match bus_public_inputs {
+        Some(bpi) => bpi.offset_per_row(trace_length),
+        None => FieldElement::zero(),
+    }
+}
+
 // =============================================================================
 // Boundary Constraint Builder
 // =============================================================================

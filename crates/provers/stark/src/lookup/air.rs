@@ -542,7 +542,7 @@ mod tests {
             .unwrap()
             .expect("bus public inputs should be Some for non-empty interactions");
 
-        let table_contribution_a = bus_inputs_a.table_contribution.clone();
+        let table_contribution_a = bus_inputs_a.table_contribution;
         // Sender-only table should NOT have zero table_contribution
         assert_ne!(table_contribution_a, FieldElement::<E>::zero());
 
@@ -572,7 +572,7 @@ mod tests {
             .unwrap()
             .expect("bus public inputs should be Some for non-empty interactions");
 
-        let table_contribution_b = bus_inputs_b.table_contribution.clone();
+        let table_contribution_b = bus_inputs_b.table_contribution;
         // Receiver-only table should NOT have zero table_contribution
         assert_ne!(table_contribution_b, FieldElement::<E>::zero());
 

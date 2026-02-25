@@ -6,7 +6,10 @@ use super::{
     proof::stark::StarkProof,
     traits::{TransitionEvaluationContext, AIR},
 };
-use crate::{config::Commitment, domain::new_domain, proof::stark::DeepPolynomialOpening};
+use crate::{
+    config::Commitment, domain::new_domain, lookup::types::logup_table_offset,
+    proof::stark::DeepPolynomialOpening,
+};
 use lambdaworks_crypto::{
     fiat_shamir::is_transcript::IsStarkTranscript, merkle_tree::proof::Proof,
 };
@@ -295,15 +298,8 @@ pub trait IsStarkVerifier<
         let num_main_trace_columns =
             proof.trace_ood_evaluations.width - air.num_auxiliary_rap_columns();
 
-        let logup_table_offset = match &proof.bus_public_inputs {
-            Some(bpi) => {
-                let n = FieldElement::<FieldExtension>::from(air.trace_length() as u64);
-                &bpi.table_contribution
-                    * n.inv()
-                        .expect("trace_length is a power-of-2, so it has an inverse")
-            }
-            None => FieldElement::zero(),
-        };
+        let logup_table_offset =
+            logup_table_offset(proof.bus_public_inputs.as_ref(), air.trace_length());
 
         let ood_frame =
             (proof.trace_ood_evaluations).into_frame(num_main_trace_columns, air.step_size());

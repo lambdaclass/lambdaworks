@@ -1,6 +1,6 @@
 use super::domain::Domain;
 use super::traits::{TransitionEvaluationContext, AIR};
-use crate::lookup::BusPublicInputs;
+use crate::lookup::types::{logup_table_offset, BusPublicInputs};
 use crate::{frame::Frame, trace::LDETraceTable};
 use lambdaworks_math::field::traits::IsSubFieldOf;
 use lambdaworks_math::{
@@ -93,15 +93,7 @@ pub fn validate_trace<
         .map(|(trace_steps, constraint)| trace_steps - constraint.end_exemptions())
         .collect();
 
-    let logup_table_offset = match bus_public_inputs {
-        Some(bpi) => {
-            let n = FieldElement::<FieldExtension>::from(air.trace_length() as u64);
-            &bpi.table_contribution
-                * n.inv()
-                    .expect("trace_length is a power-of-2, so it has an inverse")
-        }
-        None => FieldElement::zero(),
-    };
+    let logup_table_offset = logup_table_offset(bus_public_inputs, air.trace_length());
 
     // Iterate over trace and compute transitions
     for step in 0..lde_trace.num_steps() {

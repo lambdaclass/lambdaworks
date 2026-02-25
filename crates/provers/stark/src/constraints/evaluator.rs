@@ -2,7 +2,7 @@ use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
 use crate::domain::Domain;
-use crate::lookup::BusPublicInputs;
+use crate::lookup::types::{logup_table_offset, BusPublicInputs};
 use crate::trace::LDETraceTable;
 use crate::traits::{TransitionEvaluationContext, AIR};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
@@ -41,15 +41,7 @@ where
     ) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges, bus_public_inputs);
 
-        let logup_table_offset = match bus_public_inputs {
-            Some(bpi) => {
-                let n = FieldElement::<FieldExtension>::from(air.trace_length() as u64);
-                &bpi.table_contribution
-                    * n.inv()
-                        .expect("trace_length is a power-of-2, so it has an inverse")
-            }
-            None => FieldElement::zero(),
-        };
+        let logup_table_offset = logup_table_offset(bus_public_inputs, air.trace_length());
 
         Self {
             boundary_constraints,
