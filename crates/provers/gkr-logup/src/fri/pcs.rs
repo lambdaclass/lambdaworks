@@ -328,7 +328,7 @@ mod tests {
                 .unwrap();
 
         // Tamper with the value
-        values[0] = values[0].clone() + FE::one();
+        values[0] += FE::one();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"fri_pcs_tamper");
         verifier_transcript.append_bytes(&commitment.merkle_root);

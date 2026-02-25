@@ -63,7 +63,7 @@ fn test_logup_singles() {
     // Simulate a ROM lookup: 8 accesses to a table
     let z = FE::from(100u64);
     let accesses: Vec<u64> = vec![20, 10, 20, 30, 10, 20, 40, 30];
-    let dens: Vec<FE> = accesses.iter().map(|&a| z.clone() - FE::from(a)).collect();
+    let dens: Vec<FE> = accesses.iter().map(|&a| z - FE::from(a)).collect();
 
     let domain = CyclicDomain::new(3).unwrap();
     let uni = UnivariateLagrange::new(dens, domain).unwrap();
@@ -95,7 +95,7 @@ fn test_logup_multiplicities() {
     let z = FE::from(1000u64);
     let table: Vec<u64> = vec![3, 5, 7, 9, 11, 13, 15, 17];
 
-    let table_dens: Vec<FE> = table.iter().map(|&t| z.clone() - FE::from(t)).collect();
+    let table_dens: Vec<FE> = table.iter().map(|&t| z - FE::from(t)).collect();
     let multiplicities: Vec<FE> = table.iter().map(|_| FE::one()).collect();
 
     let domain = CyclicDomain::new(3).unwrap();

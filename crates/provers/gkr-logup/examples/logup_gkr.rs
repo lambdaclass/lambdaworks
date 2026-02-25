@@ -26,7 +26,7 @@ fn test_logup_singles() {
     let z = FE::from(100u64);
     let accesses: Vec<u64> = vec![20, 10, 20, 30, 10, 20, 40, 30];
 
-    let mle_values: Vec<FE> = accesses.iter().map(|&a| z.clone() - FE::from(a)).collect();
+    let mle_values: Vec<FE> = accesses.iter().map(|&a| z - FE::from(a)).collect();
 
     use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
     let mle = DenseMultilinearPolynomial::new(mle_values);
@@ -60,8 +60,8 @@ fn test_read_only_memory() {
     let accesses: Vec<u64> = vec![5, 3, 5, 7, 3, 5, 9, 7];
     let table: Vec<u64> = vec![3, 5, 7, 9, 11, 13, 15, 17];
 
-    let access_dens: Vec<FE> = accesses.iter().map(|&a| z.clone() - FE::from(a)).collect();
-    let table_dens: Vec<FE> = table.iter().map(|&t| z.clone() - FE::from(t)).collect();
+    let access_dens: Vec<FE> = accesses.iter().map(|&a| z - FE::from(a)).collect();
+    let table_dens: Vec<FE> = table.iter().map(|&t| z - FE::from(t)).collect();
 
     use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
     let access_mle = DenseMultilinearPolynomial::new(access_dens);

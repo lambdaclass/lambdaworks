@@ -498,7 +498,7 @@ mod tests {
     fn test_prove_verify_logup_singles() {
         let z = FE::from(100u64);
         let accesses: Vec<u64> = vec![20, 10, 20, 30, 10, 20, 40, 30];
-        let dens: Vec<FE> = accesses.iter().map(|&a| z.clone() - FE::from(a)).collect();
+        let dens: Vec<FE> = accesses.iter().map(|&a| z - FE::from(a)).collect();
 
         let layer = make_logup_singles_layer(dens);
 
@@ -514,7 +514,7 @@ mod tests {
         let z = FE::from(1000u64);
         let table: Vec<u64> = vec![3, 5, 7, 9, 11, 13, 15, 17];
 
-        let table_dens: Vec<FE> = table.iter().map(|&t| z.clone() - FE::from(t)).collect();
+        let table_dens: Vec<FE> = table.iter().map(|&t| z - FE::from(t)).collect();
         let mults: Vec<FE> = table.iter().map(|_| FE::one()).collect();
         let layer = make_logup_multiplicities_layer(mults, table_dens);
 
@@ -535,7 +535,7 @@ mod tests {
 
         // Tamper with the Lagrange column
         if let Some(c) = proof.lagrange_column.get_mut(0) {
-            *c = c.clone() + FE::one();
+            *c += FE::one();
         }
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"tamper_lc");
@@ -554,7 +554,7 @@ mod tests {
         // Tamper with committed values
         if let Some(col) = proof.committed_columns.get_mut(0) {
             if let Some(v) = col.get_mut(0) {
-                *v = v.clone() + FE::one();
+                *v += FE::one();
             }
         }
 
@@ -654,7 +654,7 @@ mod tests {
     fn test_v2_logup_singles() {
         let z = FE::from(100u64);
         let accesses: Vec<u64> = vec![20, 10, 20, 30, 10, 20, 40, 30];
-        let dens: Vec<FE> = accesses.iter().map(|&a| z.clone() - FE::from(a)).collect();
+        let dens: Vec<FE> = accesses.iter().map(|&a| z - FE::from(a)).collect();
 
         let layer = make_logup_singles_layer(dens);
 
@@ -670,7 +670,7 @@ mod tests {
         let z = FE::from(1000u64);
         let table: Vec<u64> = vec![3, 5, 7, 9, 11, 13, 15, 17];
 
-        let table_dens: Vec<FE> = table.iter().map(|&t| z.clone() - FE::from(t)).collect();
+        let table_dens: Vec<FE> = table.iter().map(|&t| z - FE::from(t)).collect();
         let mults: Vec<FE> = table.iter().map(|_| FE::one()).collect();
         let layer = make_logup_multiplicities_layer(mults, table_dens);
 

@@ -3,11 +3,8 @@ use lambdaworks_math::field::fields::fft_friendly::quartic_babybear::Degree4Baby
 
 use lambdaworks_gkr_logup::layer::Layer;
 use lambdaworks_gkr_logup::prover;
-use lambdaworks_gkr_logup::univariate::lagrange::{
-    multilinear_to_univariate_fft, univariate_to_multilinear_fft,
-};
+use lambdaworks_gkr_logup::univariate::lagrange::univariate_to_multilinear_fft;
 use lambdaworks_gkr_logup::verifier::{verify, Gate};
-use lambdaworks_gkr_logup::Proof;
 
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 
@@ -30,7 +27,7 @@ fn test_univariate_to_multilinear_logup() {
     let accesses: Vec<u64> = vec![20, 10, 20, 30, 10, 20, 40, 30];
 
     // Create univariate denominators: z - access[i]
-    let univariate_dens: Vec<FE> = accesses.iter().map(|&a| z.clone() - FE::from(a)).collect();
+    let univariate_dens: Vec<FE> = accesses.iter().map(|&a| z - FE::from(a)).collect();
 
     println!(
         "  Univariate denominators (first 4): {:?}",
