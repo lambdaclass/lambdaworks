@@ -48,3 +48,9 @@ name = "metal_icfft_mersenne31"
 path = "fuzz_targets/metal_icfft_mersenne31.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "metal_merkle_tree_poseidon2"
+path = "fuzz_targets/metal_merkle_tree_poseidon2.rs"
+test = false
+doc = false
