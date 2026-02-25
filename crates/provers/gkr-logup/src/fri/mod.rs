@@ -130,7 +130,7 @@ mod tests {
         let mut proof = fri_prove(&poly, &config, &mut prover_transcript).unwrap();
 
         // Tamper with the final value
-        proof.final_value = proof.final_value.clone() + FE::one();
+        proof.final_value += FE::one();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"tamper");
         let result = fri_verify(&proof, 8, &config, &mut verifier_transcript);

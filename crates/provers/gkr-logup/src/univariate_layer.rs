@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn test_univariate_layer_grand_product() {
-        let values: Vec<FE> = (1..=4).map(|i| FE::from(i)).collect();
+        let values: Vec<FE> = (1..=4).map(FE::from).collect();
         let domain = CyclicDomain::new(2).unwrap();
         let uni = UnivariateLagrange::new(values, domain).unwrap();
 

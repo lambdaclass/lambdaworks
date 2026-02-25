@@ -114,12 +114,12 @@ mod tests {
 
         // Check: fold_eval at x should give folded(x^2)
         let x = FE::new(4);
-        let neg_x = FE::new(0) - x.clone();
+        let neg_x = FE::new(0) - x;
         let eval_x = p.evaluate(&x);
         let eval_neg_x = p.evaluate(&neg_x);
 
         let result = fold_eval(&eval_x, &eval_neg_x, &beta, &x);
-        let expected = folded.evaluate(&(x.clone() * x));
+        let expected = folded.evaluate(&(x * x));
         assert_eq!(result, expected);
     }
 }

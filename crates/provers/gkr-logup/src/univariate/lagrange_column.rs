@@ -267,7 +267,7 @@ mod tests {
     fn test_constraints_fail_for_tampered_column() {
         let t = vec![FE::from(3), FE::from(7), FE::from(13)];
         let mut col = compute_lagrange_column(&t);
-        col[3] = col[3].clone() + FE::one(); // tamper
+        col[3] += FE::one(); // tamper
         assert!(verify_lagrange_column_constraints(&col, &t).is_err());
     }
 
@@ -307,7 +307,7 @@ mod tests {
         let combined: Vec<FE> = v1
             .iter()
             .zip(v2.iter())
-            .map(|(a, b)| a + &(&lambda * b))
+            .map(|(a, b)| a + lambda * b)
             .collect();
         let expected = inner_product(&combined, &col);
         assert_eq!(result, expected);
