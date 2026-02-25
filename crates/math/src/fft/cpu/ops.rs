@@ -24,3 +24,21 @@ pub fn fft<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
 
     Ok(results)
 }
+
+/// Like [`fft`], but returns evaluations in **bit-reversed order** (skips the
+/// final bit-reverse permutation). This is useful when the output will be
+/// committed to a Merkle tree in bit-reversed order, avoiding a redundant
+/// permutation round-trip.
+pub fn fft_bitrev<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
+    input: &[FieldElement<E>],
+    twiddles: &[FieldElement<F>],
+) -> Result<alloc::vec::Vec<FieldElement<E>>, FFTError> {
+    if !input.len().is_power_of_two() {
+        return Err(FFTError::InputError(input.len()));
+    }
+
+    let mut results = input.to_vec();
+    in_place_nr_2radix_fft(&mut results, twiddles);
+
+    Ok(results)
+}

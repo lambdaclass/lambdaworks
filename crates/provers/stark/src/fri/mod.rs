@@ -3,11 +3,9 @@ pub mod fri_decommit;
 mod fri_functions;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
+use lambdaworks_math::field::traits::IsSubFieldOf;
 use lambdaworks_math::field::traits::{IsFFTField, IsField};
 use lambdaworks_math::traits::AsBytes;
-use lambdaworks_math::{
-    fft::cpu::bit_reversing::in_place_bit_reverse_permute, field::traits::IsSubFieldOf,
-};
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
@@ -136,9 +134,12 @@ where
     FieldElement<F>: AsBytes + Sync + Send,
     FieldElement<E>: AsBytes + Sync + Send,
 {
-    let mut evaluation = Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset)?;
-
-    in_place_bit_reverse_permute(&mut evaluation);
+    // The NR DIT FFT naturally produces bit-reversed output. Use the bitrev
+    // variant directly to avoid the natural→bitrev round-trip that previously
+    // happened: evaluate_offset_fft (FFT+bitrev→natural) then
+    // in_place_bit_reverse_permute (natural→bitrev).
+    let evaluation =
+        Polynomial::evaluate_offset_fft_bitrev(poly, 1, Some(domain_size), coset_offset)?;
 
     let mut to_commit = Vec::new();
     for chunk in evaluation.chunks(2) {

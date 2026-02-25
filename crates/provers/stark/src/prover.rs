@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use std::time::Instant;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
-use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
+use lambdaworks_math::fft::cpu::bit_reversing::reverse_index;
 use lambdaworks_math::fft::errors::FFTError;
 
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
@@ -23,7 +23,7 @@ use crate::domain::new_domain;
 use crate::fri;
 use crate::proof::stark::{DeepPolynomialOpenings, PolynomialOpenings};
 use crate::table::Table;
-use crate::trace::{columns2rows_bit_reversed, LDETraceTable};
+use crate::trace::{columns2rows, LDETraceTable};
 
 use super::config::{BatchedMerkleTree, Commitment};
 use super::constraints::evaluator::ConstraintEvaluator;
@@ -212,6 +212,28 @@ where
     }
 }
 
+/// Like [`evaluate_polynomial_on_lde_domain`], but returns evaluations in **bit-reversed order**.
+/// Used for Merkle tree commitments where data must be bit-reversed, avoiding the
+/// natural→bitrev round-trip.
+fn evaluate_polynomial_on_lde_domain_bitrev<F, E>(
+    p: &Polynomial<FieldElement<E>>,
+    blowup_factor: usize,
+    domain_size: usize,
+    offset: &FieldElement<F>,
+) -> Result<Vec<FieldElement<E>>, FFTError>
+where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
+{
+    let evaluations =
+        Polynomial::evaluate_offset_fft_bitrev(p, blowup_factor, Some(domain_size), offset)?;
+    let step = evaluations.len() / (domain_size * blowup_factor);
+    match step {
+        1 => Ok(evaluations),
+        _ => Ok(evaluations.into_iter().step_by(step).collect()),
+    }
+}
+
 /// The functionality of a STARK prover providing methods to run the STARK Prove protocol
 /// https://lambdaclass.github.io/lambdaworks/starks/protocol.html
 /// The default implementation is complete and is compatible with Stone prover
@@ -278,12 +300,15 @@ pub trait IsStarkProver<
         // Interpolate columns of `trace`.
         let trace_polys = trace.compute_trace_polys_main::<Field>()?;
 
-        // Evaluate those polynomials t_j on the large domain D_LDE.
+        // Evaluate polynomials on LDE domain in natural order (for constraint evaluation).
         let lde_trace_evaluations =
             Self::compute_lde_trace_evaluations::<Field>(&trace_polys, domain)?;
 
-        // Compute commitment using fused bit-reverse + transpose (avoids cloning)
-        let lde_trace_permuted_rows = columns2rows_bit_reversed(&lde_trace_evaluations);
+        // Evaluate in bit-reversed order directly (for Merkle tree commitment).
+        // This avoids the natural→bitrev round-trip that columns2rows_bit_reversed did.
+        let lde_trace_bitrev =
+            Self::compute_lde_trace_evaluations_bitrev::<Field>(&trace_polys, domain)?;
+        let lde_trace_permuted_rows = columns2rows(lde_trace_bitrev);
 
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
             Self::batch_commit_main(&lde_trace_permuted_rows)
@@ -329,11 +354,12 @@ pub trait IsStarkProver<
         // Interpolate columns of `trace`.
         let trace_polys = trace.compute_trace_polys_aux::<Field>()?;
 
-        // Evaluate those polynomials t_j on the large domain D_LDE.
+        // Evaluate polynomials on LDE domain in natural order (for constraint evaluation).
         let lde_trace_evaluations = Self::compute_lde_trace_evaluations(&trace_polys, domain)?;
 
-        // Compute commitment using fused bit-reverse + transpose (avoids cloning)
-        let lde_trace_permuted_rows = columns2rows_bit_reversed(&lde_trace_evaluations);
+        // Evaluate in bit-reversed order directly (for Merkle tree commitment).
+        let lde_trace_bitrev = Self::compute_lde_trace_evaluations_bitrev(&trace_polys, domain)?;
+        let lde_trace_permuted_rows = columns2rows(lde_trace_bitrev);
 
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
             Self::batch_commit_extension(&lde_trace_permuted_rows)
@@ -368,6 +394,33 @@ pub trait IsStarkProver<
         trace_polys_iter
             .map(|poly| {
                 evaluate_polynomial_on_lde_domain(
+                    poly,
+                    domain.blowup_factor,
+                    domain.interpolation_domain_size,
+                    &domain.coset_offset,
+                )
+            })
+            .collect::<Result<Vec<Vec<FieldElement<E>>>, FFTError>>()
+    }
+
+    /// Like [`Self::compute_lde_trace_evaluations`], but returns columns in bit-reversed order.
+    /// Used for Merkle tree commitment where the leaves must be in bit-reversed order.
+    fn compute_lde_trace_evaluations_bitrev<E>(
+        trace_polys: &[Polynomial<FieldElement<E>>],
+        domain: &Domain<Field>,
+    ) -> Result<Vec<Vec<FieldElement<E>>>, FFTError>
+    where
+        E: IsSubFieldOf<FieldExtension>,
+        Field: IsSubFieldOf<E>,
+    {
+        #[cfg(not(feature = "parallel"))]
+        let trace_polys_iter = trace_polys.iter();
+        #[cfg(feature = "parallel")]
+        let trace_polys_iter = trace_polys.par_iter();
+
+        trace_polys_iter
+            .map(|poly| {
+                evaluate_polynomial_on_lde_domain_bitrev(
                     poly,
                     domain.blowup_factor,
                     domain.interpolation_domain_size,
@@ -429,54 +482,45 @@ pub trait IsStarkProver<
         })
     }
 
-    /// Returns the Merkle tree and the commitment to the evaluations of the parts of the
-    /// composition polynomial.
+    /// Commits to composition polynomial part evaluations that are already in bit-reversed order.
+    /// Transposes columns to rows, pairs consecutive rows, and builds the Merkle tree.
     ///
-    /// Returns `None` if:
-    /// - `lde_composition_poly_parts_evaluations` is empty
-    /// - Any part has different length than others
-    /// - The LDE length is not even (required for pairing evaluations)
-    fn commit_composition_polynomial(
-        lde_composition_poly_parts_evaluations: &[Vec<FieldElement<FieldExtension>>],
+    /// Returns `None` if the input is empty, has zero-length parts, odd-length parts, or
+    /// parts of different lengths.
+    fn commit_composition_polynomial_bitrev(
+        lde_composition_poly_parts_bitrev: &[Vec<FieldElement<FieldExtension>>],
     ) -> Option<(BatchedMerkleTree<FieldExtension>, Commitment)>
     where
         FieldElement<Field>: AsBytes + Sync + Send,
         FieldElement<FieldExtension>: AsBytes + Sync + Send,
     {
-        // Validate input: must have at least one part with at least one evaluation
-        let first_part = lde_composition_poly_parts_evaluations.first()?;
+        let first_part = lde_composition_poly_parts_bitrev.first()?;
         let lde_len = first_part.len();
 
-        if lde_len == 0 {
+        if lde_len == 0 || lde_len % 2 != 0 {
             return None;
         }
 
-        // LDE length must be even for the chunking below to work correctly
-        if lde_len % 2 != 0 {
-            return None;
-        }
-
-        // All parts must have the same length
-        if !lde_composition_poly_parts_evaluations
+        if !lde_composition_poly_parts_bitrev
             .iter()
             .all(|part| part.len() == lde_len)
         {
             return None;
         }
 
-        let num_parts = lde_composition_poly_parts_evaluations.len();
-        let mut lde_composition_poly_evaluations: Vec<Vec<_>> = (0..lde_len)
+        // Transpose columns to rows — data is already bit-reversed, no permutation needed.
+        let num_parts = lde_composition_poly_parts_bitrev.len();
+        let lde_composition_poly_evaluations: Vec<Vec<_>> = (0..lde_len)
             .map(|i| {
                 let mut row = Vec::with_capacity(num_parts);
-                for evaluation in lde_composition_poly_parts_evaluations.iter() {
+                for evaluation in lde_composition_poly_parts_bitrev.iter() {
                     row.push(evaluation[i].clone());
                 }
                 row
             })
             .collect();
 
-        in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
-
+        // Pair consecutive rows for Merkle leaves.
         let mut lde_composition_poly_evaluations_merged = Vec::with_capacity(lde_len / 2);
         let mut iter = lde_composition_poly_evaluations.into_iter();
         while let (Some(mut chunk0), Some(chunk1)) = (iter.next(), iter.next()) {
@@ -526,6 +570,7 @@ pub trait IsStarkProver<
         }
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
+        // Natural-order evaluations (used for opening queries via reverse_index).
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
             .map(|part| {
@@ -538,8 +583,21 @@ pub trait IsStarkProver<
             })
             .collect::<Result<Vec<_>, _>>()?;
 
+        // Bit-reversed evaluations (for Merkle tree commitment — avoids natural→bitrev round-trip).
+        let lde_composition_poly_parts_bitrev: Vec<_> = composition_poly_parts
+            .iter()
+            .map(|part| {
+                evaluate_polynomial_on_lde_domain_bitrev(
+                    part,
+                    domain.blowup_factor,
+                    domain.interpolation_domain_size,
+                    &domain.coset_offset,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         let Some((composition_poly_merkle_tree, composition_poly_root)) =
-            Self::commit_composition_polynomial(&lde_composition_poly_parts_evaluations)
+            Self::commit_composition_polynomial_bitrev(&lde_composition_poly_parts_bitrev)
         else {
             return Err(ProvingError::EmptyCommitment);
         };
