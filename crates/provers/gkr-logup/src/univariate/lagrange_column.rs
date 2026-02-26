@@ -100,20 +100,36 @@ pub fn verify_lagrange_column_constraints<F: IsField>(
         let var_idx = n - k;
         let t_var = &evaluation_point[var_idx];
         let one_minus_t = FieldElement::<F>::one() - t_var;
-        let inv = one_minus_t
-            .inv()
-            .map_err(|_| LagrangeColumnError::DivisionByZero { k: var_idx })?;
-        let ratio = t_var * &inv;
 
         let step = 1 << k;
         let half = 1 << (k - 1);
-        let mut i = 0;
-        while i < (1 << n) {
-            let expected = &column[i] * &ratio;
-            if column[i + half] != expected {
-                return Err(LagrangeColumnError::PeriodicConstraintFailed { k, i });
+
+        if one_minus_t == FieldElement::<F>::zero() {
+            // t_k == 1: the (1-t_k) factor is zero, so all "bit-0" entries
+            // (those at positions i that are multiples of 2^k) must be zero.
+            // The "bit-1" entries (at i + half) are unconstrained by this ratio
+            // but are covered by other levels.
+            let mut i = 0;
+            while i < (1 << n) {
+                if column[i] != FieldElement::<F>::zero() {
+                    return Err(LagrangeColumnError::PeriodicConstraintFailed { k, i });
+                }
+                i += step;
             }
-            i += step;
+        } else {
+            let inv = one_minus_t
+                .inv()
+                .map_err(|_| LagrangeColumnError::DivisionByZero { k: var_idx })?;
+            let ratio = t_var * &inv;
+
+            let mut i = 0;
+            while i < (1 << n) {
+                let expected = &column[i] * &ratio;
+                if column[i + half] != expected {
+                    return Err(LagrangeColumnError::PeriodicConstraintFailed { k, i });
+                }
+                i += step;
+            }
         }
     }
 
@@ -311,5 +327,47 @@ mod tests {
             .collect();
         let expected = inner_product(&combined, &col);
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_lagrange_column_with_t_k_one() {
+        // When t_k == 1, the (1-t_k) factor is zero.
+        // compute_lagrange_column should still produce correct values,
+        // and verify_lagrange_column_constraints should accept them.
+        //
+        // t = [1, 7]: MLE convention: x_0 = MSB = i>>1, x_1 = LSB = i&1
+        // eq(x, t) = prod_k [x_k * t_k + (1-x_k)*(1-t_k)]
+        // With t_0 = 1: (1-t_0)=0, so entries where x_0=0 are zero (indices 0,1)
+        let t = vec![FE::from(1), FE::from(7)];
+        let col = compute_lagrange_column(&t);
+        assert_eq!(col.len(), 4);
+
+        // col[0] = eq((0,0), (1,7)) = (1-1)*(1-7) = 0
+        // col[1] = eq((0,1), (1,7)) = (1-1)*7 = 0
+        // col[2] = eq((1,0), (1,7)) = 1*(1-7) = -6 = 95
+        // col[3] = eq((1,1), (1,7)) = 1*7 = 7
+        assert_eq!(col[0], FE::zero());
+        assert_eq!(col[1], FE::zero());
+        assert_ne!(col[2], FE::zero());
+        assert_ne!(col[3], FE::zero());
+
+        // Constraints should pass (no DivisionByZero)
+        assert!(verify_lagrange_column_constraints(&col, &t).is_ok());
+    }
+
+    #[test]
+    fn test_lagrange_column_with_all_t_one() {
+        // Edge case: all t_k == 1 → only the (1,1,...,1) index is nonzero
+        let t = vec![FE::from(1), FE::from(1), FE::from(1)];
+        let col = compute_lagrange_column(&t);
+        assert_eq!(col.len(), 8);
+
+        // Only col[7] (= eq(111, (1,1,1))) should be nonzero (= 1)
+        for (i, val) in col.iter().enumerate().take(7) {
+            assert_eq!(*val, FE::zero(), "col[{i}] should be zero");
+        }
+        assert_eq!(col[7], FE::one());
+
+        assert!(verify_lagrange_column_constraints(&col, &t).is_ok());
     }
 }

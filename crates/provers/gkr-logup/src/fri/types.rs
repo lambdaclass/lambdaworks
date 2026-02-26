@@ -52,8 +52,24 @@ pub struct FriProof<F: IsField> {
     pub final_value: FieldElement<F>,
 }
 
-/// Internal: prover-side data for a committed FRI layer.
-pub(crate) struct FriLayerData<F: IsField> {
+/// Decommitment for an original (pre-FRI) polynomial at a query point.
+///
+/// Contains evaluations and Merkle authentication paths at both the query
+/// index and its symmetric partner in the LDE domain.
+#[derive(Debug, Clone)]
+pub struct OriginalPolyDecommitment<F: IsField> {
+    /// Evaluation at the query index.
+    pub eval: FieldElement<F>,
+    /// Evaluation at the symmetric partner (index + half_domain).
+    pub eval_sym: FieldElement<F>,
+    /// Merkle authentication path for the query index.
+    pub auth_path: MerkleProof<[u8; 32]>,
+    /// Merkle authentication path for the symmetric index.
+    pub auth_path_sym: MerkleProof<[u8; 32]>,
+}
+
+/// Prover-side data for a committed FRI layer.
+pub struct FriLayerData<F: IsField> {
     /// Merkle root.
     pub merkle_root: [u8; 32],
     /// LDE evaluations at this layer.

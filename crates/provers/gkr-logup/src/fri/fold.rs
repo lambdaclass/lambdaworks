@@ -4,6 +4,8 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::polynomial::Polynomial;
 
+use super::types::FriError;
+
 /// Fold a polynomial `p(x)` with challenge `beta`:
 ///
 /// Given `p(x) = p_even(x^2) + x * p_odd(x^2)`, returns
@@ -51,17 +53,21 @@ pub fn fold_eval<F: IsField>(
     eval_sym: &FieldElement<F>,
     beta: &FieldElement<F>,
     x: &FieldElement<F>,
-) -> FieldElement<F> {
+) -> Result<FieldElement<F>, FriError> {
     let two = FieldElement::<F>::from(2u64);
-    let two_inv = two.inv().expect("2 should be invertible");
-    let x_inv = x.inv().expect("domain point should be nonzero");
+    let two_inv = two
+        .inv()
+        .map_err(|_| FriError::FftError("field has characteristic 2".into()))?;
+    let x_inv = x
+        .inv()
+        .map_err(|_| FriError::FftError("fold_eval: domain point is zero".into()))?;
 
     // f_even = (f(x) + f(-x)) / 2
     let f_even = (eval + eval_sym) * &two_inv;
     // f_odd = (f(x) - f(-x)) / (2*x)
     let f_odd = (eval - eval_sym) * &two_inv * &x_inv;
 
-    f_even + beta * f_odd
+    Ok(f_even + beta * f_odd)
 }
 
 #[cfg(test)]
@@ -118,7 +124,7 @@ mod tests {
         let eval_x = p.evaluate(&x);
         let eval_neg_x = p.evaluate(&neg_x);
 
-        let result = fold_eval(&eval_x, &eval_neg_x, &beta, &x);
+        let result = fold_eval(&eval_x, &eval_neg_x, &beta, &x).unwrap();
         let expected = folded.evaluate(&(x * x));
         assert_eq!(result, expected);
     }

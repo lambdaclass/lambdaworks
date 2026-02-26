@@ -128,6 +128,13 @@ pub fn verify_sumcheck_at_z<F: IsFFTField>(
     // RHS = q(z) * (z^N - 1) + z * r'(z)
     let z_n = z.pow(n);
     let z_h_z = &z_n - FieldElement::<F>::one();
+
+    // Reject if z is in the domain (z^N == 1): the vanishing polynomial
+    // is zero, making the sumcheck equation trivially satisfiable.
+    if z_h_z == FieldElement::<F>::zero() {
+        return false;
+    }
+
     let rhs = q_z * &z_h_z + z * r_prime_z;
 
     lhs == rhs
@@ -208,6 +215,15 @@ pub fn batch_inverse<F: IsFFTField>(
     let n = elements.len();
     if n == 0 {
         return Ok(vec![]);
+    }
+
+    // Fail fast on any zero element with a descriptive error
+    for (i, e) in elements.iter().enumerate() {
+        if *e == FieldElement::zero() {
+            return Err(PcsError::InternalError(format!(
+                "batch inverse: zero element at index {i}"
+            )));
+        }
     }
 
     // Compute prefix products
@@ -365,5 +381,52 @@ mod tests {
         let expected = c_t_poly.evaluate(&z);
 
         assert_eq!(c_t_z, expected);
+    }
+
+    #[test]
+    fn evaluate_lagrange_at_z_zero() {
+        // z = 0 is a valid out-of-domain point (0 is not in the multiplicative group).
+        let t = vec![FE::from(3u64), FE::from(7u64)];
+        let lagrange_evals = compute_lagrange_column(&t);
+        let n = lagrange_evals.len();
+
+        let z = FE::zero();
+        let c_t_z = evaluate_lagrange_at_z(&lagrange_evals, &z, n).unwrap();
+
+        // Compare with direct polynomial interpolation
+        let c_t_poly = Polynomial::interpolate_fft::<F>(&lagrange_evals).unwrap();
+        let expected = c_t_poly.evaluate(&z);
+        assert_eq!(c_t_z, expected);
+    }
+
+    #[test]
+    fn batch_inverse_zero_interior_returns_error() {
+        let elements = vec![FE::from(1u64), FE::zero(), FE::from(3u64)];
+        let result = batch_inverse::<F>(&elements);
+        assert!(result.is_err(), "should error on zero element");
+    }
+
+    #[test]
+    fn sumcheck_rejects_z_in_domain() {
+        // When z^N == 1 (z is in the domain), the vanishing polynomial Z_H(z) = 0,
+        // making the sumcheck equation trivially satisfiable. The verifier must reject.
+        let n = 4usize;
+        let log_n = n.trailing_zeros() as u64;
+        let omega = F::get_primitive_root_of_unity(log_n).unwrap();
+
+        // z = omega (a root of unity, so z^N == 1)
+        let z = omega;
+
+        // Any values — the point is that z^N == 1 should be rejected regardless.
+        let u_f_z = FE::from(1u64);
+        let c_t_z = FE::from(2u64);
+        let claimed_sum = FE::from(3u64);
+        let q_z = FE::from(4u64);
+        let r_prime_z = FE::from(5u64);
+
+        assert!(
+            !verify_sumcheck_at_z(&u_f_z, &c_t_z, &claimed_sum, &q_z, &r_prime_z, &z, n),
+            "should reject z in domain"
+        );
     }
 }

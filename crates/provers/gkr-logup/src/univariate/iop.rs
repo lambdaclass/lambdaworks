@@ -27,6 +27,14 @@ use crate::univariate_layer::UnivariateLayer;
 use crate::utils::random_linear_combination;
 use crate::verifier::{Gate, VerificationResult};
 
+/// Absorbs the gate type into the Fiat-Shamir transcript for domain separation.
+fn absorb_gate<F: IsFFTField, T: IsTranscript<F>>(gate: Gate, channel: &mut T) {
+    channel.append_bytes(match gate {
+        Gate::GrandProduct => b"gate:grand_product",
+        Gate::LogUp => b"gate:logup",
+    });
+}
+
 /// Proves a univariate LogUp-GKR instance.
 ///
 /// Takes a `UnivariateLayer` (polynomials in Lagrange basis on a cyclic domain),
@@ -45,9 +53,16 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
     T: IsTranscript<F>,
 {
-    // Step 1: Extract univariate values and "commit" (append to channel)
+    // Step 0: Domain separation
     let committed_columns = input_layer.get_univariate_values();
+    channel.append_bytes(b"logup-gkr-univariate-v1");
+    absorb_gate(input_layer.gate_type(), channel);
+    channel.append_bytes(&(committed_columns.len() as u64).to_le_bytes());
+    if !committed_columns.is_empty() {
+        channel.append_bytes(&(committed_columns[0].len() as u64).to_le_bytes());
+    }
 
+    // Step 1: "Commit" (append to channel)
     for col in &committed_columns {
         for val in col {
             channel.append_field_element(val);
@@ -80,10 +95,9 @@ where
         committed_columns.iter().map(|c| c.as_slice()).collect();
     let ip = combined_inner_product(&col_refs, &lagrange_column, &lambda);
 
-    debug_assert_eq!(
-        ip, combined_claim,
-        "prover: inner product should match combined claim"
-    );
+    if ip != combined_claim {
+        return Err(UnivariateIopError::InnerProductMismatch);
+    }
 
     let proof = UnivariateIopProof {
         committed_columns,
@@ -112,6 +126,14 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
     T: IsTranscript<F>,
 {
+    // Step 0: Domain separation (must match prover)
+    channel.append_bytes(b"logup-gkr-univariate-v1");
+    absorb_gate(gate, channel);
+    channel.append_bytes(&(proof.committed_columns.len() as u64).to_le_bytes());
+    if !proof.committed_columns.is_empty() {
+        channel.append_bytes(&(proof.committed_columns[0].len() as u64).to_le_bytes());
+    }
+
     // Step 1: Read committed columns and append to channel (must match prover)
     for col in &proof.committed_columns {
         for val in col {
@@ -167,6 +189,7 @@ where
 pub fn prove_with_pcs<F, T, P>(
     channel: &mut T,
     input_layer: UnivariateLayer<F>,
+    pcs: &P,
 ) -> Result<
     (
         UnivariateIopProofV2<F, P::Commitment, P::BatchOpeningProof>,
@@ -181,14 +204,35 @@ where
     T: IsTranscript<F>,
     P: UnivariatePcs<F>,
 {
-    // Step 1: Extract univariate values and commit via PCS
+    // Step 0: Extract columns and domain separation
     let committed_columns = input_layer.get_univariate_values();
 
+    if committed_columns.is_empty() {
+        return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
+            "no columns to commit".into(),
+        )));
+    }
+
+    let first_len = committed_columns[0].len();
+    if committed_columns.iter().any(|c| c.len() != first_len) {
+        return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
+            "all columns must have the same length".into(),
+        )));
+    }
+
+    let domain_log_size = first_len.trailing_zeros() as usize;
+
+    channel.append_bytes(b"logup-gkr-univariate-v2");
+    absorb_gate(input_layer.gate_type(), channel);
+    channel.append_bytes(&(committed_columns.len() as u64).to_le_bytes());
+    channel.append_bytes(&(first_len as u64).to_le_bytes());
+
+    // Step 1: Commit columns via PCS
     let mut column_commitments = Vec::with_capacity(committed_columns.len());
     let mut column_states = Vec::with_capacity(committed_columns.len());
 
     for col in &committed_columns {
-        let (commitment, state) = P::commit(col, channel)?;
+        let (commitment, state) = pcs.commit(col, channel)?;
         column_commitments.push(commitment);
         column_states.push(state);
     }
@@ -207,6 +251,11 @@ where
 
     // Step 5: Compute Lagrange column and combine columns with lambda
     let lagrange_column = compute_lagrange_column(&gkr_result.ood_point);
+
+    // Absorb Lagrange column into transcript for defense-in-depth (H1: matches Phase 1)
+    for c in &lagrange_column {
+        channel.append_field_element(c);
+    }
 
     // Combine columns with lambda weights: combined_evals[i] = sum_j lambda^j * col_j[i]
     let n = committed_columns[0].len();
@@ -242,8 +291,8 @@ where
     .map_err(|e| PcsError::InternalError(format!("FFT eval of r' failed: {e}")))?;
     let r_prime_evals: Vec<FieldElement<F>> = r_prime_evals.into_iter().take(n).collect();
 
-    let (q_commitment, q_state) = P::commit(&q_evals, channel)?;
-    let (r_prime_commitment, r_prime_state) = P::commit(&r_prime_evals, channel)?;
+    let (q_commitment, q_state) = pcs.commit(&q_evals, channel)?;
+    let (r_prime_commitment, r_prime_state) = pcs.commit(&r_prime_evals, channel)?;
 
     // Step 8: Sample z from transcript
     let z: FieldElement<F> = channel.sample_field_element();
@@ -254,9 +303,10 @@ where
     all_states.push(&q_state);
     all_states.push(&r_prime_state);
 
-    let (opened_values, batch_proof) = P::batch_open(&all_states, &z, channel)?;
+    let (opened_values, batch_proof) = pcs.batch_open(&all_states, &z, channel)?;
 
     let proof = UnivariateIopProofV2 {
+        domain_log_size,
         column_commitments,
         gkr_proof,
         q_commitment,
@@ -284,6 +334,7 @@ pub fn verify_with_pcs<F, T, P>(
     gate: Gate,
     proof: &UnivariateIopProofV2<F, P::Commitment, P::BatchOpeningProof>,
     channel: &mut T,
+    pcs: &P,
 ) -> Result<(), UnivariateIopError>
 where
     F: IsFFTField + HasDefaultTranscript,
@@ -293,6 +344,19 @@ where
     P: UnivariatePcs<F>,
 {
     let num_columns = proof.column_commitments.len();
+    if num_columns == 0 {
+        return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
+            "proof has no column commitments".into(),
+        )));
+    }
+
+    let domain_size = 1usize << proof.domain_log_size;
+
+    // Step 0: Domain separation (must match prover)
+    channel.append_bytes(b"logup-gkr-univariate-v2");
+    absorb_gate(gate, channel);
+    channel.append_bytes(&(num_columns as u64).to_le_bytes());
+    channel.append_bytes(&(domain_size as u64).to_le_bytes());
 
     // Step 1: Absorb column commitments into transcript (must match prover)
     for commitment in &proof.column_commitments {
@@ -303,6 +367,29 @@ where
     let gkr_result = crate::verifier::verify(gate, &proof.gkr_proof, channel)
         .map_err(|e| UnivariateIopError::GkrError(format!("{e}")))?;
 
+    // Cross-check: domain_log_size must match GKR variable count (H2)
+    if gkr_result.ood_point.len() != proof.domain_log_size {
+        return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
+            format!(
+                "domain_log_size {} doesn't match GKR variables {}",
+                proof.domain_log_size,
+                gkr_result.ood_point.len()
+            ),
+        )));
+    }
+
+    // Cross-check: PCS degree_bound must match domain_size (C2)
+    if let Some(pcs_degree_bound) = P::degree_bound_from_proof(&proof.batch_proof) {
+        if pcs_degree_bound != domain_size {
+            return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
+                format!(
+                    "PCS degree_bound {} doesn't match domain_size {}",
+                    pcs_degree_bound, domain_size
+                ),
+            )));
+        }
+    }
+
     // Step 3: Sample lambda (must match prover)
     let lambda: FieldElement<F> = channel.sample_field_element();
 
@@ -312,6 +399,11 @@ where
     // Step 5: Compute Lagrange column from ood_point
     let lagrange_column = compute_lagrange_column(&gkr_result.ood_point);
     let n = lagrange_column.len();
+
+    // Absorb Lagrange column into transcript (H1: must match prover, defense-in-depth)
+    for c in &lagrange_column {
+        channel.append_field_element(c);
+    }
 
     // Step 5b: Absorb q and r' commitments (must match prover)
     P::absorb_commitment(&proof.q_commitment, channel);
@@ -325,7 +417,7 @@ where
     all_commitments.push(&proof.q_commitment);
     all_commitments.push(&proof.r_prime_commitment);
 
-    P::verify_batch_opening(
+    pcs.verify_batch_opening(
         &all_commitments,
         &z,
         &proof.opened_values,
@@ -610,48 +702,60 @@ mod tests {
     // -----------------------------------------------------------------------
 
     use crate::fri::pcs::FriPcs;
+    use crate::fri::types::FriConfig;
+
+    fn default_fri_pcs() -> FriPcs {
+        FriPcs::new(FriConfig::default())
+    }
 
     #[test]
     fn test_v2_grand_product_size_4() {
+        let pcs = default_fri_pcs();
         let values: Vec<FE> = (1..=4).map(|i| FE::from(i as u64)).collect();
         let layer = make_grand_product_layer(values);
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_gp4");
-        let (proof, _) = prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer).unwrap();
+        let (proof, _) =
+            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_gp4");
-        verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript)
+        verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript, &pcs)
             .unwrap();
     }
 
     #[test]
     fn test_v2_grand_product_size_8() {
+        let pcs = default_fri_pcs();
         let values: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
         let layer = make_grand_product_layer(values);
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_gp8");
-        let (proof, _) = prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer).unwrap();
+        let (proof, _) =
+            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_gp8");
-        verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript)
+        verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript, &pcs)
             .unwrap();
     }
 
     #[test]
     fn test_v2_grand_product_size_16() {
+        let pcs = default_fri_pcs();
         let values: Vec<FE> = (1..=16).map(|i| FE::from(i as u64)).collect();
         let layer = make_grand_product_layer(values);
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_gp16");
-        let (proof, _) = prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer).unwrap();
+        let (proof, _) =
+            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_gp16");
-        verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript)
+        verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript, &pcs)
             .unwrap();
     }
 
     #[test]
     fn test_v2_logup_singles() {
+        let pcs = default_fri_pcs();
         let z = FE::from(100u64);
         let accesses: Vec<u64> = vec![20, 10, 20, 30, 10, 20, 40, 30];
         let dens: Vec<FE> = accesses.iter().map(|&a| z - FE::from(a)).collect();
@@ -659,14 +763,17 @@ mod tests {
         let layer = make_logup_singles_layer(dens);
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_ls");
-        let (proof, _) = prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer).unwrap();
+        let (proof, _) =
+            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_ls");
-        verify_with_pcs::<F, _, FriPcs>(Gate::LogUp, &proof, &mut verifier_transcript).unwrap();
+        verify_with_pcs::<F, _, FriPcs>(Gate::LogUp, &proof, &mut verifier_transcript, &pcs)
+            .unwrap();
     }
 
     #[test]
     fn test_v2_logup_multiplicities() {
+        let pcs = default_fri_pcs();
         let z = FE::from(1000u64);
         let table: Vec<u64> = vec![3, 5, 7, 9, 11, 13, 15, 17];
 
@@ -675,9 +782,55 @@ mod tests {
         let layer = make_logup_multiplicities_layer(mults, table_dens);
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_lm");
-        let (proof, _) = prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer).unwrap();
+        let (proof, _) =
+            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_lm");
-        verify_with_pcs::<F, _, FriPcs>(Gate::LogUp, &proof, &mut verifier_transcript).unwrap();
+        verify_with_pcs::<F, _, FriPcs>(Gate::LogUp, &proof, &mut verifier_transcript, &pcs)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_v2_tampered_opened_values_rejected() {
+        let pcs = default_fri_pcs();
+        // End-to-end Phase 2 forgery test: tamper with opened values.
+        let values: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
+        let layer = make_grand_product_layer(values);
+
+        let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_tamper");
+        let (mut proof, _) =
+            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
+
+        // Tamper with the first opened value
+        if !proof.opened_values.is_empty() {
+            proof.opened_values[0] += FE::one();
+        }
+
+        let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_tamper");
+        let result = verify_with_pcs::<F, _, FriPcs>(
+            Gate::GrandProduct,
+            &proof,
+            &mut verifier_transcript,
+            &pcs,
+        );
+        assert!(result.is_err(), "tampered opened values should be rejected");
+    }
+
+    #[test]
+    fn test_v2_wrong_gate_type_rejected() {
+        let pcs = default_fri_pcs();
+        // Verify that using the wrong gate type causes transcript divergence.
+        let values: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
+        let layer = make_grand_product_layer(values);
+
+        let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_gate");
+        let (proof, _) =
+            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
+
+        // Verify with wrong gate type — domain separation should cause GKR to fail
+        let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_gate");
+        let result =
+            verify_with_pcs::<F, _, FriPcs>(Gate::LogUp, &proof, &mut verifier_transcript, &pcs);
+        assert!(result.is_err(), "wrong gate type should be rejected");
     }
 }

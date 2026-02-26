@@ -46,6 +46,7 @@ pub trait UnivariatePcs<F: IsFFTField> {
     /// Appends the commitment to the transcript.
     /// Returns the commitment and prover state needed for later openings.
     fn commit<T: IsTranscript<F>>(
+        &self,
         evals_on_h: &[FieldElement<F>],
         transcript: &mut T,
     ) -> Result<(Self::Commitment, Self::ProverState), PcsError>
@@ -53,12 +54,17 @@ pub trait UnivariatePcs<F: IsFFTField> {
         FieldElement<F>: ByteConversion;
 
     /// Evaluate the committed polynomial at an arbitrary point z.
-    fn open(state: &Self::ProverState, z: &FieldElement<F>) -> Result<FieldElement<F>, PcsError>;
+    fn open(
+        &self,
+        state: &Self::ProverState,
+        z: &FieldElement<F>,
+    ) -> Result<FieldElement<F>, PcsError>;
 
     /// Batch-open multiple committed polynomials at the same point z.
     ///
     /// Returns the opened values and a single batch proof.
     fn batch_open<T: IsTranscript<F>>(
+        &self,
         states: &[&Self::ProverState],
         z: &FieldElement<F>,
         transcript: &mut T,
@@ -68,6 +74,7 @@ pub trait UnivariatePcs<F: IsFFTField> {
 
     /// Verify a batch opening.
     fn verify_batch_opening<T: IsTranscript<F>>(
+        &self,
         commitments: &[&Self::Commitment],
         z: &FieldElement<F>,
         values: &[FieldElement<F>],
@@ -82,6 +89,14 @@ pub trait UnivariatePcs<F: IsFFTField> {
     /// Must produce the same transcript state as `commit` did on the prover side.
     /// For FRI PCS this appends the Merkle root bytes.
     fn absorb_commitment<T: IsTranscript<F>>(commitment: &Self::Commitment, transcript: &mut T);
+
+    /// Returns the degree bound embedded in a batch opening proof, if any.
+    ///
+    /// Used by the IOP verifier to cross-check that the PCS degree bound
+    /// matches the expected domain size from the protocol.
+    fn degree_bound_from_proof(_proof: &Self::BatchOpeningProof) -> Option<usize> {
+        None
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +137,7 @@ where
     type BatchOpeningProof = TransparentBatchProof;
 
     fn commit<T: IsTranscript<F>>(
+        &self,
         evals_on_h: &[FieldElement<F>],
         transcript: &mut T,
     ) -> Result<(Self::Commitment, Self::ProverState), PcsError>
@@ -144,7 +160,11 @@ where
         Ok((commitment, prover_state))
     }
 
-    fn open(state: &Self::ProverState, z: &FieldElement<F>) -> Result<FieldElement<F>, PcsError> {
+    fn open(
+        &self,
+        state: &Self::ProverState,
+        z: &FieldElement<F>,
+    ) -> Result<FieldElement<F>, PcsError> {
         // Evaluate by interpolating (Lagrange basis on roots of unity)
         use lambdaworks_math::polynomial::Polynomial;
 
@@ -154,6 +174,7 @@ where
     }
 
     fn batch_open<T: IsTranscript<F>>(
+        &self,
         states: &[&Self::ProverState],
         z: &FieldElement<F>,
         _transcript: &mut T,
@@ -161,11 +182,12 @@ where
     where
         FieldElement<F>: ByteConversion,
     {
-        let values: Result<Vec<_>, _> = states.iter().map(|s| Self::open(s, z)).collect();
+        let values: Result<Vec<_>, _> = states.iter().map(|s| self.open(s, z)).collect();
         Ok((values?, TransparentBatchProof))
     }
 
     fn verify_batch_opening<T: IsTranscript<F>>(
+        &self,
         _commitments: &[&Self::Commitment],
         _z: &FieldElement<F>,
         _values: &[FieldElement<F>],
@@ -197,15 +219,17 @@ mod tests {
 
     #[test]
     fn transparent_pcs_commit_open_roundtrip() {
+        let pcs = TransparentPcs;
         let evals: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
         let mut transcript = DefaultTranscript::<F>::new(b"test_pcs");
 
-        let (_commitment, state) =
-            TransparentPcs::commit::<DefaultTranscript<F>>(&evals, &mut transcript).unwrap();
+        let (_commitment, state) = pcs
+            .commit::<DefaultTranscript<F>>(&evals, &mut transcript)
+            .unwrap();
 
         // Open at a random point
         let z = FE::from(42u64);
-        let value = TransparentPcs::open(&state, &z).unwrap();
+        let value = pcs.open(&state, &z).unwrap();
 
         // Verify by manual interpolation
         use lambdaworks_math::polynomial::Polynomial;
@@ -216,25 +240,28 @@ mod tests {
 
     #[test]
     fn transparent_pcs_batch_open_verify() {
+        let pcs = TransparentPcs;
         let evals1: Vec<FE> = (1..=4).map(|i| FE::from(i as u64)).collect();
         let evals2: Vec<FE> = (5..=8).map(|i| FE::from(i as u64)).collect();
 
         let mut transcript = DefaultTranscript::<F>::new(b"batch");
-        let (c1, s1) =
-            TransparentPcs::commit::<DefaultTranscript<F>>(&evals1, &mut transcript).unwrap();
-        let (c2, s2) =
-            TransparentPcs::commit::<DefaultTranscript<F>>(&evals2, &mut transcript).unwrap();
+        let (c1, s1) = pcs
+            .commit::<DefaultTranscript<F>>(&evals1, &mut transcript)
+            .unwrap();
+        let (c2, s2) = pcs
+            .commit::<DefaultTranscript<F>>(&evals2, &mut transcript)
+            .unwrap();
 
         let z = FE::from(99u64);
-        let (values, proof) =
-            TransparentPcs::batch_open::<DefaultTranscript<F>>(&[&s1, &s2], &z, &mut transcript)
-                .unwrap();
+        let (values, proof) = pcs
+            .batch_open::<DefaultTranscript<F>>(&[&s1, &s2], &z, &mut transcript)
+            .unwrap();
 
         assert_eq!(values.len(), 2);
 
         // Verify
         let mut verify_transcript = DefaultTranscript::<F>::new(b"batch_v");
-        TransparentPcs::verify_batch_opening::<DefaultTranscript<F>>(
+        pcs.verify_batch_opening::<DefaultTranscript<F>>(
             &[&c1, &c2],
             &z,
             &values,

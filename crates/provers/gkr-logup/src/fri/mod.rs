@@ -6,8 +6,8 @@
 pub mod fold;
 pub mod types;
 
-pub(crate) mod commit;
-pub(crate) mod query;
+pub mod commit;
+pub mod query;
 pub mod verify;
 
 pub mod pcs;
@@ -18,7 +18,44 @@ use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::{AsBytes, ByteConversion};
 
+use commit::FriCommitResult;
 use types::{FriConfig, FriError, FriProof};
+
+/// Run the FRI commit phase and sample query indices from the transcript.
+///
+/// Returns the commit result (layers, Merkle trees, final value) and the
+/// sampled query indices. This allows callers to extract additional
+/// decommitments (e.g. original polynomial evaluations) at the same
+/// query positions before assembling the proof.
+pub fn fri_commit_and_sample<F, T>(
+    poly: &Polynomial<FieldElement<F>>,
+    config: &FriConfig,
+    transcript: &mut T,
+) -> Result<(FriCommitResult<F>, Vec<usize>), FriError>
+where
+    F: IsFFTField,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: AsBytes + ByteConversion + Clone + Send + Sync,
+    T: IsTranscript<F>,
+{
+    let commit_result = commit::fri_commit(poly, config, transcript)?;
+
+    let first_domain_size = if commit_result.layers.is_empty() {
+        0
+    } else {
+        commit_result.layers[0].domain_size
+    };
+
+    let query_indices: Vec<usize> = if first_domain_size == 0 {
+        vec![0; config.num_queries]
+    } else {
+        (0..config.num_queries)
+            .map(|_| transcript.sample_u64((first_domain_size / 2) as u64) as usize)
+            .collect()
+    };
+
+    Ok((commit_result, query_indices))
+}
 
 /// Run the full FRI prover: commit + query.
 ///
@@ -34,25 +71,7 @@ where
     FieldElement<F>: AsBytes + ByteConversion + Clone + Send + Sync,
     T: IsTranscript<F>,
 {
-    // Commit phase
-    let commit_result = commit::fri_commit(poly, config, transcript)?;
-
-    // Sample query indices from transcript
-    let first_domain_size = if commit_result.layers.is_empty() {
-        // Constant polynomial — no layers
-        0
-    } else {
-        commit_result.layers[0].domain_size
-    };
-
-    let query_indices: Vec<usize> = if first_domain_size == 0 {
-        // No layers to query
-        vec![0; config.num_queries]
-    } else {
-        (0..config.num_queries)
-            .map(|_| transcript.sample_u64((first_domain_size / 2) as u64) as usize)
-            .collect()
-    };
+    let (commit_result, query_indices) = fri_commit_and_sample(poly, config, transcript)?;
 
     // Query phase
     let query_rounds = if commit_result.layers.is_empty() {

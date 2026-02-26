@@ -15,12 +15,15 @@ use super::types::{FriConfig, FriError, FriProof};
 /// 2. Sample query indices from transcript.
 /// 3. For each query at each layer: verify Merkle proofs, check fold consistency.
 /// 4. Check the final folded value matches the claimed constant.
+///
+/// Returns the sampled query indices on success, so callers can use them to
+/// verify consistency with original polynomial commitments.
 pub fn fri_verify<F, T>(
     proof: &FriProof<F>,
     poly_degree_bound: usize,
     config: &FriConfig,
     transcript: &mut T,
-) -> Result<(), FriError>
+) -> Result<Vec<usize>, FriError>
 where
     F: IsFFTField,
     F::BaseType: Send + Sync,
@@ -106,7 +109,7 @@ where
 
             // Fold consistency check: the folded evaluation should match
             // the evaluation at the corresponding index in the next layer.
-            let folded = fold_eval(&round.eval, &round.eval_sym, &betas[layer], &x);
+            let folded = fold_eval(&round.eval, &round.eval_sym, &betas[layer], &x)?;
 
             if layer + 1 < num_layers {
                 // The folded polynomial lives on a domain of size ds/2.
@@ -138,5 +141,5 @@ where
         }
     }
 
-    Ok(())
+    Ok(query_indices)
 }

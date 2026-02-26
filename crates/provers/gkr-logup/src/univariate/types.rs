@@ -31,6 +31,8 @@ pub struct UnivariateIopProofV2<
     C: Clone + core::fmt::Debug,
     B: Clone + core::fmt::Debug,
 > {
+    /// Log2 of the domain size (verifier needs N = 2^domain_log_size before GKR runs).
+    pub domain_log_size: usize,
     /// PCS commitments for each input column.
     pub column_commitments: Vec<C>,
     /// The standard GKR proof over the multilinear representation.
