@@ -47,6 +47,8 @@ pub enum LagrangeColumnError {
     PeriodicConstraintFailed { k: usize, i: usize },
     /// Column length doesn't match `2^n`.
     InvalidColumnLength,
+    /// Vectors have mismatched lengths in inner product.
+    LengthMismatch { expected: usize, got: usize },
     /// Division by zero: some `t_k == 1`.
     DivisionByZero { k: usize },
 }
@@ -62,6 +64,9 @@ impl core::fmt::Display for LagrangeColumnError {
                 )
             }
             Self::InvalidColumnLength => write!(f, "column length is not 2^n"),
+            Self::LengthMismatch { expected, got } => {
+                write!(f, "length mismatch: expected {expected}, got {got}")
+            }
             Self::DivisionByZero { k } => write!(f, "t_{k} = 1, ratio undefined"),
         }
     }
@@ -144,12 +149,17 @@ pub fn verify_lagrange_column_constraints<F: IsField>(
 pub fn inner_product<F: IsField>(
     univariate_values: &[FieldElement<F>],
     lagrange_column: &[FieldElement<F>],
-) -> FieldElement<F> {
-    assert_eq!(univariate_values.len(), lagrange_column.len());
-    univariate_values
+) -> Result<FieldElement<F>, LagrangeColumnError> {
+    if univariate_values.len() != lagrange_column.len() {
+        return Err(LagrangeColumnError::LengthMismatch {
+            expected: lagrange_column.len(),
+            got: univariate_values.len(),
+        });
+    }
+    Ok(univariate_values
         .iter()
         .zip(lagrange_column.iter())
-        .fold(FieldElement::zero(), |acc, (u, c)| acc + u * c)
+        .fold(FieldElement::zero(), |acc, (u, c)| acc + u * c))
 }
 
 /// Computes the combined inner product for multiple columns using random linear combination.
@@ -161,9 +171,9 @@ pub fn combined_inner_product<F: IsField>(
     columns: &[&[FieldElement<F>]],
     lagrange_column: &[FieldElement<F>],
     lambda: &FieldElement<F>,
-) -> FieldElement<F> {
+) -> Result<FieldElement<F>, LagrangeColumnError> {
     if columns.is_empty() {
-        return FieldElement::zero();
+        return Ok(FieldElement::zero());
     }
 
     let n = lagrange_column.len();
@@ -172,7 +182,12 @@ pub fn combined_inner_product<F: IsField>(
     let mut combined = vec![FieldElement::<F>::zero(); n];
     let mut lambda_power = FieldElement::<F>::one();
     for col in columns {
-        assert_eq!(col.len(), n);
+        if col.len() != n {
+            return Err(LagrangeColumnError::LengthMismatch {
+                expected: n,
+                got: col.len(),
+            });
+        }
         for i in 0..n {
             combined[i] = &combined[i] + &(&lambda_power * &col[i]);
         }
@@ -259,7 +274,7 @@ mod tests {
 
         let mle_values = vec![FE::from(1), FE::from(2), FE::from(3), FE::from(4)];
 
-        let ip = inner_product(&mle_values, &col);
+        let ip = inner_product(&mle_values, &col).unwrap();
 
         // MLE evaluation: sum_i evals[i] * eq(x(i), t)
         let zero = FE::zero();
@@ -304,8 +319,8 @@ mod tests {
         let values = vec![FE::from(1), FE::from(2), FE::from(3), FE::from(4)];
         let lambda = FE::from(5);
 
-        let result = combined_inner_product(&[&values], &col, &lambda);
-        let expected = inner_product(&values, &col);
+        let result = combined_inner_product(&[&values], &col, &lambda).unwrap();
+        let expected = inner_product(&values, &col).unwrap();
         assert_eq!(result, expected);
     }
 
@@ -317,7 +332,7 @@ mod tests {
         let v2 = vec![FE::from(5), FE::from(6), FE::from(7), FE::from(8)];
         let lambda = FE::from(10);
 
-        let result = combined_inner_product(&[&v1, &v2], &col, &lambda);
+        let result = combined_inner_product(&[&v1, &v2], &col, &lambda).unwrap();
 
         // combined[i] = v1[i] + lambda * v2[i]
         let combined: Vec<FE> = v1
@@ -325,7 +340,7 @@ mod tests {
             .zip(v2.iter())
             .map(|(a, b)| a + lambda * b)
             .collect();
-        let expected = inner_product(&combined, &col);
+        let expected = inner_product(&combined, &col).unwrap();
         assert_eq!(result, expected);
     }
 

@@ -16,11 +16,12 @@ impl<F: IsFFTField> UnivariateLagrange<F> {
         values: Vec<FieldElement<F>>,
         domain: CyclicDomain<F>,
     ) -> Result<Self, CyclicDomainError> {
-        assert_eq!(
-            values.len(),
-            domain.size(),
-            "values length must match domain size"
-        );
+        if values.len() != domain.size() {
+            return Err(CyclicDomainError::SizeMismatch {
+                expected: domain.size(),
+                got: values.len(),
+            });
+        }
         Ok(Self { values, domain })
     }
 
@@ -63,11 +64,15 @@ impl<F: IsFFTField> UnivariateLagrange<F> {
                 - val_1.clone() * omega_2i.clone();
             let denominator = omega_2i_plus_1 - omega_2i;
 
-            let new_val = numerator * denominator.inv().expect("denom invertible");
+            let new_val = numerator
+                * denominator
+                    .inv()
+                    .expect("consecutive roots of unity are always distinct");
             new_values.push(new_val);
         }
 
-        let new_domain = CyclicDomain::new(log_n - 1).expect("should work");
+        let new_domain =
+            CyclicDomain::new(log_n - 1).expect("half-size domain exists if parent does");
         Self {
             values: new_values,
             domain: new_domain,
@@ -136,7 +141,7 @@ pub fn univariate_to_multilinear_fft<F: IsFFTField>(
 
     let n_inv = FieldElement::from(n as u64)
         .inv()
-        .expect("n should be invertible");
+        .map_err(|_| CyclicDomainError::DomainSizeNotInvertible(n))?;
     for val in &mut fft_result {
         *val = val.clone() * n_inv.clone();
     }

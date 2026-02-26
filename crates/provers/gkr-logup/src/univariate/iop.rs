@@ -93,7 +93,7 @@ where
     // Step 8: Verify inner product (prover sanity check)
     let col_refs: Vec<&[FieldElement<F>]> =
         committed_columns.iter().map(|c| c.as_slice()).collect();
-    let ip = combined_inner_product(&col_refs, &lagrange_column, &lambda);
+    let ip = combined_inner_product(&col_refs, &lagrange_column, &lambda)?;
 
     if ip != combined_claim {
         return Err(UnivariateIopError::InnerProductMismatch);
@@ -165,7 +165,7 @@ where
         .iter()
         .map(|c| c.as_slice())
         .collect();
-    let ip = combined_inner_product(&col_refs, &proof.lagrange_column, &lambda);
+    let ip = combined_inner_product(&col_refs, &proof.lagrange_column, &lambda)?;
 
     if ip != combined_claim {
         return Err(UnivariateIopError::InnerProductMismatch);
@@ -516,7 +516,7 @@ mod tests {
 
         let t = vec![FE::from(3u64), FE::from(7u64)];
         let lagrange = compute_lagrange_column(&t);
-        let ip = inner_product(&values, &lagrange);
+        let ip = inner_product(&values, &lagrange).unwrap();
         let mle_eval = mle.evaluate(t).unwrap();
 
         assert_eq!(ip, mle_eval, "inner product should equal MLE eval");

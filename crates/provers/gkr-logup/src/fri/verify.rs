@@ -46,9 +46,24 @@ where
 
     // Sample query indices
     let first_domain_size = poly_degree_bound.next_power_of_two() * blowup;
+    if first_domain_size == 0 {
+        return Err(FriError::InvalidConfig(
+            "first domain size is zero (bad degree bound or blowup)".into(),
+        ));
+    }
+    let half_domain = first_domain_size / 2;
     let query_indices: Vec<usize> = (0..config.num_queries)
-        .map(|_| transcript.sample_u64((first_domain_size / 2) as u64) as usize)
+        .map(|_| transcript.sample_u64(half_domain as u64) as usize)
         .collect();
+
+    // Defensive bounds check on sampled indices
+    for &qi in &query_indices {
+        if qi >= half_domain {
+            return Err(FriError::InvalidConfig(format!(
+                "query index {qi} >= half domain size {half_domain}"
+            )));
+        }
+    }
 
     if proof.query_rounds.len() != config.num_queries {
         return Err(FriError::InvalidConfig(format!(

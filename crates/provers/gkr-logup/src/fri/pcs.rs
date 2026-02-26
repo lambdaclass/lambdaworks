@@ -101,6 +101,14 @@ where
             ));
         }
 
+        let log_n = n.trailing_zeros() as usize;
+        if log_n > FriConfig::MAX_LOG_DEGREE {
+            return Err(PcsError::InvalidInput(format!(
+                "degree bound 2^{log_n} exceeds maximum 2^{}",
+                FriConfig::MAX_LOG_DEGREE
+            )));
+        }
+
         // Interpolate to get coefficient form
         let poly = Polynomial::interpolate_fft::<F>(evals_on_h)
             .map_err(|e| PcsError::InternalError(format!("FFT interpolation failed: {e}")))?;
@@ -235,6 +243,17 @@ where
         let half = lde_domain_size / 2;
 
         let mut original_decommitments = Vec::with_capacity(query_indices.len());
+
+        // Verify all LDE eval vectors have the expected length before indexing
+        for (j, state) in states.iter().enumerate() {
+            if state.lde_evals.len() != lde_domain_size {
+                return Err(PcsError::InternalError(format!(
+                    "polynomial {j}: LDE length {} != expected {lde_domain_size}",
+                    state.lde_evals.len()
+                )));
+            }
+        }
+
         for &qi in &query_indices {
             let idx = qi % half;
             let idx_sym = idx + half;
@@ -300,6 +319,20 @@ where
 
         let num_polys = commitments.len();
         let config = &self.config;
+
+        // Validate degree_bound from proof
+        if !proof.degree_bound.is_power_of_two() || proof.degree_bound == 0 {
+            return Err(PcsError::InvalidInput(
+                "proof degree_bound must be a nonzero power of 2".into(),
+            ));
+        }
+        let log_deg = proof.degree_bound.trailing_zeros() as usize;
+        if log_deg > FriConfig::MAX_LOG_DEGREE {
+            return Err(PcsError::InvalidInput(format!(
+                "proof degree_bound 2^{log_deg} exceeds maximum 2^{}",
+                FriConfig::MAX_LOG_DEGREE
+            )));
+        }
 
         // Bind FRI config and degree_bound to transcript (must match prover)
         transcript.append_bytes(b"fri-config");
