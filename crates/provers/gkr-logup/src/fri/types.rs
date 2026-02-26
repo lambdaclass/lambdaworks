@@ -14,6 +14,29 @@ pub struct FriConfig {
 }
 
 impl FriConfig {
+    /// Maximum supported log2(blowup) to prevent unreasonable memory use.
+    const MAX_LOG_BLOWUP: usize = 8; // 256x blowup
+
+    /// Maximum supported log2(degree_bound) for LDE allocation.
+    pub const MAX_LOG_DEGREE: usize = 28; // 2^28 = 256M field elements
+
+    /// Creates a validated FRI configuration.
+    pub fn new(log_blowup: usize, num_queries: usize) -> Result<Self, FriError> {
+        if log_blowup == 0 || log_blowup > Self::MAX_LOG_BLOWUP {
+            return Err(FriError::InvalidConfig(format!(
+                "log_blowup must be in [1, {}], got {log_blowup}",
+                Self::MAX_LOG_BLOWUP
+            )));
+        }
+        if num_queries == 0 {
+            return Err(FriError::InvalidConfig("num_queries must be >= 1".into()));
+        }
+        Ok(Self {
+            log_blowup,
+            num_queries,
+        })
+    }
+
     pub fn blowup_factor(&self) -> usize {
         1 << self.log_blowup
     }

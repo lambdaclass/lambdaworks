@@ -46,6 +46,13 @@ impl<F: IsFFTField> CyclicDomain<F> {
 pub enum CyclicDomainError {
     InvalidOrder(usize),
     NoRootOfUnity(usize),
+    /// Domain size N is not invertible in the field (N >= char).
+    DomainSizeNotInvertible(usize),
+    /// Values length doesn't match domain size.
+    SizeMismatch {
+        expected: usize,
+        got: usize,
+    },
 }
 
 impl core::fmt::Display for CyclicDomainError {
@@ -56,6 +63,12 @@ impl core::fmt::Display for CyclicDomainError {
             }
             CyclicDomainError::NoRootOfUnity(n) => {
                 write!(f, "No primitive {}-th root of unity", 1 << n)
+            }
+            CyclicDomainError::DomainSizeNotInvertible(n) => {
+                write!(f, "Domain size {n} is not invertible in the field")
+            }
+            CyclicDomainError::SizeMismatch { expected, got } => {
+                write!(f, "values length mismatch: expected {expected}, got {got}")
             }
         }
     }
