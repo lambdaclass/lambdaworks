@@ -3,7 +3,7 @@ use lambdaworks_math::field::traits::IsField;
 
 use super::super::verifier::Proof;
 use super::domain::CyclicDomainError;
-use super::pcs::PcsError;
+use super::pcs::CommitmentSchemeError;
 
 /// Proof for the univariate IOP (Section 5 of ePrint 2023/1284).
 ///
@@ -61,7 +61,7 @@ pub enum UnivariateIopError {
     /// Cyclic domain creation failed.
     DomainError(CyclicDomainError),
     /// PCS operation failed.
-    PcsError(PcsError),
+    CommitmentSchemeError(CommitmentSchemeError),
 }
 
 impl core::fmt::Display for UnivariateIopError {
@@ -81,14 +81,14 @@ impl core::fmt::Display for UnivariateIopError {
             }
             Self::GkrError(msg) => write!(f, "GKR error: {msg}"),
             Self::DomainError(e) => write!(f, "domain error: {e}"),
-            Self::PcsError(e) => write!(f, "PCS error: {e}"),
+            Self::CommitmentSchemeError(e) => write!(f, "commitment scheme error: {e}"),
         }
     }
 }
 
-impl From<PcsError> for UnivariateIopError {
-    fn from(e: PcsError) -> Self {
-        Self::PcsError(e)
+impl From<CommitmentSchemeError> for UnivariateIopError {
+    fn from(e: CommitmentSchemeError) -> Self {
+        Self::CommitmentSchemeError(e)
     }
 }
 

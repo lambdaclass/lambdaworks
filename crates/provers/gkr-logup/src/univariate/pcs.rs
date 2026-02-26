@@ -12,7 +12,7 @@ use core::fmt::Debug;
 
 /// Error type for PCS operations.
 #[derive(Debug, Clone)]
-pub enum PcsError {
+pub enum CommitmentSchemeError {
     /// The input is invalid (wrong size, etc.)
     InvalidInput(String),
     /// Commitment verification failed.
@@ -21,19 +21,19 @@ pub enum PcsError {
     InternalError(String),
 }
 
-impl core::fmt::Display for PcsError {
+impl core::fmt::Display for CommitmentSchemeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::InvalidInput(s) => write!(f, "PCS invalid input: {s}"),
-            Self::VerificationFailed => write!(f, "PCS verification failed"),
-            Self::InternalError(s) => write!(f, "PCS internal error: {s}"),
+            Self::InvalidInput(s) => write!(f, "commitment scheme invalid input: {s}"),
+            Self::VerificationFailed => write!(f, "commitment scheme verification failed"),
+            Self::InternalError(s) => write!(f, "commitment scheme internal error: {s}"),
         }
     }
 }
 
 /// Generic polynomial commitment scheme for univariate polynomials
 /// given as evaluations on a cyclic domain of size N = 2^n.
-pub trait UnivariatePcs<F: IsFFTField> {
+pub trait IsUnivariateCommitmentScheme<F: IsFFTField> {
     /// Cryptographic commitment (e.g. Merkle root).
     type Commitment: Clone + Debug;
     /// Prover-side state retained after committing (e.g. polynomial coefficients + LDE).
@@ -49,7 +49,7 @@ pub trait UnivariatePcs<F: IsFFTField> {
         &self,
         evals_on_h: &[FieldElement<F>],
         transcript: &mut T,
-    ) -> Result<(Self::Commitment, Self::ProverState), PcsError>
+    ) -> Result<(Self::Commitment, Self::ProverState), CommitmentSchemeError>
     where
         FieldElement<F>: ByteConversion;
 
@@ -58,7 +58,7 @@ pub trait UnivariatePcs<F: IsFFTField> {
         &self,
         state: &Self::ProverState,
         z: &FieldElement<F>,
-    ) -> Result<FieldElement<F>, PcsError>;
+    ) -> Result<FieldElement<F>, CommitmentSchemeError>;
 
     /// Batch-open multiple committed polynomials at the same point z.
     ///
@@ -68,7 +68,7 @@ pub trait UnivariatePcs<F: IsFFTField> {
         states: &[&Self::ProverState],
         z: &FieldElement<F>,
         transcript: &mut T,
-    ) -> Result<(Vec<FieldElement<F>>, Self::BatchOpeningProof), PcsError>
+    ) -> Result<(Vec<FieldElement<F>>, Self::BatchOpeningProof), CommitmentSchemeError>
     where
         FieldElement<F>: ByteConversion;
 
@@ -80,7 +80,7 @@ pub trait UnivariatePcs<F: IsFFTField> {
         values: &[FieldElement<F>],
         proof: &Self::BatchOpeningProof,
         transcript: &mut T,
-    ) -> Result<(), PcsError>
+    ) -> Result<(), CommitmentSchemeError>
     where
         FieldElement<F>: ByteConversion;
 
@@ -100,7 +100,7 @@ pub trait UnivariatePcs<F: IsFFTField> {
 }
 
 // ---------------------------------------------------------------------------
-// TransparentPcs — Phase 1 wrapper (raw polynomial values, no hiding)
+// TransparentCommitmentScheme — Phase 1 wrapper (raw polynomial values, no hiding)
 // ---------------------------------------------------------------------------
 
 /// Transparent PCS: stores raw evaluations as the "commitment" (appended to
@@ -108,8 +108,8 @@ pub trait UnivariatePcs<F: IsFFTField> {
 /// can recompute anything from the raw values.
 ///
 /// This keeps Phase 1 tests working unchanged while providing the same
-/// `UnivariatePcs` interface that FRI-based PCS uses.
-pub struct TransparentPcs;
+/// `IsUnivariateCommitmentScheme` interface that FRI-based PCS uses.
+pub struct TransparentCommitmentScheme;
 
 /// The "commitment" is just the hash of all values (via the transcript).
 /// We store a snapshot of the transcript state as a fingerprint.
@@ -127,7 +127,7 @@ pub struct TransparentProverState<F: IsFFTField> {
 #[derive(Clone, Debug)]
 pub struct TransparentBatchProof;
 
-impl<F> UnivariatePcs<F> for TransparentPcs
+impl<F> IsUnivariateCommitmentScheme<F> for TransparentCommitmentScheme
 where
     F: IsFFTField,
     F::BaseType: Send + Sync,
@@ -140,7 +140,7 @@ where
         &self,
         evals_on_h: &[FieldElement<F>],
         transcript: &mut T,
-    ) -> Result<(Self::Commitment, Self::ProverState), PcsError>
+    ) -> Result<(Self::Commitment, Self::ProverState), CommitmentSchemeError>
     where
         FieldElement<F>: ByteConversion,
     {
@@ -164,12 +164,13 @@ where
         &self,
         state: &Self::ProverState,
         z: &FieldElement<F>,
-    ) -> Result<FieldElement<F>, PcsError> {
+    ) -> Result<FieldElement<F>, CommitmentSchemeError> {
         // Evaluate by interpolating (Lagrange basis on roots of unity)
         use lambdaworks_math::polynomial::Polynomial;
 
-        let poly = Polynomial::interpolate_fft::<F>(&state.evals)
-            .map_err(|e| PcsError::InternalError(format!("FFT interpolation failed: {e}")))?;
+        let poly = Polynomial::interpolate_fft::<F>(&state.evals).map_err(|e| {
+            CommitmentSchemeError::InternalError(format!("FFT interpolation failed: {e}"))
+        })?;
         Ok(poly.evaluate(z))
     }
 
@@ -178,7 +179,7 @@ where
         states: &[&Self::ProverState],
         z: &FieldElement<F>,
         _transcript: &mut T,
-    ) -> Result<(Vec<FieldElement<F>>, Self::BatchOpeningProof), PcsError>
+    ) -> Result<(Vec<FieldElement<F>>, Self::BatchOpeningProof), CommitmentSchemeError>
     where
         FieldElement<F>: ByteConversion,
     {
@@ -193,7 +194,7 @@ where
         _values: &[FieldElement<F>],
         _proof: &Self::BatchOpeningProof,
         _transcript: &mut T,
-    ) -> Result<(), PcsError>
+    ) -> Result<(), CommitmentSchemeError>
     where
         FieldElement<F>: ByteConversion,
     {
@@ -202,9 +203,9 @@ where
     }
 
     fn absorb_commitment<T: IsTranscript<F>>(_commitment: &Self::Commitment, _transcript: &mut T) {
-        // TransparentPcs: the prover appended raw values, not a commitment.
+        // TransparentCommitmentScheme: the prover appended raw values, not a commitment.
         // The verifier would need the raw values to replay — not supported in V2.
-        // This is a no-op; TransparentPcs is only for Phase 1 (non-V2) tests.
+        // This is a no-op; TransparentCommitmentScheme is only for Phase 1 (non-V2) tests.
     }
 }
 
@@ -219,7 +220,7 @@ mod tests {
 
     #[test]
     fn transparent_pcs_commit_open_roundtrip() {
-        let pcs = TransparentPcs;
+        let pcs = TransparentCommitmentScheme;
         let evals: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
         let mut transcript = DefaultTranscript::<F>::new(b"test_pcs");
 
@@ -240,7 +241,7 @@ mod tests {
 
     #[test]
     fn transparent_pcs_batch_open_verify() {
-        let pcs = TransparentPcs;
+        let pcs = TransparentCommitmentScheme;
         let evals1: Vec<FE> = (1..=4).map(|i| FE::from(i as u64)).collect();
         let evals2: Vec<FE> = (5..=8).map(|i| FE::from(i as u64)).collect();
 

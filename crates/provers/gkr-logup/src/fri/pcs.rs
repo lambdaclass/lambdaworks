@@ -24,13 +24,13 @@ use lambdaworks_math::traits::{AsBytes, ByteConversion};
 use super::query::fri_query_all;
 use super::types::{FriConfig, FriProof, OriginalPolyDecommitment};
 use super::{fri_commit_and_sample, fri_verify};
-use crate::univariate::pcs::{PcsError, UnivariatePcs};
+use crate::univariate::pcs::{CommitmentSchemeError, IsUnivariateCommitmentScheme};
 
 /// FRI-based polynomial commitment scheme.
 ///
 /// Commits by evaluating on an extended domain and Merkle-hashing the LDE.
 /// Opens at arbitrary points via the DEEP quotient technique.
-pub struct FriPcs {
+pub struct FriCommitmentScheme {
     pub config: FriConfig,
 }
 
@@ -70,13 +70,13 @@ pub struct FriBatchOpeningProof<F: IsFFTField> {
     pub original_decommitments: Vec<Vec<OriginalPolyDecommitment<F>>>,
 }
 
-impl FriPcs {
+impl FriCommitmentScheme {
     pub fn new(config: FriConfig) -> Self {
         Self { config }
     }
 }
 
-impl<F> UnivariatePcs<F> for FriPcs
+impl<F> IsUnivariateCommitmentScheme<F> for FriCommitmentScheme
 where
     F: IsFFTField,
     F::BaseType: Send + Sync,
@@ -90,40 +90,44 @@ where
         &self,
         evals_on_h: &[FieldElement<F>],
         transcript: &mut T,
-    ) -> Result<(Self::Commitment, Self::ProverState), PcsError>
+    ) -> Result<(Self::Commitment, Self::ProverState), CommitmentSchemeError>
     where
         FieldElement<F>: ByteConversion,
     {
         let n = evals_on_h.len();
         if !n.is_power_of_two() || n == 0 {
-            return Err(PcsError::InvalidInput(
+            return Err(CommitmentSchemeError::InvalidInput(
                 "evaluations length must be a nonzero power of 2".into(),
             ));
         }
 
         let log_n = n.trailing_zeros() as usize;
         if log_n > FriConfig::MAX_LOG_DEGREE {
-            return Err(PcsError::InvalidInput(format!(
+            return Err(CommitmentSchemeError::InvalidInput(format!(
                 "degree bound 2^{log_n} exceeds maximum 2^{}",
                 FriConfig::MAX_LOG_DEGREE
             )));
         }
 
         // Interpolate to get coefficient form
-        let poly = Polynomial::interpolate_fft::<F>(evals_on_h)
-            .map_err(|e| PcsError::InternalError(format!("FFT interpolation failed: {e}")))?;
+        let poly = Polynomial::interpolate_fft::<F>(evals_on_h).map_err(|e| {
+            CommitmentSchemeError::InternalError(format!("FFT interpolation failed: {e}"))
+        })?;
 
         // Compute LDE (with blowup)
         let blowup = self.config.blowup_factor();
-        let lde_evals = Polynomial::evaluate_fft::<F>(&poly, blowup, Some(n))
-            .map_err(|e| PcsError::InternalError(format!("FFT evaluation failed: {e}")))?;
+        let lde_evals = Polynomial::evaluate_fft::<F>(&poly, blowup, Some(n)).map_err(|e| {
+            CommitmentSchemeError::InternalError(format!("FFT evaluation failed: {e}"))
+        })?;
 
         let lde_size = n * blowup;
         let lde_evals: Vec<FieldElement<F>> = lde_evals.into_iter().take(lde_size).collect();
 
         // Build Merkle tree
-        let merkle_tree = MerkleTree::<Keccak256Backend<F>>::build(&lde_evals)
-            .ok_or_else(|| PcsError::InternalError("failed to build Merkle tree".into()))?;
+        let merkle_tree =
+            MerkleTree::<Keccak256Backend<F>>::build(&lde_evals).ok_or_else(|| {
+                CommitmentSchemeError::InternalError("failed to build Merkle tree".into())
+            })?;
 
         // Append Merkle root to transcript
         transcript.append_bytes(&merkle_tree.root);
@@ -146,7 +150,7 @@ where
         &self,
         state: &Self::ProverState,
         z: &FieldElement<F>,
-    ) -> Result<FieldElement<F>, PcsError> {
+    ) -> Result<FieldElement<F>, CommitmentSchemeError> {
         Ok(state.coefficients.evaluate(z))
     }
 
@@ -155,19 +159,21 @@ where
         states: &[&Self::ProverState],
         z: &FieldElement<F>,
         transcript: &mut T,
-    ) -> Result<(Vec<FieldElement<F>>, Self::BatchOpeningProof), PcsError>
+    ) -> Result<(Vec<FieldElement<F>>, Self::BatchOpeningProof), CommitmentSchemeError>
     where
         FieldElement<F>: ByteConversion,
     {
         if states.is_empty() {
-            return Err(PcsError::InvalidInput("no polynomials to open".into()));
+            return Err(CommitmentSchemeError::InvalidInput(
+                "no polynomials to open".into(),
+            ));
         }
 
         let degree_bound = states[0].degree_bound;
 
         // All polynomials must share the same degree bound (same domain size)
         if states.iter().any(|s| s.degree_bound != degree_bound) {
-            return Err(PcsError::InvalidInput(
+            return Err(CommitmentSchemeError::InvalidInput(
                 "all polynomials must have the same degree bound".into(),
             ));
         }
@@ -175,7 +181,7 @@ where
         // degree_bound must be a power of two (comes from cyclic domain H of size 2^n)
         // so that the FRI LDE domain size = degree_bound * blowup is also a power of two
         if !degree_bound.is_power_of_two() || degree_bound == 0 {
-            return Err(PcsError::InvalidInput(
+            return Err(CommitmentSchemeError::InvalidInput(
                 "degree_bound must be a nonzero power of 2".into(),
             ));
         }
@@ -214,8 +220,9 @@ where
 
         // FRI commit + sample query indices (instead of full fri_prove)
         let (commit_result, query_indices) =
-            fri_commit_and_sample(&combined_quotient, config, transcript)
-                .map_err(|e| PcsError::InternalError(format!("FRI commit failed: {e}")))?;
+            fri_commit_and_sample(&combined_quotient, config, transcript).map_err(|e| {
+                CommitmentSchemeError::InternalError(format!("FRI commit failed: {e}"))
+            })?;
 
         // FRI query phase for the quotient
         let query_rounds = if commit_result.layers.is_empty() {
@@ -226,7 +233,7 @@ where
                 &commit_result.layers,
                 &commit_result.merkle_trees,
             )
-            .map_err(|e| PcsError::InternalError(format!("FRI query failed: {e}")))?
+            .map_err(|e| CommitmentSchemeError::InternalError(format!("FRI query failed: {e}")))?
         };
 
         let fri_proof = FriProof {
@@ -247,7 +254,7 @@ where
         // Verify all LDE eval vectors have the expected length before indexing
         for (j, state) in states.iter().enumerate() {
             if state.lde_evals.len() != lde_domain_size {
-                return Err(PcsError::InternalError(format!(
+                return Err(CommitmentSchemeError::InternalError(format!(
                     "polynomial {j}: LDE length {} != expected {lde_domain_size}",
                     state.lde_evals.len()
                 )));
@@ -264,11 +271,11 @@ where
                 let eval_sym = state.lde_evals[idx_sym].clone();
 
                 let auth_path = state.merkle_tree.get_proof_by_pos(idx).ok_or_else(|| {
-                    PcsError::InternalError(format!("no Merkle proof at index {idx}"))
+                    CommitmentSchemeError::InternalError(format!("no Merkle proof at index {idx}"))
                 })?;
                 let auth_path_sym =
                     state.merkle_tree.get_proof_by_pos(idx_sym).ok_or_else(|| {
-                        PcsError::InternalError(format!(
+                        CommitmentSchemeError::InternalError(format!(
                             "no Merkle proof at symmetric index {idx_sym}"
                         ))
                     })?;
@@ -307,12 +314,12 @@ where
         values: &[FieldElement<F>],
         proof: &Self::BatchOpeningProof,
         transcript: &mut T,
-    ) -> Result<(), PcsError>
+    ) -> Result<(), CommitmentSchemeError>
     where
         FieldElement<F>: ByteConversion,
     {
         if commitments.len() != values.len() {
-            return Err(PcsError::InvalidInput(
+            return Err(CommitmentSchemeError::InvalidInput(
                 "commitments and values length mismatch".into(),
             ));
         }
@@ -322,13 +329,13 @@ where
 
         // Validate degree_bound from proof
         if !proof.degree_bound.is_power_of_two() || proof.degree_bound == 0 {
-            return Err(PcsError::InvalidInput(
+            return Err(CommitmentSchemeError::InvalidInput(
                 "proof degree_bound must be a nonzero power of 2".into(),
             ));
         }
         let log_deg = proof.degree_bound.trailing_zeros() as usize;
         if log_deg > FriConfig::MAX_LOG_DEGREE {
-            return Err(PcsError::InvalidInput(format!(
+            return Err(CommitmentSchemeError::InvalidInput(format!(
                 "proof degree_bound 2^{log_deg} exceeds maximum 2^{}",
                 FriConfig::MAX_LOG_DEGREE
             )));
@@ -350,11 +357,11 @@ where
 
         // Verify FRI proof for the combined quotient — returns query indices
         let query_indices = fri_verify(&proof.fri_proof, proof.degree_bound, config, transcript)
-            .map_err(|e| PcsError::InternalError(format!("FRI verify failed: {e}")))?;
+            .map_err(|e| CommitmentSchemeError::InternalError(format!("FRI verify failed: {e}")))?;
 
         // Verify original polynomial decommitments and quotient consistency
         if proof.original_decommitments.len() != query_indices.len() {
-            return Err(PcsError::InvalidInput(
+            return Err(CommitmentSchemeError::InvalidInput(
                 "original decommitments count doesn't match query count".into(),
             ));
         }
@@ -365,8 +372,9 @@ where
 
         // Compute the LDE domain generator
         let log_lde = lde_domain_size.trailing_zeros() as u64;
-        let omega_lde = F::get_primitive_root_of_unity(log_lde)
-            .map_err(|_| PcsError::InternalError("no root of unity for LDE domain".into()))?;
+        let omega_lde = F::get_primitive_root_of_unity(log_lde).map_err(|_| {
+            CommitmentSchemeError::InternalError("no root of unity for LDE domain".into())
+        })?;
 
         // Precompute alpha powers
         let mut alpha_powers = Vec::with_capacity(num_polys);
@@ -382,7 +390,7 @@ where
             .enumerate()
         {
             if decommitments.len() != num_polys {
-                return Err(PcsError::InvalidInput(format!(
+                return Err(CommitmentSchemeError::InvalidInput(format!(
                     "query {q}: expected {num_polys} decommitments, got {}",
                     decommitments.len()
                 )));
@@ -402,14 +410,14 @@ where
                     .auth_path
                     .verify::<Keccak256Backend<F>>(root, idx, &decomm.eval)
                 {
-                    return Err(PcsError::VerificationFailed);
+                    return Err(CommitmentSchemeError::VerificationFailed);
                 }
                 if !decomm.auth_path_sym.verify::<Keccak256Backend<F>>(
                     root,
                     idx_sym,
                     &decomm.eval_sym,
                 ) {
-                    return Err(PcsError::VerificationFailed);
+                    return Err(CommitmentSchemeError::VerificationFailed);
                 }
             }
 
@@ -417,7 +425,7 @@ where
             // q(x) = sum_j alpha^j * (f_j(x) - v_j) / (x - z)
             let x_minus_z_inv = (&x - z)
                 .inv()
-                .map_err(|_| PcsError::InternalError("x - z is zero".into()))?;
+                .map_err(|_| CommitmentSchemeError::InternalError("x - z is zero".into()))?;
 
             let mut expected_q_x = FieldElement::<F>::zero();
             for (j, decomm) in decommitments.iter().enumerate() {
@@ -430,17 +438,17 @@ where
             if fri_layer0.is_empty() {
                 // Constant quotient — check against final value
                 if expected_q_x != proof.fri_proof.final_value {
-                    return Err(PcsError::VerificationFailed);
+                    return Err(CommitmentSchemeError::VerificationFailed);
                 }
             } else if expected_q_x != fri_layer0[0].eval {
-                return Err(PcsError::VerificationFailed);
+                return Err(CommitmentSchemeError::VerificationFailed);
             }
 
             // Same check for symmetric point -x
             let neg_x = -&x;
             let neg_x_minus_z_inv = (&neg_x - z)
                 .inv()
-                .map_err(|_| PcsError::InternalError("-x - z is zero".into()))?;
+                .map_err(|_| CommitmentSchemeError::InternalError("-x - z is zero".into()))?;
 
             let mut expected_q_neg_x = FieldElement::<F>::zero();
             for (j, decomm) in decommitments.iter().enumerate() {
@@ -450,10 +458,10 @@ where
 
             if fri_layer0.is_empty() {
                 if expected_q_neg_x != proof.fri_proof.final_value {
-                    return Err(PcsError::VerificationFailed);
+                    return Err(CommitmentSchemeError::VerificationFailed);
                 }
             } else if expected_q_neg_x != fri_layer0[0].eval_sym {
-                return Err(PcsError::VerificationFailed);
+                return Err(CommitmentSchemeError::VerificationFailed);
             }
         }
 
@@ -464,15 +472,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::univariate::pcs::UnivariatePcs;
+    use crate::univariate::pcs::IsUnivariateCommitmentScheme;
     use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::field::fields::fft_friendly::quartic_babybear::Degree4BabyBearExtensionField;
 
     type F = Degree4BabyBearExtensionField;
     type FE = FieldElement<F>;
 
-    fn default_fri_pcs() -> FriPcs {
-        FriPcs::new(FriConfig::default())
+    fn default_fri_pcs() -> FriCommitmentScheme {
+        FriCommitmentScheme::new(FriConfig::default())
     }
 
     #[test]

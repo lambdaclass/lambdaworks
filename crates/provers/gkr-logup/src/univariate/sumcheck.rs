@@ -19,7 +19,7 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::polynomial::Polynomial;
 
-use crate::univariate::pcs::PcsError;
+use crate::univariate::pcs::CommitmentSchemeError;
 
 /// Result of the sumcheck prover: the auxiliary polynomial coefficients.
 pub struct SumcheckProverResult<F: IsFFTField> {
@@ -39,23 +39,25 @@ pub fn prove_sumcheck<F>(
     u_f_evals: &[FieldElement<F>],
     lagrange_evals: &[FieldElement<F>],
     claimed_sum: &FieldElement<F>,
-) -> Result<SumcheckProverResult<F>, PcsError>
+) -> Result<SumcheckProverResult<F>, CommitmentSchemeError>
 where
     F: IsFFTField,
 {
     let n = u_f_evals.len();
     if n != lagrange_evals.len() || !n.is_power_of_two() || n == 0 {
-        return Err(PcsError::InvalidInput(
+        return Err(CommitmentSchemeError::InvalidInput(
             "u_f and lagrange evals must have the same power-of-2 length".into(),
         ));
     }
 
     // Interpolate u_f and C_t from their evaluations on H
-    let u_f_poly = Polynomial::interpolate_fft::<F>(u_f_evals)
-        .map_err(|e| PcsError::InternalError(format!("FFT interpolation of u_f failed: {e}")))?;
+    let u_f_poly = Polynomial::interpolate_fft::<F>(u_f_evals).map_err(|e| {
+        CommitmentSchemeError::InternalError(format!("FFT interpolation of u_f failed: {e}"))
+    })?;
 
-    let c_t_poly = Polynomial::interpolate_fft::<F>(lagrange_evals)
-        .map_err(|e| PcsError::InternalError(format!("FFT interpolation of C_t failed: {e}")))?;
+    let c_t_poly = Polynomial::interpolate_fft::<F>(lagrange_evals).map_err(|e| {
+        CommitmentSchemeError::InternalError(format!("FFT interpolation of C_t failed: {e}"))
+    })?;
 
     // Compute product = u_f * C_t (degree < 2N)
     let product = u_f_poly.mul_with_ref(&c_t_poly);
@@ -64,7 +66,7 @@ where
     let n_fe = FieldElement::<F>::from(n as u64);
     let n_inv = n_fe
         .inv()
-        .map_err(|_| PcsError::InternalError("N is not invertible".into()))?;
+        .map_err(|_| CommitmentSchemeError::InternalError("N is not invertible".into()))?;
     let v_over_n = claimed_sum * &n_inv;
 
     let shifted = &product - &Polynomial::new(&[v_over_n]);
@@ -78,12 +80,12 @@ where
     // Divide: shifted = q * Z_H + r
     let (q_poly, r_poly) = shifted
         .long_division_with_remainder(&z_h)
-        .map_err(|e| PcsError::InternalError(format!("division failed: {e}")))?;
+        .map_err(|e| CommitmentSchemeError::InternalError(format!("division failed: {e}")))?;
 
     // r(X) should have r[0] == 0 (the constant term is zero when the sum is correct)
     let r_coeffs = r_poly.coefficients();
     if !r_coeffs.is_empty() && r_coeffs[0] != FieldElement::zero() {
-        return Err(PcsError::InternalError(
+        return Err(CommitmentSchemeError::InternalError(
             "sumcheck failed: remainder constant term is nonzero".into(),
         ));
     }
@@ -150,16 +152,16 @@ pub fn evaluate_lagrange_at_z<F: IsFFTField>(
     lagrange_evals: &[FieldElement<F>],
     z: &FieldElement<F>,
     n: usize,
-) -> Result<FieldElement<F>, PcsError> {
+) -> Result<FieldElement<F>, CommitmentSchemeError> {
     if lagrange_evals.len() != n || !n.is_power_of_two() || n == 0 {
-        return Err(PcsError::InvalidInput(
+        return Err(CommitmentSchemeError::InvalidInput(
             "invalid lagrange evals length".into(),
         ));
     }
 
     let log_n = n.trailing_zeros() as u64;
     let omega = F::get_primitive_root_of_unity(log_n)
-        .map_err(|_| PcsError::InternalError("no root of unity".into()))?;
+        .map_err(|_| CommitmentSchemeError::InternalError("no root of unity".into()))?;
 
     // Compute z^N - 1
     let z_n = z.pow(n);
@@ -175,7 +177,7 @@ pub fn evaluate_lagrange_at_z<F: IsFFTField>(
             }
             omega_i = &omega_i * &omega;
         }
-        return Err(PcsError::InternalError(
+        return Err(CommitmentSchemeError::InternalError(
             "z is in domain but not found".into(),
         ));
     }
@@ -203,7 +205,7 @@ pub fn evaluate_lagrange_at_z<F: IsFFTField>(
     let n_fe = FieldElement::<F>::from(n as u64);
     let n_inv = n_fe
         .inv()
-        .map_err(|_| PcsError::InternalError("N not invertible".into()))?;
+        .map_err(|_| CommitmentSchemeError::InternalError("N not invertible".into()))?;
 
     Ok(&z_n_minus_1 * &n_inv * &sum)
 }
@@ -211,7 +213,7 @@ pub fn evaluate_lagrange_at_z<F: IsFFTField>(
 /// Montgomery batch inversion: compute inverses of all elements using O(N) muls + 1 inversion.
 pub fn batch_inverse<F: IsFFTField>(
     elements: &[FieldElement<F>],
-) -> Result<Vec<FieldElement<F>>, PcsError> {
+) -> Result<Vec<FieldElement<F>>, CommitmentSchemeError> {
     let n = elements.len();
     if n == 0 {
         return Ok(vec![]);
@@ -220,7 +222,7 @@ pub fn batch_inverse<F: IsFFTField>(
     // Fail fast on any zero element with a descriptive error
     for (i, e) in elements.iter().enumerate() {
         if *e == FieldElement::zero() {
-            return Err(PcsError::InternalError(format!(
+            return Err(CommitmentSchemeError::InternalError(format!(
                 "batch inverse: zero element at index {i}"
             )));
         }
@@ -234,9 +236,9 @@ pub fn batch_inverse<F: IsFFTField>(
     }
 
     // Invert the total product
-    let mut inv_total = prefix[n - 1]
-        .inv()
-        .map_err(|_| PcsError::InternalError("batch inverse: zero element encountered".into()))?;
+    let mut inv_total = prefix[n - 1].inv().map_err(|_| {
+        CommitmentSchemeError::InternalError("batch inverse: zero element encountered".into())
+    })?;
 
     // Unwind to get individual inverses
     let mut result = vec![FieldElement::<F>::zero(); n];

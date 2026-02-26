@@ -108,7 +108,7 @@ gkr-logup/
 │   │   ├── mod.rs              # Module exports
 │   │   ├── iop.rs              # Univariate IOP prover/verifier (Phase 1 + Phase 2)
 │   │   ├── types.rs            # Proof types (UnivariateIopProof, UnivariateIopProofV2)
-│   │   ├── pcs.rs              # PCS trait + TransparentPcs implementation
+│   │   ├── pcs.rs              # Commitment scheme trait + TransparentCommitmentScheme
 │   │   ├── sumcheck.rs         # Univariate sumcheck (prove/verify, barycentric eval)
 │   │   ├── lagrange_column.rs  # Lagrange column computation + constraint verification
 │   │   ├── lagrange.rs         # Univariate Lagrange form + FFT transforms
@@ -122,7 +122,7 @@ gkr-logup/
 │       ├── commit.rs           # FRI commit phase (iterative fold + Merkle)
 │       ├── query.rs            # FRI query decommitments
 │       ├── verify.rs           # FRI verification (fold consistency + Merkle proofs)
-│       └── pcs.rs              # FRI PCS adapter (DEEP technique for arbitrary openings)
+│       └── pcs.rs              # FRI commitment scheme adapter (DEEP technique)
 └── examples/
     ├── logup_gkr.rs                # Multilinear LogUp-GKR (singles + read-only memory)
     ├── univariate_logup_gkr.rs     # Univariate IOP (grand product, singles, multiplicities)
@@ -205,7 +205,7 @@ verify_univariate(Gate::GrandProduct, &proof, &mut verifier_transcript)?;
 
 ```rust
 use lambdaworks_gkr_logup::univariate::iop::{prove_with_pcs, verify_with_pcs};
-use lambdaworks_gkr_logup::fri::pcs::FriPcs;
+use lambdaworks_gkr_logup::fri::pcs::FriCommitmentScheme;
 use lambdaworks_gkr_logup::fri::types::FriConfig;
 use lambdaworks_gkr_logup::verifier::Gate;
 
@@ -213,40 +213,40 @@ use lambdaworks_gkr_logup::verifier::Gate;
 let layer = UnivariateLayer::GrandProduct { values: uni, commitment: None };
 
 // Create PCS with desired security parameters
-let pcs = FriPcs::new(FriConfig::default());
+let pcs = FriCommitmentScheme::new(FriConfig::default());
 
 // Prove with FRI PCS (Merkle root commitments, succinct proofs)
 let mut prover_transcript = DefaultTranscript::<F>::new(b"grand_product_v2");
-let (proof, result) = prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs)?;
+let (proof, result) = prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)?;
 
 // Verify (verifier uses same config — mismatched config causes transcript divergence)
 let mut verifier_transcript = DefaultTranscript::<F>::new(b"grand_product_v2");
-verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript, &pcs)?;
+verify_with_pcs::<F, _, FriCommitmentScheme>(Gate::GrandProduct, &proof, &mut verifier_transcript, &pcs)?;
 ```
 
 ### Custom PCS
 
-The `UnivariatePcs` trait accepts any polynomial commitment scheme:
+The `IsUnivariateCommitmentScheme` trait accepts any polynomial commitment scheme:
 
 ```rust
-pub trait UnivariatePcs<F: IsFFTField> {
+pub trait IsUnivariateCommitmentScheme<F: IsFFTField> {
     type Commitment: Clone + Debug;
     type ProverState;
     type BatchOpeningProof: Clone + Debug;
 
     fn commit(&self, evals_on_h: &[FieldElement<F>], transcript: &mut T)
-        -> Result<(Self::Commitment, Self::ProverState), PcsError>;
+        -> Result<(Self::Commitment, Self::ProverState), CommitmentSchemeError>;
     fn batch_open(&self, states: &[&Self::ProverState], z: &FieldElement<F>, transcript: &mut T)
-        -> Result<(Vec<FieldElement<F>>, Self::BatchOpeningProof), PcsError>;
+        -> Result<(Vec<FieldElement<F>>, Self::BatchOpeningProof), CommitmentSchemeError>;
     fn verify_batch_opening(&self, commitments: &[&Self::Commitment], z: &FieldElement<F>,
         values: &[FieldElement<F>], proof: &Self::BatchOpeningProof, transcript: &mut T)
-        -> Result<(), PcsError>;
+        -> Result<(), CommitmentSchemeError>;
 }
 ```
 
 Two implementations are provided:
-- **`TransparentPcs`** -- raw values appended to transcript (Phase 1, $O(N)$ proof size)
-- **`FriPcs`** -- FRI with DEEP technique for arbitrary-point openings ($O(\log^2 N)$ proof size)
+- **`TransparentCommitmentScheme`** -- raw values appended to transcript (Phase 1, $O(N)$ proof size)
+- **`FriCommitmentScheme`** -- FRI with DEEP technique for arbitrary-point openings ($O(\log^2 N)$ proof size)
 
 ## Examples
 

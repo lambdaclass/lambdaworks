@@ -19,7 +19,7 @@ use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use super::lagrange_column::{
     combined_inner_product, compute_lagrange_column, verify_lagrange_column_constraints,
 };
-use super::pcs::{PcsError, UnivariatePcs};
+use super::pcs::{CommitmentSchemeError, IsUnivariateCommitmentScheme};
 use super::sumcheck::{evaluate_lagrange_at_z, prove_sumcheck, verify_sumcheck_at_z};
 use super::types::{UnivariateIopError, UnivariateIopProof, UnivariateIopProofV2};
 
@@ -202,22 +202,22 @@ where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion + AsBytes + Send + Sync,
     T: IsTranscript<F>,
-    P: UnivariatePcs<F>,
+    P: IsUnivariateCommitmentScheme<F>,
 {
     // Step 0: Extract columns and domain separation
     let committed_columns = input_layer.get_univariate_values();
 
     if committed_columns.is_empty() {
-        return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
-            "no columns to commit".into(),
-        )));
+        return Err(UnivariateIopError::CommitmentSchemeError(
+            CommitmentSchemeError::InvalidInput("no columns to commit".into()),
+        ));
     }
 
     let first_len = committed_columns[0].len();
     if committed_columns.iter().any(|c| c.len() != first_len) {
-        return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
-            "all columns must have the same length".into(),
-        )));
+        return Err(UnivariateIopError::CommitmentSchemeError(
+            CommitmentSchemeError::InvalidInput("all columns must have the same length".into()),
+        ));
     }
 
     let domain_log_size = first_len.trailing_zeros() as usize;
@@ -279,7 +279,7 @@ where
         1,
         Some(n),
     )
-    .map_err(|e| PcsError::InternalError(format!("FFT eval of q failed: {e}")))?;
+    .map_err(|e| CommitmentSchemeError::InternalError(format!("FFT eval of q failed: {e}")))?;
     let q_evals: Vec<FieldElement<F>> = q_evals.into_iter().take(n).collect();
 
     // r' may have fewer coefficients than n — pad to n for FFT
@@ -288,7 +288,7 @@ where
         1,
         Some(n),
     )
-    .map_err(|e| PcsError::InternalError(format!("FFT eval of r' failed: {e}")))?;
+    .map_err(|e| CommitmentSchemeError::InternalError(format!("FFT eval of r' failed: {e}")))?;
     let r_prime_evals: Vec<FieldElement<F>> = r_prime_evals.into_iter().take(n).collect();
 
     let (q_commitment, q_state) = pcs.commit(&q_evals, transcript)?;
@@ -341,13 +341,13 @@ where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion + AsBytes + Send + Sync,
     T: IsTranscript<F>,
-    P: UnivariatePcs<F>,
+    P: IsUnivariateCommitmentScheme<F>,
 {
     let num_columns = proof.column_commitments.len();
     if num_columns == 0 {
-        return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
-            "proof has no column commitments".into(),
-        )));
+        return Err(UnivariateIopError::CommitmentSchemeError(
+            CommitmentSchemeError::InvalidInput("proof has no column commitments".into()),
+        ));
     }
 
     let domain_size = 1usize << proof.domain_log_size;
@@ -369,24 +369,24 @@ where
 
     // Cross-check: domain_log_size must match GKR variable count (H2)
     if gkr_result.ood_point.len() != proof.domain_log_size {
-        return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
-            format!(
+        return Err(UnivariateIopError::CommitmentSchemeError(
+            CommitmentSchemeError::InvalidInput(format!(
                 "domain_log_size {} doesn't match GKR variables {}",
                 proof.domain_log_size,
                 gkr_result.ood_point.len()
-            ),
-        )));
+            )),
+        ));
     }
 
     // Cross-check: PCS degree_bound must match domain_size (C2)
     if let Some(pcs_degree_bound) = P::degree_bound_from_proof(&proof.batch_proof) {
         if pcs_degree_bound != domain_size {
-            return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
-                format!(
-                    "PCS degree_bound {} doesn't match domain_size {}",
+            return Err(UnivariateIopError::CommitmentSchemeError(
+                CommitmentSchemeError::InvalidInput(format!(
+                    "commitment scheme degree_bound {} doesn't match domain_size {}",
                     pcs_degree_bound, domain_size
-                ),
-            )));
+                )),
+            ));
         }
     }
 
@@ -428,13 +428,13 @@ where
     // Step 8: Parse opened values
     // Order: [col_0(z), col_1(z), ..., q(z), r'(z)]
     if proof.opened_values.len() != num_columns + 2 {
-        return Err(UnivariateIopError::PcsError(PcsError::InvalidInput(
-            format!(
+        return Err(UnivariateIopError::CommitmentSchemeError(
+            CommitmentSchemeError::InvalidInput(format!(
                 "expected {} opened values, got {}",
                 num_columns + 2,
                 proof.opened_values.len()
-            ),
-        )));
+            )),
+        ));
     }
 
     let column_values_at_z = &proof.opened_values[..num_columns];
@@ -701,11 +701,11 @@ mod tests {
     // Phase 2 (PCS-based) tests
     // -----------------------------------------------------------------------
 
-    use crate::fri::pcs::FriPcs;
+    use crate::fri::pcs::FriCommitmentScheme;
     use crate::fri::types::FriConfig;
 
-    fn default_fri_pcs() -> FriPcs {
-        FriPcs::new(FriConfig::default())
+    fn default_fri_pcs() -> FriCommitmentScheme {
+        FriCommitmentScheme::new(FriConfig::default())
     }
 
     #[test]
@@ -716,11 +716,17 @@ mod tests {
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_gp4");
         let (proof, _) =
-            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_gp4");
-        verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript, &pcs)
-            .unwrap();
+        verify_with_pcs::<F, _, FriCommitmentScheme>(
+            Gate::GrandProduct,
+            &proof,
+            &mut verifier_transcript,
+            &pcs,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -731,11 +737,17 @@ mod tests {
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_gp8");
         let (proof, _) =
-            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_gp8");
-        verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript, &pcs)
-            .unwrap();
+        verify_with_pcs::<F, _, FriCommitmentScheme>(
+            Gate::GrandProduct,
+            &proof,
+            &mut verifier_transcript,
+            &pcs,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -746,11 +758,17 @@ mod tests {
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_gp16");
         let (proof, _) =
-            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_gp16");
-        verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript, &pcs)
-            .unwrap();
+        verify_with_pcs::<F, _, FriCommitmentScheme>(
+            Gate::GrandProduct,
+            &proof,
+            &mut verifier_transcript,
+            &pcs,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -764,11 +782,17 @@ mod tests {
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_ls");
         let (proof, _) =
-            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_ls");
-        verify_with_pcs::<F, _, FriPcs>(Gate::LogUp, &proof, &mut verifier_transcript, &pcs)
-            .unwrap();
+        verify_with_pcs::<F, _, FriCommitmentScheme>(
+            Gate::LogUp,
+            &proof,
+            &mut verifier_transcript,
+            &pcs,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -783,11 +807,17 @@ mod tests {
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_lm");
         let (proof, _) =
-            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_lm");
-        verify_with_pcs::<F, _, FriPcs>(Gate::LogUp, &proof, &mut verifier_transcript, &pcs)
-            .unwrap();
+        verify_with_pcs::<F, _, FriCommitmentScheme>(
+            Gate::LogUp,
+            &proof,
+            &mut verifier_transcript,
+            &pcs,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -799,7 +829,8 @@ mod tests {
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_tamper");
         let (mut proof, _) =
-            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
 
         // Tamper with the first opened value
         if !proof.opened_values.is_empty() {
@@ -807,7 +838,7 @@ mod tests {
         }
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_tamper");
-        let result = verify_with_pcs::<F, _, FriPcs>(
+        let result = verify_with_pcs::<F, _, FriCommitmentScheme>(
             Gate::GrandProduct,
             &proof,
             &mut verifier_transcript,
@@ -825,12 +856,17 @@ mod tests {
 
         let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_gate");
         let (proof, _) =
-            prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs).unwrap();
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
 
         // Verify with wrong gate type — domain separation should cause GKR to fail
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_gate");
-        let result =
-            verify_with_pcs::<F, _, FriPcs>(Gate::LogUp, &proof, &mut verifier_transcript, &pcs);
+        let result = verify_with_pcs::<F, _, FriCommitmentScheme>(
+            Gate::LogUp,
+            &proof,
+            &mut verifier_transcript,
+            &pcs,
+        );
         assert!(result.is_err(), "wrong gate type should be rejected");
     }
 }
