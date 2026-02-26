@@ -28,8 +28,8 @@ use crate::utils::random_linear_combination;
 use crate::verifier::{Gate, VerificationResult};
 
 /// Absorbs the gate type into the Fiat-Shamir transcript for domain separation.
-fn absorb_gate<F: IsFFTField, T: IsTranscript<F>>(gate: Gate, channel: &mut T) {
-    channel.append_bytes(match gate {
+fn absorb_gate<F: IsFFTField, T: IsTranscript<F>>(gate: Gate, transcript: &mut T) {
+    transcript.append_bytes(match gate {
         Gate::GrandProduct => b"gate:grand_product",
         Gate::LogUp => b"gate:logup",
     });
@@ -44,7 +44,7 @@ fn absorb_gate<F: IsFFTField, T: IsTranscript<F>>(gate: Gate, channel: &mut T) {
 /// Returns both the proof and the `VerificationResult` from GKR (useful for
 /// further composition or debugging).
 pub fn prove_univariate<F, T>(
-    channel: &mut T,
+    transcript: &mut T,
     input_layer: UnivariateLayer<F>,
 ) -> Result<(UnivariateIopProof<F>, VerificationResult<F>), UnivariateIopError>
 where
@@ -55,17 +55,17 @@ where
 {
     // Step 0: Domain separation
     let committed_columns = input_layer.get_univariate_values();
-    channel.append_bytes(b"logup-gkr-univariate-v1");
-    absorb_gate(input_layer.gate_type(), channel);
-    channel.append_bytes(&(committed_columns.len() as u64).to_le_bytes());
+    transcript.append_bytes(b"logup-gkr-univariate-v1");
+    absorb_gate(input_layer.gate_type(), transcript);
+    transcript.append_bytes(&(committed_columns.len() as u64).to_le_bytes());
     if !committed_columns.is_empty() {
-        channel.append_bytes(&(committed_columns[0].len() as u64).to_le_bytes());
+        transcript.append_bytes(&(committed_columns[0].len() as u64).to_le_bytes());
     }
 
-    // Step 1: "Commit" (append to channel)
+    // Step 1: "Commit" (append to transcript)
     for col in &committed_columns {
         for val in col {
-            channel.append_field_element(val);
+            transcript.append_field_element(val);
         }
     }
 
@@ -73,11 +73,11 @@ where
     let multilinear_layer = input_layer.to_multilinear_layer();
 
     // Step 3: Run standard GKR
-    let (gkr_proof, gkr_result) = crate::prover::prove(channel, multilinear_layer)
+    let (gkr_proof, gkr_result) = crate::prover::prove(transcript, multilinear_layer)
         .map_err(|e| UnivariateIopError::GkrError(format!("{e:?}")))?;
 
     // Step 4: Sample lambda for combining claims and columns
-    let lambda: FieldElement<F> = channel.sample_field_element();
+    let lambda: FieldElement<F> = transcript.sample_field_element();
 
     // Step 5: Combine claims via random linear combination
     let combined_claim = random_linear_combination(&gkr_result.claims_to_verify, &lambda);
@@ -85,9 +85,9 @@ where
     // Step 6: Compute Lagrange column for the GKR evaluation point
     let lagrange_column = compute_lagrange_column(&gkr_result.ood_point);
 
-    // Step 7: Append Lagrange column to channel
+    // Step 7: Append Lagrange column to transcript
     for c in &lagrange_column {
-        channel.append_field_element(c);
+        transcript.append_field_element(c);
     }
 
     // Step 8: Verify inner product (prover sanity check)
@@ -111,14 +111,14 @@ where
 /// Verifies a univariate LogUp-GKR proof.
 ///
 /// Mirrors the prover's transcript interaction exactly:
-/// 1. Reads committed columns and appends to channel.
+/// 1. Reads committed columns and appends to transcript.
 /// 2. Runs GKR verification.
 /// 3. Verifies Lagrange column constraints.
 /// 4. Checks inner product consistency.
 pub fn verify_univariate<F, T>(
     gate: Gate,
     proof: &UnivariateIopProof<F>,
-    channel: &mut T,
+    transcript: &mut T,
 ) -> Result<(), UnivariateIopError>
 where
     F: IsFFTField + HasDefaultTranscript,
@@ -127,33 +127,33 @@ where
     T: IsTranscript<F>,
 {
     // Step 0: Domain separation (must match prover)
-    channel.append_bytes(b"logup-gkr-univariate-v1");
-    absorb_gate(gate, channel);
-    channel.append_bytes(&(proof.committed_columns.len() as u64).to_le_bytes());
+    transcript.append_bytes(b"logup-gkr-univariate-v1");
+    absorb_gate(gate, transcript);
+    transcript.append_bytes(&(proof.committed_columns.len() as u64).to_le_bytes());
     if !proof.committed_columns.is_empty() {
-        channel.append_bytes(&(proof.committed_columns[0].len() as u64).to_le_bytes());
+        transcript.append_bytes(&(proof.committed_columns[0].len() as u64).to_le_bytes());
     }
 
-    // Step 1: Read committed columns and append to channel (must match prover)
+    // Step 1: Read committed columns and append to transcript (must match prover)
     for col in &proof.committed_columns {
         for val in col {
-            channel.append_field_element(val);
+            transcript.append_field_element(val);
         }
     }
 
     // Step 2: Run GKR verification
-    let gkr_result = crate::verifier::verify(gate, &proof.gkr_proof, channel)
+    let gkr_result = crate::verifier::verify(gate, &proof.gkr_proof, transcript)
         .map_err(|e| UnivariateIopError::GkrError(format!("{e}")))?;
 
     // Step 3: Sample lambda (must match prover)
-    let lambda: FieldElement<F> = channel.sample_field_element();
+    let lambda: FieldElement<F> = transcript.sample_field_element();
 
     // Step 4: Combine claims
     let combined_claim = random_linear_combination(&gkr_result.claims_to_verify, &lambda);
 
-    // Step 5: Read Lagrange column and append to channel (must match prover)
+    // Step 5: Read Lagrange column and append to transcript (must match prover)
     for c in &proof.lagrange_column {
-        channel.append_field_element(c);
+        transcript.append_field_element(c);
     }
 
     // Step 6: Verify Lagrange column periodic constraints (eqs. 10, 11)
@@ -187,7 +187,7 @@ where
 /// Returns the proof and the `VerificationResult` from GKR.
 #[allow(clippy::type_complexity)]
 pub fn prove_with_pcs<F, T, P>(
-    channel: &mut T,
+    transcript: &mut T,
     input_layer: UnivariateLayer<F>,
     pcs: &P,
 ) -> Result<
@@ -222,17 +222,17 @@ where
 
     let domain_log_size = first_len.trailing_zeros() as usize;
 
-    channel.append_bytes(b"logup-gkr-univariate-v2");
-    absorb_gate(input_layer.gate_type(), channel);
-    channel.append_bytes(&(committed_columns.len() as u64).to_le_bytes());
-    channel.append_bytes(&(first_len as u64).to_le_bytes());
+    transcript.append_bytes(b"logup-gkr-univariate-v2");
+    absorb_gate(input_layer.gate_type(), transcript);
+    transcript.append_bytes(&(committed_columns.len() as u64).to_le_bytes());
+    transcript.append_bytes(&(first_len as u64).to_le_bytes());
 
     // Step 1: Commit columns via PCS
     let mut column_commitments = Vec::with_capacity(committed_columns.len());
     let mut column_states = Vec::with_capacity(committed_columns.len());
 
     for col in &committed_columns {
-        let (commitment, state) = pcs.commit(col, channel)?;
+        let (commitment, state) = pcs.commit(col, transcript)?;
         column_commitments.push(commitment);
         column_states.push(state);
     }
@@ -240,11 +240,11 @@ where
     // Step 2: Convert univariate layer to multilinear and run GKR
     let multilinear_layer = input_layer.to_multilinear_layer();
 
-    let (gkr_proof, gkr_result) = crate::prover::prove(channel, multilinear_layer)
+    let (gkr_proof, gkr_result) = crate::prover::prove(transcript, multilinear_layer)
         .map_err(|e| UnivariateIopError::GkrError(format!("{e:?}")))?;
 
     // Step 3: Sample lambda for combining claims
-    let lambda: FieldElement<F> = channel.sample_field_element();
+    let lambda: FieldElement<F> = transcript.sample_field_element();
 
     // Step 4: Combine claims
     let combined_claim = random_linear_combination(&gkr_result.claims_to_verify, &lambda);
@@ -254,7 +254,7 @@ where
 
     // Absorb Lagrange column into transcript for defense-in-depth (H1: matches Phase 1)
     for c in &lagrange_column {
-        channel.append_field_element(c);
+        transcript.append_field_element(c);
     }
 
     // Combine columns with lambda weights: combined_evals[i] = sum_j lambda^j * col_j[i]
@@ -291,11 +291,11 @@ where
     .map_err(|e| PcsError::InternalError(format!("FFT eval of r' failed: {e}")))?;
     let r_prime_evals: Vec<FieldElement<F>> = r_prime_evals.into_iter().take(n).collect();
 
-    let (q_commitment, q_state) = pcs.commit(&q_evals, channel)?;
-    let (r_prime_commitment, r_prime_state) = pcs.commit(&r_prime_evals, channel)?;
+    let (q_commitment, q_state) = pcs.commit(&q_evals, transcript)?;
+    let (r_prime_commitment, r_prime_state) = pcs.commit(&r_prime_evals, transcript)?;
 
     // Step 8: Sample z from transcript
-    let z: FieldElement<F> = channel.sample_field_element();
+    let z: FieldElement<F> = transcript.sample_field_element();
 
     // Step 9: Batch-open all polynomials at z
     // Order: [col_0, col_1, ..., q, r']
@@ -303,7 +303,7 @@ where
     all_states.push(&q_state);
     all_states.push(&r_prime_state);
 
-    let (opened_values, batch_proof) = pcs.batch_open(&all_states, &z, channel)?;
+    let (opened_values, batch_proof) = pcs.batch_open(&all_states, &z, transcript)?;
 
     let proof = UnivariateIopProofV2 {
         domain_log_size,
@@ -333,7 +333,7 @@ where
 pub fn verify_with_pcs<F, T, P>(
     gate: Gate,
     proof: &UnivariateIopProofV2<F, P::Commitment, P::BatchOpeningProof>,
-    channel: &mut T,
+    transcript: &mut T,
     pcs: &P,
 ) -> Result<(), UnivariateIopError>
 where
@@ -353,18 +353,18 @@ where
     let domain_size = 1usize << proof.domain_log_size;
 
     // Step 0: Domain separation (must match prover)
-    channel.append_bytes(b"logup-gkr-univariate-v2");
-    absorb_gate(gate, channel);
-    channel.append_bytes(&(num_columns as u64).to_le_bytes());
-    channel.append_bytes(&(domain_size as u64).to_le_bytes());
+    transcript.append_bytes(b"logup-gkr-univariate-v2");
+    absorb_gate(gate, transcript);
+    transcript.append_bytes(&(num_columns as u64).to_le_bytes());
+    transcript.append_bytes(&(domain_size as u64).to_le_bytes());
 
     // Step 1: Absorb column commitments into transcript (must match prover)
     for commitment in &proof.column_commitments {
-        P::absorb_commitment(commitment, channel);
+        P::absorb_commitment(commitment, transcript);
     }
 
     // Step 2: Run GKR verification
-    let gkr_result = crate::verifier::verify(gate, &proof.gkr_proof, channel)
+    let gkr_result = crate::verifier::verify(gate, &proof.gkr_proof, transcript)
         .map_err(|e| UnivariateIopError::GkrError(format!("{e}")))?;
 
     // Cross-check: domain_log_size must match GKR variable count (H2)
@@ -391,7 +391,7 @@ where
     }
 
     // Step 3: Sample lambda (must match prover)
-    let lambda: FieldElement<F> = channel.sample_field_element();
+    let lambda: FieldElement<F> = transcript.sample_field_element();
 
     // Step 4: Combine claims
     let combined_claim = random_linear_combination(&gkr_result.claims_to_verify, &lambda);
@@ -402,15 +402,15 @@ where
 
     // Absorb Lagrange column into transcript (H1: must match prover, defense-in-depth)
     for c in &lagrange_column {
-        channel.append_field_element(c);
+        transcript.append_field_element(c);
     }
 
     // Step 5b: Absorb q and r' commitments (must match prover)
-    P::absorb_commitment(&proof.q_commitment, channel);
-    P::absorb_commitment(&proof.r_prime_commitment, channel);
+    P::absorb_commitment(&proof.q_commitment, transcript);
+    P::absorb_commitment(&proof.r_prime_commitment, transcript);
 
     // Step 6: Sample z (must match prover — after q, r' commitments)
-    let z: FieldElement<F> = channel.sample_field_element();
+    let z: FieldElement<F> = transcript.sample_field_element();
 
     // Step 7: Verify batch opening at z
     let mut all_commitments: Vec<&P::Commitment> = proof.column_commitments.iter().collect();
@@ -422,7 +422,7 @@ where
         &z,
         &proof.opened_values,
         &proof.batch_proof,
-        channel,
+        transcript,
     )?;
 
     // Step 8: Parse opened values

@@ -143,12 +143,12 @@ let input = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![
 ]));
 
 // Prove
-let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-let (proof, prover_artifact) = prove(&mut prover_channel, input)?;
+let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+let (proof, prover_artifact) = prove(&mut prover_transcript, input)?;
 
 // Verify (partial — returns claims to check against the input layer)
-let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-let result = verify(Gate::GrandProduct, &proof, &mut verifier_channel)?;
+let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+let result = verify(Gate::GrandProduct, &proof, &mut verifier_transcript)?;
 // result.ood_point, result.claims_to_verify
 ```
 
@@ -164,14 +164,14 @@ let layers = vec![
     Layer::LogUpSingles { denominators: DenseMultilinearPolynomial::new(dens_b) },  // 2^3 elements
 ];
 
-let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-let (proof, _) = prove_batch(&mut prover_channel, layers);
+let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+let (proof, _) = prove_batch(&mut prover_transcript, layers);
 
-let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
 let result = verify_batch(
     &[Gate::GrandProduct, Gate::LogUp],
     &proof,
-    &mut verifier_channel,
+    &mut verifier_transcript,
 )?;
 // result.claims_to_verify_by_instance[0], result.claims_to_verify_by_instance[1]
 ```

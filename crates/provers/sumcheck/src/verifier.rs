@@ -246,7 +246,7 @@ impl<F: IsField> core::fmt::Display for PartialVerifyError<F> {
     }
 }
 
-/// Partially verifies a sumcheck proof using an external transcript/channel.
+/// Partially verifies a sumcheck proof using an external Fiat-Shamir transcript.
 ///
 /// Checks round consistency (degree and sum) but does NOT perform an oracle
 /// evaluation at the end. Returns `(assignment, final_eval)` — the caller
@@ -260,7 +260,7 @@ pub fn partially_verify<F, T>(
     mut claim: FieldElement<F>,
     round_polys: &[Polynomial<FieldElement<F>>],
     max_degree: usize,
-    channel: &mut T,
+    transcript: &mut T,
 ) -> Result<(Vec<FieldElement<F>>, FieldElement<F>), PartialVerifyError<F>>
 where
     F: IsField,
@@ -292,10 +292,10 @@ where
         }
 
         for coeff in round_poly.coefficients() {
-            channel.append_field_element(coeff);
+            transcript.append_field_element(coeff);
         }
 
-        let challenge = channel.sample_field_element();
+        let challenge = transcript.sample_field_element();
         claim = round_poly.evaluate(&challenge);
         assignment.push(challenge);
     }

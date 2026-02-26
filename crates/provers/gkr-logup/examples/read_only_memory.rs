@@ -76,9 +76,9 @@ fn main() {
     // Prove: batch both instances into a single GKR proof
     // -------------------------------------------------------
     println!("--- Proving ---");
-    let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+    let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
     let (proof, _artifact) =
-        prove_batch(&mut prover_channel, vec![access_layer, table_layer]).unwrap();
+        prove_batch(&mut prover_transcript, vec![access_layer, table_layer]).unwrap();
 
     println!(
         "Batch proof: {} sumcheck layers, {} instances",
@@ -91,8 +91,12 @@ fn main() {
     // Verify: batch verification
     // -------------------------------------------------------
     println!("--- Verifying ---");
-    let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-    let result = verify_batch(&[Gate::LogUp, Gate::LogUp], &proof, &mut verifier_channel);
+    let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+    let result = verify_batch(
+        &[Gate::LogUp, Gate::LogUp],
+        &proof,
+        &mut verifier_transcript,
+    );
 
     match &result {
         Ok(artifact) => {
@@ -151,11 +155,16 @@ fn main() {
         denominators: DenseMultilinearPolynomial::new(table_dens2),
     };
 
-    let mut p_ch = DefaultTranscript::<F>::new(&[]);
-    let (bad_proof, _) = prove_batch(&mut p_ch, vec![bad_access_layer, table_layer2]).unwrap();
+    let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+    let (bad_proof, _) =
+        prove_batch(&mut prover_transcript, vec![bad_access_layer, table_layer2]).unwrap();
 
-    let mut v_ch = DefaultTranscript::<F>::new(&[]);
-    let bad_result = verify_batch(&[Gate::LogUp, Gate::LogUp], &bad_proof, &mut v_ch);
+    let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+    let bad_result = verify_batch(
+        &[Gate::LogUp, Gate::LogUp],
+        &bad_proof,
+        &mut verifier_transcript,
+    );
 
     match &bad_result {
         Ok(_) => println!("GKR verification: PASSED (each tree is internally consistent)"),
