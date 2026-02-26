@@ -206,18 +206,22 @@ verify_univariate(Gate::GrandProduct, &proof, &mut verifier_transcript)?;
 ```rust
 use lambdaworks_gkr_logup::univariate::iop::{prove_with_pcs, verify_with_pcs};
 use lambdaworks_gkr_logup::fri::pcs::FriPcs;
+use lambdaworks_gkr_logup::fri::types::FriConfig;
 use lambdaworks_gkr_logup::verifier::Gate;
 
 // Same layer construction as Phase 1...
 let layer = UnivariateLayer::GrandProduct { values: uni, commitment: None };
 
+// Create PCS with desired security parameters
+let pcs = FriPcs::new(FriConfig::default());
+
 // Prove with FRI PCS (Merkle root commitments, succinct proofs)
 let mut prover_transcript = DefaultTranscript::<F>::new(b"grand_product_v2");
-let (proof, result) = prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer)?;
+let (proof, result) = prove_with_pcs::<F, _, FriPcs>(&mut prover_transcript, layer, &pcs)?;
 
-// Verify
+// Verify (verifier uses same config — mismatched config causes transcript divergence)
 let mut verifier_transcript = DefaultTranscript::<F>::new(b"grand_product_v2");
-verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript)?;
+verify_with_pcs::<F, _, FriPcs>(Gate::GrandProduct, &proof, &mut verifier_transcript, &pcs)?;
 ```
 
 ### Custom PCS
@@ -230,11 +234,11 @@ pub trait UnivariatePcs<F: IsFFTField> {
     type ProverState;
     type BatchOpeningProof: Clone + Debug;
 
-    fn commit(evals_on_h: &[FieldElement<F>], transcript: &mut T)
+    fn commit(&self, evals_on_h: &[FieldElement<F>], transcript: &mut T)
         -> Result<(Self::Commitment, Self::ProverState), PcsError>;
-    fn batch_open(states: &[&Self::ProverState], z: &FieldElement<F>, transcript: &mut T)
+    fn batch_open(&self, states: &[&Self::ProverState], z: &FieldElement<F>, transcript: &mut T)
         -> Result<(Vec<FieldElement<F>>, Self::BatchOpeningProof), PcsError>;
-    fn verify_batch_opening(commitments: &[&Self::Commitment], z: &FieldElement<F>,
+    fn verify_batch_opening(&self, commitments: &[&Self::Commitment], z: &FieldElement<F>,
         values: &[FieldElement<F>], proof: &Self::BatchOpeningProof, transcript: &mut T)
         -> Result<(), PcsError>;
 }

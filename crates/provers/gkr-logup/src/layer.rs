@@ -124,7 +124,9 @@ where
 }
 
 /// Generates all layers from the input (leaves) to the output (root).
-pub fn gen_layers<F: IsField>(input_layer: Layer<F>) -> Vec<Layer<F>>
+pub fn gen_layers<F: IsField>(
+    input_layer: Layer<F>,
+) -> Result<Vec<Layer<F>>, lambdaworks_sumcheck::ProverError>
 where
     F::BaseType: Send + Sync,
 {
@@ -133,8 +135,15 @@ where
     while let Some(next) = layers.last().unwrap().next_layer() {
         layers.push(next);
     }
-    assert_eq!(layers.len(), n_variables + 1);
-    layers
+    if layers.len() != n_variables + 1 {
+        return Err(lambdaworks_sumcheck::ProverError::InvalidState(format!(
+            "gen_layers: expected {} layers (n_variables={}) but produced {}",
+            n_variables + 1,
+            n_variables,
+            layers.len()
+        )));
+    }
+    Ok(layers)
 }
 
 /// GrandProduct: `output[j] = input[2j] * input[2j+1]`.
@@ -238,7 +247,7 @@ mod tests {
             FE::from(5),
             FE::from(7),
         ]));
-        let layers = gen_layers(input);
+        let layers = gen_layers(input).unwrap();
         assert_eq!(layers.len(), 3); // 2 vars + 1
 
         // Root should be product of all
@@ -301,7 +310,7 @@ mod tests {
                 FE::from(7),
             ]),
         };
-        let layers = gen_layers(input);
+        let layers = gen_layers(input).unwrap();
 
         // Compute expected sum: 1/2 + 1/3 + 1/5 + 1/7
         let fracs: Vec<Fraction<F>> = [2u64, 3, 5, 7]

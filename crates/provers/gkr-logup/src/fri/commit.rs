@@ -13,7 +13,7 @@ use super::fold::fold_polynomial;
 use super::types::{FriConfig, FriError, FriLayerData};
 
 /// Result of the FRI commit phase (prover side).
-pub(crate) struct FriCommitResult<F: IsFFTField>
+pub struct FriCommitResult<F: IsFFTField>
 where
     FieldElement<F>: AsBytes,
     F::BaseType: Send + Sync,
@@ -33,7 +33,7 @@ where
 /// 3. Sample folding challenge beta.
 /// 4. Fold polynomial, repeat.
 /// 5. When degree is 0, append final value to transcript.
-pub(crate) fn fri_commit<F, T>(
+pub fn fri_commit<F, T>(
     poly: &Polynomial<FieldElement<F>>,
     config: &FriConfig,
     transcript: &mut T,

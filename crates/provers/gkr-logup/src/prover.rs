@@ -43,25 +43,24 @@ where
 {
     /// Creates a new `LayerOracle`.
     ///
-    /// # Panics
-    ///
-    /// Panics if `input_layer` has zero variables (i.e., is an output layer).
+    /// Returns an error if `input_layer` has zero variables (i.e., is an output layer).
     fn new(
         eq_evals: EqEvaluations<F>,
         input_layer: Layer<F>,
         eq_fixed_var_correction: FieldElement<F>,
         lambda: FieldElement<F>,
-    ) -> Self {
-        assert!(
-            input_layer.n_variables() > 0,
-            "LayerOracle must not wrap an output layer (input_layer has 0 variables)"
-        );
-        Self {
+    ) -> Result<Self, ProverError> {
+        if input_layer.n_variables() == 0 {
+            return Err(ProverError::InvalidState(
+                "LayerOracle must not wrap an output layer (input_layer has 0 variables)".into(),
+            ));
+        }
+        Ok(Self {
             eq_evals,
             input_layer,
             eq_fixed_var_correction,
             lambda,
-        }
+        })
     }
 
     fn is_constant(&self) -> bool {
@@ -81,7 +80,11 @@ where
         claim: &FieldElement<F>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
         let n_variables = self.n_variables();
-        assert!(n_variables > 0, "Cannot sum a constant oracle");
+        if n_variables == 0 {
+            return Err(ProverError::InvalidState(
+                "Cannot sum a constant oracle (0 variables)".into(),
+            ));
+        }
         let n_terms = 1 << (n_variables - 1);
         let y = self.eq_evals.y();
         let lambda = &self.lambda;
@@ -348,12 +351,17 @@ where
     ///
     /// During `run_sumcheck_with_channel`, the adapter fixes one variable per round
     /// except the first, so the last challenge needs to be applied here.
-    fn into_oracle(self, final_challenge: Option<&FieldElement<F>>) -> LayerOracle<F> {
-        let mut oracle = self.oracle.expect("oracle must be present after sumcheck");
+    fn into_oracle(
+        self,
+        final_challenge: Option<&FieldElement<F>>,
+    ) -> Result<LayerOracle<F>, ProverError> {
+        let mut oracle = self.oracle.ok_or_else(|| {
+            ProverError::InvalidState("oracle must be present after sumcheck".into())
+        })?;
         if let Some(r) = final_challenge {
             oracle = oracle.fix_first_variable(r);
         }
-        oracle
+        Ok(oracle)
     }
 }
 
@@ -364,10 +372,8 @@ where
 {
     fn num_vars(&self) -> usize {
         // The oracle is always present during sumcheck rounds.
-        self.oracle
-            .as_ref()
-            .expect("oracle must be present during sumcheck")
-            .n_variables()
+        // If it's missing, this is an internal invariant violation.
+        self.oracle.as_ref().map_or(0, |o| o.n_variables())
     }
 
     fn num_factors(&self) -> usize {
@@ -386,18 +392,23 @@ where
             self.claim = self
                 .last_round_poly
                 .as_ref()
-                .expect("last_round_poly must be set after first round")
+                .ok_or_else(|| {
+                    ProverError::InvalidState(
+                        "last_round_poly must be set after first round".into(),
+                    )
+                })?
                 .evaluate(r);
-            let oracle = self
-                .oracle
-                .take()
-                .expect("oracle must be present during sumcheck");
+            let oracle = self.oracle.take().ok_or_else(|| {
+                ProverError::InvalidState("oracle must be present during sumcheck".into())
+            })?;
             self.oracle = Some(oracle.fix_first_variable(r));
         }
         let poly = self
             .oracle
             .as_ref()
-            .expect("oracle must be present during sumcheck")
+            .ok_or_else(|| {
+                ProverError::InvalidState("oracle must be present during sumcheck".into())
+            })?
             .sum_as_poly_in_first_variable(&self.claim)?;
         self.last_round_poly = Some(poly.clone());
         Ok(poly)
@@ -464,18 +475,26 @@ where
     FieldElement<F>: ByteConversion,
     T: IsTranscript<F>,
 {
-    assert_eq!(claims.len(), oracles.len());
+    if claims.len() != oracles.len() {
+        return Err(ProverError::InvalidState(
+            "claims and oracles length mismatch in prove_batch_sumcheck".into(),
+        ));
+    }
     let n_variables = oracles
         .iter()
         .map(|o| o.n_variables())
         .max()
-        .expect("prove_batch_sumcheck requires at least one oracle");
+        .ok_or_else(|| {
+            ProverError::InvalidState("prove_batch_sumcheck requires at least one oracle".into())
+        })?;
 
     let mut round_polys = Vec::with_capacity(n_variables);
     let mut assignment = Vec::with_capacity(n_variables);
 
     // Scale claims by doubling factor for smaller instances.
-    let two_inv = FieldElement::<F>::from(2u64).inv().unwrap();
+    let two_inv = FieldElement::<F>::from(2u64)
+        .inv()
+        .map_err(|_| ProverError::InvalidState("field has characteristic 2".into()))?;
     for (claim, oracle) in claims.iter_mut().zip(oracles.iter()) {
         let n_unused = n_variables - oracle.n_variables();
         if n_unused > 0 {
@@ -560,15 +579,15 @@ where
     T: IsTranscript<F>,
 {
     // Generate all layers from input (leaves) to output (root)
-    let layers = gen_layers(input_layer);
+    let layers = gen_layers(input_layer)?;
     let n_layers = layers.len() - 1; // number of transitions
 
     // Get output values from the root layer
     let output_claims = layers
         .last()
-        .unwrap()
+        .ok_or_else(|| ProverError::InvalidState("no layers generated".into()))?
         .try_into_output_layer_values()
-        .expect("last layer should be output");
+        .ok_or_else(|| ProverError::InvalidState("last layer should be output".into()))?;
 
     // Append output claims to channel
     for claim in &output_claims {
@@ -597,19 +616,20 @@ where
         // Create the multivariate polynomial oracle
         let claim = random_linear_combination(&claims_to_verify, &lambda);
 
-        let oracle = LayerOracle::new(eq_evals, layer.clone(), FieldElement::one(), lambda.clone());
+        let oracle =
+            LayerOracle::new(eq_evals, layer.clone(), FieldElement::one(), lambda.clone())?;
 
         // Run sumcheck via the adapter
         let mut layer_prover = LayerSumcheckProver::new(oracle, claim);
         let (round_polys, sumcheck_ood_point) =
             run_sumcheck_with_channel(&mut layer_prover, channel)?;
-        let constant_oracle = layer_prover.into_oracle(sumcheck_ood_point.last());
+        let constant_oracle = layer_prover.into_oracle(sumcheck_ood_point.last())?;
         let sumcheck_proof = SumcheckProof { round_polys };
 
         // Extract mask from the constant oracle
-        let mask = constant_oracle
-            .try_into_mask()
-            .expect("oracle is constant after all sumcheck rounds");
+        let mask = constant_oracle.try_into_mask().ok_or_else(|| {
+            ProverError::InvalidState("oracle is not constant after all sumcheck rounds".into())
+        })?;
 
         // Append mask to channel
         for col in mask.columns() {
@@ -692,13 +712,16 @@ where
         ));
     }
     let n_layers_by_instance: Vec<usize> = input_layers.iter().map(|l| l.n_variables()).collect();
-    let n_layers = *n_layers_by_instance.iter().max().expect("n_instances > 0");
+    let n_layers = *n_layers_by_instance
+        .iter()
+        .max()
+        .ok_or_else(|| ProverError::InvalidState("prove_batch: no instances".into()))?;
 
     // Generate all layers per instance and reverse for output-to-input traversal.
     let mut layers_by_instance: Vec<std::iter::Rev<std::vec::IntoIter<Layer<F>>>> = input_layers
         .into_iter()
-        .map(|input_layer| gen_layers(input_layer).into_iter().rev())
-        .collect();
+        .map(|input_layer| gen_layers(input_layer).map(|l| l.into_iter().rev()))
+        .collect::<Result<Vec<_>, _>>()?;
 
     let mut output_claims_by_instance: Vec<Option<Vec<FieldElement<F>>>> = vec![None; n_instances];
     let mut layer_masks_by_instance: Vec<Vec<LayerMask<F>>> = vec![Vec::new(); n_instances];
@@ -711,10 +734,12 @@ where
     // Handle zero-layer instances (size-1 inputs: already at output, no sumcheck needed).
     for (instance, layers) in layers_by_instance.iter_mut().enumerate() {
         if n_layers_by_instance[instance] == 0 {
-            let output_layer = layers.next().unwrap();
-            let output_values = output_layer
-                .try_into_output_layer_values()
-                .expect("should be output layer");
+            let output_layer = layers.next().ok_or_else(|| {
+                ProverError::InvalidState("zero-layer instance has no layers".into())
+            })?;
+            let output_values = output_layer.try_into_output_layer_values().ok_or_else(|| {
+                ProverError::InvalidState("zero-layer instance: not an output layer".into())
+            })?;
             claims_to_verify_by_instance[instance] = Some(output_values.clone());
             output_claims_by_instance[instance] = Some(output_values);
         }
@@ -726,10 +751,17 @@ where
         // Detect output layers for each instance.
         for (instance, layers) in layers_by_instance.iter_mut().enumerate() {
             if n_layers_by_instance[instance] == n_remaining_layers {
-                let output_layer = layers.next().unwrap();
-                let output_layer_values = output_layer
-                    .try_into_output_layer_values()
-                    .expect("should be output layer");
+                let output_layer = layers.next().ok_or_else(|| {
+                    ProverError::InvalidState(format!(
+                        "instance {instance}: no output layer available"
+                    ))
+                })?;
+                let output_layer_values =
+                    output_layer.try_into_output_layer_values().ok_or_else(|| {
+                        ProverError::InvalidState(format!(
+                            "instance {instance}: not an output layer"
+                        ))
+                    })?;
                 claims_to_verify_by_instance[instance] = Some(output_layer_values.clone());
                 output_claims_by_instance[instance] = Some(output_layer_values);
             }
@@ -757,14 +789,18 @@ where
                 if n_layers_by_instance[instance] == 0 {
                     continue;
                 }
-                let next_layer = layers_by_instance[instance].next().unwrap();
+                let next_layer = layers_by_instance[instance].next().ok_or_else(|| {
+                    ProverError::InvalidState(format!(
+                        "instance {instance}: no next layer available"
+                    ))
+                })?;
                 // TODO: eq_evals is read-only during sumcheck — share via Arc instead of cloning.
                 let oracle = LayerOracle::new(
                     eq_evals.clone(),
                     next_layer,
                     FieldElement::one(),
                     lambda.clone(),
-                );
+                )?;
                 let claim = random_linear_combination(claims, &lambda);
                 sumcheck_oracles.push(oracle);
                 sumcheck_claims.push(claim);
@@ -782,11 +818,11 @@ where
         let masks: Vec<LayerMask<F>> = constant_oracles
             .into_iter()
             .map(|oracle| {
-                oracle
-                    .try_into_mask()
-                    .expect("oracle should be constant after sumcheck")
+                oracle.try_into_mask().ok_or_else(|| {
+                    ProverError::InvalidState("oracle should be constant after sumcheck".into())
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
 
         for (&instance, mask) in sumcheck_instances.iter().zip(masks.iter()) {
             for col in mask.columns() {
@@ -809,13 +845,23 @@ where
 
     let output_claims_by_instance: Vec<Vec<FieldElement<F>>> = output_claims_by_instance
         .into_iter()
-        .map(|o| o.expect("all instances should have output claims"))
-        .collect();
+        .enumerate()
+        .map(|(i, o)| {
+            o.ok_or_else(|| {
+                ProverError::InvalidState(format!("instance {i}: missing output claims"))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     let claims_to_verify_by_instance: Vec<Vec<FieldElement<F>>> = claims_to_verify_by_instance
         .into_iter()
-        .map(|c| c.expect("all instances should have claims"))
-        .collect();
+        .enumerate()
+        .map(|(i, c)| {
+            c.ok_or_else(|| {
+                ProverError::InvalidState(format!("instance {i}: missing claims to verify"))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     let proof = crate::verifier::BatchProof {
         sumcheck_proofs,

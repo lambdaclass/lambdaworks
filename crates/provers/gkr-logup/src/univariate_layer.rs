@@ -38,6 +38,16 @@ impl<F: IsFFTField> UnivariateLayer<F>
 where
     F::BaseType: Send + Sync,
 {
+    /// Returns the GKR gate type for this layer variant.
+    pub fn gate_type(&self) -> crate::verifier::Gate {
+        match self {
+            Self::GrandProduct { .. } => crate::verifier::Gate::GrandProduct,
+            Self::LogUpGeneric { .. }
+            | Self::LogUpMultiplicities { .. }
+            | Self::LogUpSingles { .. } => crate::verifier::Gate::LogUp,
+        }
+    }
+
     pub fn n_variables(&self) -> usize {
         match self {
             Self::GrandProduct { values, .. } => values.n_variables(),
@@ -199,6 +209,11 @@ where
     /// - GrandProduct: `[values]`
     /// - LogUpGeneric/LogUpMultiplicities: `[numerators, denominators]`
     /// - LogUpSingles: `[ones, denominators]` (implicit numerator = 1 for each entry)
+    ///
+    /// Note: For `LogUpSingles`, the all-ones column produces a vacuous inner product
+    /// check (always equals 1). This is safe because the GKR circuit check independently
+    /// constrains the mask values, preventing forgery. The ones column is included for
+    /// consistency with the 2-claim GKR output for `Gate::LogUp`.
     pub fn get_univariate_values(&self) -> Vec<Vec<FieldElement<F>>> {
         match self {
             Self::GrandProduct { values, .. } => vec![values.values.clone()],
@@ -219,37 +234,34 @@ where
         }
     }
 
-    pub fn set_commitments(&mut self, mut commitments: Vec<Commitment>) {
+    /// Sets commitments in the same order as [`get_commitments`] returns them:
+    /// - GrandProduct: `[values]`
+    /// - LogUpGeneric/LogUpMultiplicities: `[numerator, denominator]`
+    /// - LogUpSingles: `[denominator]`
+    pub fn set_commitments(&mut self, commitments: Vec<Commitment>) {
+        let mut iter = commitments.into_iter();
         match self {
             Self::GrandProduct { commitment, .. } => {
-                if let Some(c) = commitments.pop() {
-                    *commitment = Some(c);
-                }
+                *commitment = iter.next();
             }
             Self::LogUpGeneric {
-                denominator_commitment,
                 numerator_commitment,
+                denominator_commitment,
                 ..
             }
             | Self::LogUpMultiplicities {
-                denominator_commitment,
                 numerator_commitment,
+                denominator_commitment,
                 ..
             } => {
-                if let Some(c) = commitments.pop() {
-                    *denominator_commitment = Some(c);
-                }
-                if let Some(c) = commitments.pop() {
-                    *numerator_commitment = Some(c);
-                }
+                *numerator_commitment = iter.next();
+                *denominator_commitment = iter.next();
             }
             Self::LogUpSingles {
                 denominator_commitment,
                 ..
             } => {
-                if let Some(c) = commitments.pop() {
-                    *denominator_commitment = Some(c);
-                }
+                *denominator_commitment = iter.next();
             }
         }
     }
@@ -352,7 +364,9 @@ where
     Some((new_numerators, new_denominators))
 }
 
-pub fn gen_layers<F: IsFFTField>(input_layer: UnivariateLayer<F>) -> Vec<UnivariateLayer<F>>
+pub fn gen_layers<F: IsFFTField>(
+    input_layer: UnivariateLayer<F>,
+) -> Result<Vec<UnivariateLayer<F>>, lambdaworks_sumcheck::ProverError>
 where
     F::BaseType: Send + Sync,
 {
@@ -361,8 +375,15 @@ where
     while let Some(next) = layers.last().unwrap().next_layer() {
         layers.push(next);
     }
-    assert_eq!(layers.len(), n_variables + 1);
-    layers
+    if layers.len() != n_variables + 1 {
+        return Err(lambdaworks_sumcheck::ProverError::InvalidState(format!(
+            "gen_layers: expected {} layers (n_variables={}) but produced {}",
+            n_variables + 1,
+            n_variables,
+            layers.len()
+        )));
+    }
+    Ok(layers)
 }
 
 #[cfg(test)]

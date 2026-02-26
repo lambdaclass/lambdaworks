@@ -73,41 +73,6 @@ pub fn index_from_bits(bits: &[u64]) -> usize {
         .fold(0usize, |acc, (i, &bit)| acc | ((bit as usize) << i))
 }
 
-pub fn hypercube_to_cyclic<F: IsFFTField>(
-    values: &[FieldElement<F>],
-    _domain: &CyclicDomain<F>,
-) -> Vec<FieldElement<F>> {
-    let n = values.len();
-    let log_n = n.ilog2() as usize;
-    assert_eq!(n, 1 << log_n, "values length must be power of 2");
-
-    let mut result = Vec::with_capacity(n);
-
-    for i in 0..n {
-        let bits = bits_of_index(i, log_n);
-        let hypercube_index = index_from_bits(&bits);
-        result.push(values[hypercube_index].clone());
-    }
-
-    result
-}
-
-pub fn cyclic_to_hypercube<F: IsFFTField>(values: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
-    let n = values.len();
-    let log_n = n.ilog2() as usize;
-    assert_eq!(n, 1 << log_n, "values length must be power of 2");
-
-    let mut result = Vec::with_capacity(n);
-
-    for i in 0..n {
-        let bits = bits_of_index(i, log_n);
-        let hypercube_index = index_from_bits(&bits);
-        result.push(values[hypercube_index].clone());
-    }
-
-    result
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

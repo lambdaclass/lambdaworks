@@ -13,7 +13,7 @@ use super::types::{FriError, FriLayerData, FriQueryRound};
 /// At each layer the query index is reduced: `index = index % (domain_size / 2)`.
 /// For each layer we provide the evaluation at `index` and its symmetric partner
 /// `index + domain_size/2`, along with Merkle authentication paths.
-pub(crate) fn fri_query_single<F>(
+pub fn fri_query_single<F>(
     mut index: usize,
     layers: &[FriLayerData<F>],
     merkle_trees: &[MerkleTree<Keccak256Backend<F>>],
@@ -57,7 +57,7 @@ where
 }
 
 /// Generate query decommitments for all query indices.
-pub(crate) fn fri_query_all<F>(
+pub fn fri_query_all<F>(
     query_indices: &[usize],
     layers: &[FriLayerData<F>],
     merkle_trees: &[MerkleTree<Keccak256Backend<F>>],
