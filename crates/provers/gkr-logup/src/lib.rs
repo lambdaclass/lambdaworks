@@ -24,7 +24,7 @@ pub use lambdaworks_sumcheck::ProverError;
 pub use layer::Layer;
 pub use prover::{prove, prove_batch};
 pub use univariate::iop::{prove_univariate, prove_with_pcs, verify_univariate, verify_with_pcs};
-pub use univariate::pcs::{PcsError, UnivariatePcs};
+pub use univariate::pcs::{CommitmentSchemeError, IsUnivariateCommitmentScheme};
 pub use univariate::types::{UnivariateIopError, UnivariateIopProof, UnivariateIopProofV2};
 pub use verifier::{
     verify, verify_batch, BatchProof, BatchVerificationResult, Gate, Proof, SumcheckProof,
