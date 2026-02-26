@@ -65,6 +65,18 @@ where
         })
     }
 
+    /// Construct a MerkleTree from a pre-computed flat node array.
+    ///
+    /// `nodes` must be laid out as `[inner_nodes | leaves]` with `nodes[0]` = root,
+    /// matching the layout produced by `build()`.
+    pub fn from_nodes(nodes: Vec<B::Node>) -> Option<Self> {
+        if nodes.is_empty() {
+            return None;
+        }
+        let root = nodes[0].clone();
+        Some(Self { root, nodes })
+    }
+
     /// Returns a Merkle proof for the element/s at position pos
     /// For example, give me an inclusion proof for the 3rd element in the
     /// Merkle tree

@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::Div};
+use std::marker::PhantomData;
 
 use crate::{
     constraints::{
@@ -223,18 +223,20 @@ where
 
         let trace_len = trace.num_rows();
 
-        let mut aux_col = Vec::new();
-        for i in 0..trace_len {
-            if i == 0 {
-                aux_col.push(FieldElement::<Self::Field>::one());
-            } else {
-                let z_i = &aux_col[i - 1];
-                let n_p_term = not_perm[i - 1].clone() + gamma;
-                let p_term = &perm[i - 1] + gamma;
+        // Pre-compute all denominators and batch-invert them.
+        // This replaces (trace_len - 1) expensive field inversions with
+        // a single inversion + 3*(trace_len - 1) cheap multiplications.
+        let mut denominators: Vec<FieldElement<Self::Field>> =
+            (0..trace_len - 1).map(|i| &perm[i] + gamma).collect();
+        FieldElement::inplace_batch_inverse(&mut denominators)
+            .expect("denominators are non-zero with high probability (gamma is random)");
 
-                // We are using that with high probability p_term != 0 because gamma is a random element.
-                aux_col.push(z_i * n_p_term.div(p_term).unwrap());
-            }
+        let mut aux_col = Vec::with_capacity(trace_len);
+        aux_col.push(FieldElement::<Self::Field>::one());
+        for i in 0..trace_len - 1 {
+            let z_i = &aux_col[i];
+            let n_p_term = not_perm[i].clone() + gamma;
+            aux_col.push(z_i * &n_p_term * &denominators[i]);
         }
 
         for (i, aux_elem) in aux_col.iter().enumerate().take(trace.num_rows()) {
@@ -327,6 +329,7 @@ pub fn fibonacci_rap_trace<F: IsFFTField>(
 mod test {
     use super::*;
     use lambdaworks_math::field::fields::u64_prime_field::FE17;
+    use std::ops::Div;
 
     #[test]
     fn test_build_fibonacci_rap_trace() {

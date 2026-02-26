@@ -38,7 +38,7 @@ pub struct Verifier<
 
 impl<
         Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
-        FieldExtension: Send + Sync + IsFFTField,
+        FieldExtension: Send + Sync + IsField,
         PI,
     > IsStarkVerifier<Field, FieldExtension, PI> for Verifier<Field, FieldExtension, PI>
 {
@@ -128,9 +128,10 @@ pub trait IsStarkVerifier<
 
         let num_transition_constraints = air.context().num_transition_constraints;
 
-        let mut coefficients: Vec<_> = (0..num_boundary_constraints + num_transition_constraints)
-            .map(|i| beta.pow(i))
-            .collect();
+        let mut coefficients: Vec<_> =
+            core::iter::successors(Some(FieldElement::one()), |x| Some(x * &beta))
+                .take(num_boundary_constraints + num_transition_constraints)
+                .collect();
 
         let transition_coeffs: Vec<_> = coefficients.drain(..num_transition_constraints).collect();
         let boundary_coeffs = coefficients;
@@ -319,17 +320,15 @@ pub trait IsStarkVerifier<
                 c.evaluate_zerofier(&challenges.z, &domain.trace_primitive_root, trace_length);
         });
 
-        let transition_c_i_evaluations_sum = itertools::izip!(
+        let composition_poly_ood_evaluation = itertools::izip!(
             transition_ood_frame_evaluations,
             &challenges.transition_coeffs,
             denominators
         )
-        .fold(FieldElement::zero(), |acc, (eval, beta, denominator)| {
-            acc + beta * eval * &denominator
-        });
-
-        let composition_poly_ood_evaluation =
-            &boundary_quotient_ood_evaluation + transition_c_i_evaluations_sum;
+        .fold(
+            boundary_quotient_ood_evaluation,
+            |acc, (eval, beta, denominator)| acc + beta * eval * &denominator,
+        );
 
         let composition_poly_claimed_ood_evaluation = proof
             .composition_poly_parts_ood_evaluation

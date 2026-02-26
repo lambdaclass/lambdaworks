@@ -229,6 +229,20 @@ impl DynamicMetalState {
         })
     }
 
+    /// Create a new dynamic Metal state sharing a device and command queue with an existing state.
+    ///
+    /// Reuses the same Metal device and command queue, only maintaining a separate
+    /// pipeline cache and shader library. This avoids exhausting GPU resources when
+    /// many shader states coexist.
+    pub fn from_device_and_queue(device: &Device, queue: &CommandQueue) -> Self {
+        Self {
+            device: device.clone(),
+            command_queue: queue.clone(),
+            pipelines: HashMap::new(),
+            library: None,
+        }
+    }
+
     /// Get a reference to the Metal device.
     pub fn device(&self) -> &Device {
         &self.device
@@ -310,6 +324,13 @@ impl DynamicMetalState {
     pub fn prepare_pipeline(&mut self, function_name: &str) -> Result<u64, MetalError> {
         let pipeline = self.get_pipeline(function_name)?;
         Ok(pipeline.max_total_threads_per_threadgroup())
+    }
+
+    /// Get a reference to a previously prepared pipeline.
+    ///
+    /// Returns `None` if the pipeline hasn't been prepared yet.
+    pub fn get_pipeline_ref(&self, function_name: &str) -> Option<&ComputePipelineState> {
+        self.pipelines.get(function_name)
     }
 
     /// Execute a compute operation with a pre-prepared pipeline.

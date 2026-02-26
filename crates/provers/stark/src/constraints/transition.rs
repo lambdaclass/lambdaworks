@@ -138,26 +138,36 @@ where
             // so we only need to compute those.
             let last_exponent = blowup_factor * exemptions_period;
 
-            let evaluations: Vec<_> = (0..last_exponent)
-                .map(|exponent| {
-                    let x = lde_root.pow(exponent);
+            let lde_root_clone = lde_root.clone();
+            let (numerators, mut denominators): (Vec<_>, Vec<_>) =
+                std::iter::successors(Some(FieldElement::one()), move |prev| {
+                    Some(prev * &lde_root_clone)
+                })
+                .take(last_exponent)
+                .map(|x| {
                     let offset_times_x = coset_offset * &x;
-                    let offset_exponent = trace_length * self.periodic_exemptions_offset()
-                        .expect("periodic_exemptions_offset must be Some when exemptions_period is Some")
-                        / exemptions_period;
+                    let offset_exponent = trace_length
+                    * self.periodic_exemptions_offset().expect(
+                        "periodic_exemptions_offset must be Some when exemptions_period is Some",
+                    )
+                    / exemptions_period;
 
                     let numerator = offset_times_x.pow(trace_length / exemptions_period)
                         - trace_primitive_root.pow(offset_exponent);
                     let denominator = offset_times_x.pow(trace_length / self.period())
                         - trace_primitive_root.pow(self.offset() * trace_length / self.period());
 
-                    // The denominator is guaranteed to be non-zero because the sets of powers of `offset_times_x`
-                    // and `trace_primitive_root` are disjoint, provided that the offset is neither an element of the
-                    // interpolation domain nor part of a subgroup with order less than n.
-                    numerator.div(denominator).expect(
-                        "zerofier denominator should be non-zero: offset_times_x and trace_primitive_root powers are disjoint"
-                    )
+                    (numerator, denominator)
                 })
+                .unzip();
+
+            FieldElement::inplace_batch_inverse(&mut denominators)
+                .expect("zerofier denominator should be non-zero: offset_times_x and trace_primitive_root powers are disjoint");
+
+            let evaluations: Vec<_> = numerators
+                .iter()
+                .zip(denominators.iter())
+                .map(|(n, d)| n * d)
                 .collect();
 
             // FIXME: Instead of computing this evaluations for each constraint, they can be computed
@@ -186,13 +196,16 @@ where
         } else {
             let last_exponent = blowup_factor * self.period();
 
-            let mut evaluations = (0..last_exponent)
-                .map(|exponent| {
-                    let x = lde_root.pow(exponent);
-                    (coset_offset * &x).pow(trace_length / self.period())
-                        - trace_primitive_root.pow(self.offset() * trace_length / self.period())
-                })
-                .collect_vec();
+            let lde_root_clone = lde_root.clone();
+            let mut evaluations = std::iter::successors(Some(FieldElement::one()), move |prev| {
+                Some(prev * &lde_root_clone)
+            })
+            .take(last_exponent)
+            .map(|x| {
+                (coset_offset * &x).pow(trace_length / self.period())
+                    - trace_primitive_root.pow(self.offset() * trace_length / self.period())
+            })
+            .collect_vec();
 
             FieldElement::inplace_batch_inverse(&mut evaluations)
                 .expect("batch inverse failed: zerofier evaluation contains zero element");

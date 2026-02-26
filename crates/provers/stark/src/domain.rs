@@ -10,13 +10,13 @@ use super::prover::ProvingError;
 use super::traits::AIR;
 
 pub struct Domain<F: IsFFTField> {
-    pub(crate) root_order: u32,
-    pub(crate) lde_roots_of_unity_coset: Vec<FieldElement<F>>,
-    pub(crate) trace_primitive_root: FieldElement<F>,
-    pub(crate) trace_roots_of_unity: Vec<FieldElement<F>>,
-    pub(crate) coset_offset: FieldElement<F>,
-    pub(crate) blowup_factor: usize,
-    pub(crate) interpolation_domain_size: usize,
+    pub root_order: u32,
+    pub lde_roots_of_unity_coset: Vec<FieldElement<F>>,
+    pub trace_primitive_root: FieldElement<F>,
+    pub trace_roots_of_unity: Vec<FieldElement<F>>,
+    pub coset_offset: FieldElement<F>,
+    pub blowup_factor: usize,
+    pub interpolation_domain_size: usize,
 }
 
 impl<F: IsFFTField> Domain<F> {

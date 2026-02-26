@@ -4,6 +4,7 @@ use alloc::string::{String, ToString};
 use alloc::{format, vec, vec::Vec};
 use core::ops::{AddAssign, MulAssign, SubAssign};
 use core::{ops, slice};
+pub mod barycentric;
 pub mod dense_multilinear_poly;
 
 /// Re-exports from dense_multilinear_poly module for convenience.

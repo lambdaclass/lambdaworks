@@ -1,0 +1,49 @@
+[package]
+name = "lambdaworks-stark-gpu"
+description = "GPU-accelerated STARK prover for lambdaworks"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lambdaworks-math = { workspace = true, features = ["std", "parallel"] }
+rayon = "1.7"
+lambdaworks-crypto = { workspace = true, features = ["std"] }
+lambdaworks-gpu = { workspace = true, optional = true }
+stark-platinum-prover = { path = "../stark" }
+thiserror = "1.0.38"
+log = "0.4.17"
+sha3 = "0.10.8"
+
+# Metal dependencies (macOS only)
+metal = { version = "0.29", optional = true }
+objc = { version = "0.2", optional = true }
+
+[dev-dependencies]
+rand = "0.8.5"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[example]]
+name = "gpu_only_bench"
+required-features = ["metal"]
+
+[[example]]
+name = "profile_gpu"
+required-features = ["metal"]
+
+[[example]]
+name = "quick_bench"
+required-features = ["metal"]
+
+[[example]]
+name = "phase_breakdown"
+required-features = ["metal"]
+
+[[bench]]
+name = "gpu_vs_cpu"
+harness = false
+
+[features]
+metal = ["dep:metal", "dep:objc", "dep:lambdaworks-gpu", "lambdaworks-gpu/metal", "lambdaworks-math/metal"]
+cuda = ["dep:lambdaworks-gpu", "lambdaworks-gpu/cuda", "lambdaworks-math/cuda"]
+default = []

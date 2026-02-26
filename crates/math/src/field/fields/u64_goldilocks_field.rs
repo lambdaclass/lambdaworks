@@ -12,11 +12,8 @@ use core::fmt::{self, Display};
 use core::hint::unreachable_unchecked;
 
 use crate::errors::CreationError;
-use crate::field::traits::HasDefaultTranscript;
-use crate::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
+use crate::field::traits::{HasDefaultTranscript, IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
 use crate::field::{element::FieldElement, errors::FieldError};
-#[cfg(feature = "alloc")]
-use crate::traits::AsBytes;
 use crate::traits::ByteConversion;
 
 // =====================================================
@@ -334,10 +331,107 @@ impl ByteConversion for FieldElement<Goldilocks64Field> {
     }
 }
 
+impl ByteConversion for FieldElement<Degree3GoldilocksExtensionField> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = ByteConversion::to_bytes_be(&self.value()[0]);
+        bytes.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        bytes.extend(ByteConversion::to_bytes_be(&self.value()[2]));
+        bytes
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = ByteConversion::to_bytes_le(&self.value()[0]);
+        bytes.extend(ByteConversion::to_bytes_le(&self.value()[1]));
+        bytes.extend(ByteConversion::to_bytes_le(&self.value()[2]));
+        bytes
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized,
+    {
+        const CS: usize = 8; // u64 component size
+        if bytes.len() < CS * 3 {
+            return Err(crate::errors::ByteConversionError::FromBEBytesError);
+        }
+        let c0 = FieldElement::<Goldilocks64Field>::from_bytes_be(&bytes[..CS])?;
+        let c1 = FieldElement::<Goldilocks64Field>::from_bytes_be(&bytes[CS..CS * 2])?;
+        let c2 = FieldElement::<Goldilocks64Field>::from_bytes_be(&bytes[CS * 2..CS * 3])?;
+        Ok(Self::new([c0, c1, c2]))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized,
+    {
+        const CS: usize = 8; // u64 component size
+        if bytes.len() < CS * 3 {
+            return Err(crate::errors::ByteConversionError::FromLEBytesError);
+        }
+        let c0 = FieldElement::<Goldilocks64Field>::from_bytes_le(&bytes[..CS])?;
+        let c1 = FieldElement::<Goldilocks64Field>::from_bytes_le(&bytes[CS..CS * 2])?;
+        let c2 = FieldElement::<Goldilocks64Field>::from_bytes_le(&bytes[CS * 2..CS * 3])?;
+        Ok(Self::new([c0, c1, c2]))
+    }
+}
+
 #[cfg(feature = "alloc")]
-impl AsBytes for FieldElement<Goldilocks64Field> {
+impl crate::traits::AsBytes for FieldElement<Goldilocks64Field> {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {
         self.to_bytes_be()
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl crate::traits::AsBytes for FieldElement<Degree2GoldilocksExtensionField> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = ByteConversion::to_bytes_be(&self.value()[0]);
+        bytes.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        bytes
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl crate::traits::AsBytes for FieldElement<Degree3GoldilocksExtensionField> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = ByteConversion::to_bytes_be(&self.value()[0]);
+        bytes.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        bytes.extend(ByteConversion::to_bytes_be(&self.value()[2]));
+        bytes
+    }
+}
+
+// =====================================================
+// HasDefaultTranscript (Fiat-Shamir support)
+// =====================================================
+
+impl HasDefaultTranscript for Goldilocks64Field {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        // Goldilocks modulus: 0xFFFF_FFFF_0000_0001
+        // leading_zeros() == 0, so mask = u64::MAX (all bits).
+        // Rejection sample: draw a full u64 and reject if >= MODULUS.
+        let mut sample = [0u8; 8];
+        let field;
+        loop {
+            rng.fill(&mut sample);
+            let value = u64::from_be_bytes(sample);
+            if value < GOLDILOCKS_PRIME {
+                field = FieldElement::from(value);
+                break;
+            }
+        }
+        field
+    }
+}
+
+impl HasDefaultTranscript for Degree3GoldilocksExtensionField {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        let c0 = Goldilocks64Field::get_random_field_element_from_rng(rng);
+        let c1 = Goldilocks64Field::get_random_field_element_from_rng(rng);
+        let c2 = Goldilocks64Field::get_random_field_element_from_rng(rng);
+        FieldElement::new([c0, c1, c2])
     }
 }
 
@@ -890,13 +984,6 @@ impl ByteConversion for FieldElement<Degree2GoldilocksExtensionField> {
     }
 }
 
-#[cfg(feature = "alloc")]
-impl AsBytes for FieldElement<Degree2GoldilocksExtensionField> {
-    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
-        self.to_bytes_be()
-    }
-}
-
 // =====================================================
 // CUBIC EXTENSION (Fp3)
 // =====================================================
@@ -1061,23 +1148,6 @@ impl IsSubFieldOf<Degree3GoldilocksExtensionField> for Goldilocks64Field {
 /// Field element type for the cubic extension
 pub type Fp3E = FieldElement<Degree3GoldilocksExtensionField>;
 
-// =====================================================
-// DEFAULT TRANSCRIPT SUPPORT
-// =====================================================
-
-impl HasDefaultTranscript for Goldilocks64Field {
-    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
-        let mut sample = [0u8; 8];
-        loop {
-            rng.fill(&mut sample);
-            let int_sample = u64::from_be_bytes(sample);
-            if int_sample < GOLDILOCKS_PRIME {
-                return FieldElement::from(int_sample);
-            }
-        }
-    }
-}
-
 impl HasDefaultTranscript for Degree2GoldilocksExtensionField {
     fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
         let c0 = Goldilocks64Field::get_random_field_element_from_rng(rng);
@@ -1186,6 +1256,52 @@ mod tests {
     fn to_hex_test() {
         let num = Goldilocks64Field::from_hex("B").unwrap();
         assert_eq!(Goldilocks64Field::to_hex(&num), "B");
+    }
+
+    #[test]
+    fn goldilocks_as_bytes_roundtrip() {
+        use crate::traits::AsBytes;
+        let fe = FpE::from(12345u64);
+        let bytes = fe.as_bytes();
+        assert_eq!(bytes.len(), 8);
+        let recovered = FpE::from_bytes_be(&bytes).unwrap();
+        assert_eq!(fe, recovered);
+    }
+
+    #[test]
+    fn goldilocks_fp2_as_bytes_roundtrip() {
+        use crate::traits::AsBytes;
+        let fe = Fp2E::new([FpE::from(1u64), FpE::from(2u64)]);
+        let bytes = fe.as_bytes();
+        assert_eq!(bytes.len(), 16);
+    }
+
+    #[test]
+    fn goldilocks_fp3_as_bytes_roundtrip() {
+        use crate::traits::AsBytes;
+        let fe = Fp3E::new([FpE::from(1u64), FpE::from(2u64), FpE::from(3u64)]);
+        let bytes = fe.as_bytes();
+        assert_eq!(bytes.len(), 24);
+    }
+
+    #[test]
+    fn goldilocks_default_transcript_sampling() {
+        use crate::field::traits::HasDefaultTranscript;
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let fe1 = Goldilocks64Field::get_random_field_element_from_rng(&mut rng);
+        let fe2 = Goldilocks64Field::get_random_field_element_from_rng(&mut rng);
+        // Different samples should give different values
+        assert_ne!(fe1, fe2);
+    }
+
+    #[test]
+    fn goldilocks_fp3_default_transcript_sampling() {
+        use crate::field::traits::HasDefaultTranscript;
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let fe = Degree3GoldilocksExtensionField::get_random_field_element_from_rng(&mut rng);
+        let _ = fe; // Just check it compiles and runs
     }
 }
 

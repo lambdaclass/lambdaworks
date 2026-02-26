@@ -50,7 +50,7 @@ where
         }
     }
 
-    pub(crate) fn evaluate<PI>(
+    pub fn evaluate<PI>(
         &self,
         air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         lde_trace: &LDETraceTable<Field, FieldExtension>,
@@ -232,21 +232,16 @@ where
                     let evaluations_transition =
                         air.compute_transition(&transition_evaluation_context);
 
-                    // Accumulate transition constraints
-                    let acc_transition = itertools::izip!(
+                    // Accumulate transition constraints, starting from boundary value
+                    itertools::izip!(
                         evaluations_transition,
                         &zerofiers_evals,
                         transition_coefficients
                     )
-                    .fold(
-                        FieldElement::zero(),
-                        |acc, (eval, zerof_eval, beta)| {
-                            let wrapped_idx = i % zerof_eval.len();
-                            acc + &zerof_eval[wrapped_idx] * eval * beta
-                        },
-                    );
-
-                    acc_transition + boundary
+                    .fold(boundary, |acc, (eval, zerof_eval, beta)| {
+                        let wrapped_idx = i % zerof_eval.len();
+                        acc + &zerof_eval[wrapped_idx] * eval * beta
+                    })
                 })
                 .collect()
         };
@@ -284,18 +279,18 @@ where
                 #[cfg(debug_assertions)]
                 transition_evaluations.push(transition_buffer.clone());
 
-                // Accumulate transition constraints
-                let acc_transition = itertools::izip!(
+                // Accumulate transition constraints, starting from boundary value
+                let total = itertools::izip!(
                     &transition_buffer,
                     &zerofiers_evals,
                     transition_coefficients
                 )
-                .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
+                .fold(boundary, |acc, (eval, zerof_eval, beta)| {
                     let wrapped_idx = i % zerof_eval.len();
                     acc + &zerof_eval[wrapped_idx] * eval * beta
                 });
 
-                result.push(acc_transition + boundary);
+                result.push(total);
             }
 
             result

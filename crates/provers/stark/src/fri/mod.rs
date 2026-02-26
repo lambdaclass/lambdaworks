@@ -1,6 +1,6 @@
 pub mod fri_commitment;
 pub mod fri_decommit;
-mod fri_functions;
+pub mod fri_functions;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::field::traits::{IsFFTField, IsField};

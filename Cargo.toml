@@ -10,6 +10,7 @@ members = [
     "crates/provers/groth16/circom-adapter",
     "crates/provers/plonk",
     "crates/provers/stark",
+    "crates/provers/stark-gpu",
     "crates/provers/sumcheck",
     "crates/provers/gkr",
     "crates/provers/gkr-logup",

@@ -10,6 +10,8 @@ cargo-fuzz = true
 lambdaworks-math = { workspace = true, features = ["metal"] }
 lambdaworks-gpu = { workspace = true, features = ["metal"] }
 lambdaworks-crypto = { path = "../../crates/crypto", features = ["metal"] }
+lambdaworks-stark-gpu = { path = "../../crates/provers/stark-gpu", features = ["metal"] }
+stark-platinum-prover = { path = "../../crates/provers/stark" }
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
 
@@ -46,5 +48,23 @@ doc = false
 [[bin]]
 name = "metal_icfft_mersenne31"
 path = "fuzz_targets/metal_icfft_mersenne31.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "metal_stark_fft_diff"
+path = "fuzz_targets/metal_stark_fft_diff.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "metal_stark_proof_diff"
+path = "fuzz_targets/metal_stark_proof_diff.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "metal_stark_lde_diff"
+path = "fuzz_targets/metal_stark_lde_diff.rs"
 test = false
 doc = false

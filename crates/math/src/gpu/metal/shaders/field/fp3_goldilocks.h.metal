@@ -79,6 +79,79 @@ public:
     Fp3Goldilocks neg() const {
         return Fp3Goldilocks(c0.neg(), c1.neg(), c2.neg());
     }
+
+    /// Squaring, optimized: fewer multiplications than self * self.
+    ///
+    /// c0 = s0 + 4*a1*a2          (s0 = a0^2)
+    /// c1 = 2*a0*a1 + 2*s2        (s2 = a2^2)
+    /// c2 = 2*a0*a2 + s1          (s1 = a1^2)
+    Fp3Goldilocks square() const {
+        Fp64Goldilocks s0 = c0 * c0;
+        Fp64Goldilocks s1 = c1 * c1;
+        Fp64Goldilocks s2 = c2 * c2;
+        Fp64Goldilocks a01 = c0 * c1;
+        Fp64Goldilocks a02 = c0 * c2;
+        Fp64Goldilocks a12 = c1 * c2;
+
+        // 4*a12 = 2*(2*a12)
+        Fp64Goldilocks four_a12 = (a12 + a12) + (a12 + a12);
+        Fp64Goldilocks two_a01 = a01 + a01;
+        Fp64Goldilocks two_s2 = s2 + s2;
+        Fp64Goldilocks two_a02 = a02 + a02;
+
+        return Fp3Goldilocks(
+            s0 + four_a12,
+            two_a01 + two_s2,
+            two_a02 + s1
+        );
+    }
+
+    /// Multiplicative inverse using norm-to-base-field.
+    ///
+    /// N = a0^3 + 2*a1^3 + 4*a2^3 - 6*a0*a1*a2
+    /// inv[0] = (a0^2 - 2*a1*a2) / N
+    /// inv[1] = (2*a2^2 - a0*a1) / N
+    /// inv[2] = (a1^2 - a0*a2) / N
+    Fp3Goldilocks inverse() const {
+        Fp64Goldilocks a0_sq = c0 * c0;
+        Fp64Goldilocks a1_sq = c1 * c1;
+        Fp64Goldilocks a2_sq = c2 * c2;
+
+        Fp64Goldilocks a0_cubed = a0_sq * c0;
+        Fp64Goldilocks a1_cubed = a1_sq * c1;
+        Fp64Goldilocks a2_cubed = a2_sq * c2;
+        Fp64Goldilocks a0a1a2 = c0 * c1 * c2;
+
+        // N = a0^3 + 2*a1^3 + 4*a2^3 - 6*a0*a1*a2
+        Fp64Goldilocks two_a1c = a1_cubed + a1_cubed;
+        Fp64Goldilocks four_a2c = (a2_cubed + a2_cubed) + (a2_cubed + a2_cubed);
+        // 6*x = 4*x + 2*x
+        Fp64Goldilocks two_a0a1a2 = a0a1a2 + a0a1a2;
+        Fp64Goldilocks six_a0a1a2 = two_a0a1a2 + two_a0a1a2 + two_a0a1a2;
+
+        Fp64Goldilocks norm = a0_cubed + two_a1c + four_a2c - six_a0a1a2;
+        Fp64Goldilocks norm_inv = norm.inverse();
+
+        Fp64Goldilocks a1a2 = c1 * c2;
+        Fp64Goldilocks a0a1 = c0 * c1;
+        Fp64Goldilocks a0a2 = c0 * c2;
+
+        return Fp3Goldilocks(
+            (a0_sq - (a1a2 + a1a2)) * norm_inv,
+            ((a2_sq + a2_sq) - a0a1) * norm_inv,
+            (a1_sq - a0a2) * norm_inv
+        );
+    }
+
+    /// Zero element.
+    static Fp3Goldilocks zero() {
+        return Fp3Goldilocks(Fp64Goldilocks::zero(), Fp64Goldilocks::zero(), Fp64Goldilocks::zero());
+    }
+
+    /// One element.
+    static Fp3Goldilocks one() {
+        return Fp3Goldilocks(Fp64Goldilocks::one(), Fp64Goldilocks::zero(), Fp64Goldilocks::zero());
+    }
 };
 
 #endif /* fp3_goldilocks_h */

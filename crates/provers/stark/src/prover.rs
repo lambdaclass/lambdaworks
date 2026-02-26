@@ -745,9 +745,10 @@ pub trait IsStarkProver<
         // Pre-compute z_shifted values: z_shifted[k] = z * g^k
         // This avoids recomputing primitive_root.pow(offset) * z for every trace polynomial
         let num_offsets = trace_frame_evaluations.height;
-        let z_shifted_values: Vec<FieldElement<FieldExtension>> = (0..num_offsets)
-            .map(|offset| primitive_root.pow(offset) * z)
-            .collect();
+        let z_shifted_values: Vec<FieldElement<FieldExtension>> =
+            std::iter::successors(Some(z.clone()), |prev| Some(primitive_root * prev))
+                .take(num_offsets)
+                .collect();
 
         #[cfg(feature = "parallel")]
         let trace_terms = trace_polys
