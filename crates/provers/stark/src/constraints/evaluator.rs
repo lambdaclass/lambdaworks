@@ -50,7 +50,7 @@ where
         }
     }
 
-    pub fn evaluate(
+    pub fn evaluate<PI>(
         &self,
         air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         lde_trace: &LDETraceTable<Field, FieldExtension>,
