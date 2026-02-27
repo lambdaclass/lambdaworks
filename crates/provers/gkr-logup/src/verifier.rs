@@ -145,7 +145,7 @@ impl<F: IsField> core::fmt::Display for VerifierError<F> {
 pub fn verify<F, T>(
     gate: Gate,
     proof: &Proof<F>,
-    channel: &mut T,
+    transcript: &mut T,
 ) -> Result<VerificationResult<F>, VerifierError<F>>
 where
     F: IsField + HasDefaultTranscript,
@@ -168,13 +168,13 @@ where
         return Err(VerifierError::MalformedProof);
     }
 
-    // Append output claims to channel (same as prover)
+    // Append output claims to transcript (same as prover)
     for claim in output_claims {
-        channel.append_field_element(claim);
+        transcript.append_field_element(claim);
     }
 
     // Sample lambda (same as prover)
-    let lambda: FieldElement<F> = channel.sample_field_element();
+    let lambda: FieldElement<F> = transcript.sample_field_element();
 
     let mut ood_point: Vec<FieldElement<F>> = Vec::new();
     let mut claims_to_verify = output_claims.clone();
@@ -188,7 +188,7 @@ where
             claim,
             &sumcheck_proofs[layer].round_polys,
             MAX_DEGREE,
-            channel,
+            transcript,
         )
         .map_err(|_| VerifierError::SumcheckFailed { layer })?;
 
@@ -218,14 +218,14 @@ where
             });
         }
 
-        // Append mask to channel (same as prover)
+        // Append mask to transcript (same as prover)
         for col in mask.columns() {
-            channel.append_field_element(&col[0]);
-            channel.append_field_element(&col[1]);
+            transcript.append_field_element(&col[0]);
+            transcript.append_field_element(&col[1]);
         }
 
         // Sample challenge (same as prover)
-        let challenge: FieldElement<F> = channel.sample_field_element();
+        let challenge: FieldElement<F> = transcript.sample_field_element();
 
         // Reduce mask at challenge point (borrow challenge before moving it)
         claims_to_verify = mask.reduce_at_point(&challenge);
@@ -272,7 +272,7 @@ pub struct BatchVerificationResult<F: IsField> {
 pub fn verify_batch<F, T>(
     gates: &[Gate],
     proof: &BatchProof<F>,
-    channel: &mut T,
+    transcript: &mut T,
 ) -> Result<BatchVerificationResult<F>, VerifierError<F>>
 where
     F: IsField + HasDefaultTranscript,
@@ -295,8 +295,8 @@ where
     }
 
     // Domain separation: must match prover (see prove_batch).
-    channel.append_bytes(b"gkr_batch");
-    channel.append_bytes(&(n_instances as u64).to_le_bytes());
+    transcript.append_bytes(b"gkr_batch");
+    transcript.append_bytes(&(n_instances as u64).to_le_bytes());
 
     let instance_n_layers = |instance: usize| layer_masks_by_instance[instance].len();
     let n_layers = (0..n_instances).map(instance_n_layers).max().unwrap_or(0);
@@ -335,16 +335,16 @@ where
             }
         }
 
-        // Seed channel with active claims.
+        // Seed transcript with active claims.
         for claims in claims_to_verify_by_instance.iter().flatten() {
             for claim in claims {
-                channel.append_field_element(claim);
+                transcript.append_field_element(claim);
             }
         }
 
         // Sample randomness (must match prover).
-        let sumcheck_alpha: FieldElement<F> = channel.sample_field_element();
-        let lambda: FieldElement<F> = channel.sample_field_element();
+        let sumcheck_alpha: FieldElement<F> = transcript.sample_field_element();
+        let lambda: FieldElement<F> = transcript.sample_field_element();
 
         let mut sumcheck_claims = Vec::new();
         let mut sumcheck_instances = Vec::new();
@@ -372,7 +372,7 @@ where
             combined_claim,
             &sumcheck_proof.round_polys,
             MAX_DEGREE,
-            channel,
+            transcript,
         )
         .map_err(|_| VerifierError::SumcheckFailed { layer })?;
 
@@ -410,18 +410,18 @@ where
             });
         }
 
-        // Seed channel with masks (same order as prover).
+        // Seed transcript with masks (same order as prover).
         for &instance in &sumcheck_instances {
             let n_unused = n_layers - instance_n_layers(instance);
             let mask = &layer_masks_by_instance[instance][layer - n_unused];
             for col in mask.columns() {
-                channel.append_field_element(&col[0]);
-                channel.append_field_element(&col[1]);
+                transcript.append_field_element(&col[0]);
+                transcript.append_field_element(&col[1]);
             }
         }
 
         // Sample challenge, reduce masks (borrow challenge before moving it).
-        let challenge: FieldElement<F> = channel.sample_field_element();
+        let challenge: FieldElement<F> = transcript.sample_field_element();
         for instance in sumcheck_instances {
             let n_unused = n_layers - instance_n_layers(instance);
             let mask = &layer_masks_by_instance[instance][layer - n_unused];

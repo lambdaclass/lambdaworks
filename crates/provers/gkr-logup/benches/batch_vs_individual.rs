@@ -46,8 +46,8 @@ fn make_logup_layer(num_vars: usize, seed: u64) -> Layer<F> {
 fn bench_individual_grand_product(num_vars: usize, n_instances: usize) {
     for i in 0..n_instances {
         let layer = make_grand_product_layer(num_vars, 42 + i as u64 * 100);
-        let mut channel = DefaultTranscript::<F>::new(&[]);
-        let _ = prove(&mut channel, layer);
+        let mut transcript = DefaultTranscript::<F>::new(&[]);
+        let _ = prove(&mut transcript, layer);
     }
 }
 
@@ -56,16 +56,16 @@ fn bench_batch_grand_product(num_vars: usize, n_instances: usize) {
     let layers: Vec<Layer<F>> = (0..n_instances)
         .map(|i| make_grand_product_layer(num_vars, 42 + i as u64 * 100))
         .collect();
-    let mut channel = DefaultTranscript::<F>::new(&[]);
-    let _ = prove_batch(&mut channel, layers);
+    let mut transcript = DefaultTranscript::<F>::new(&[]);
+    let _ = prove_batch(&mut transcript, layers);
 }
 
 /// Prove N LogUp instances individually.
 fn bench_individual_logup(num_vars: usize, n_instances: usize) {
     for i in 0..n_instances {
         let layer = make_logup_layer(num_vars, 42 + i as u64 * 100);
-        let mut channel = DefaultTranscript::<F>::new(&[]);
-        let _ = prove(&mut channel, layer);
+        let mut transcript = DefaultTranscript::<F>::new(&[]);
+        let _ = prove(&mut transcript, layer);
     }
 }
 
@@ -74,8 +74,8 @@ fn bench_batch_logup(num_vars: usize, n_instances: usize) {
     let layers: Vec<Layer<F>> = (0..n_instances)
         .map(|i| make_logup_layer(num_vars, 42 + i as u64 * 100))
         .collect();
-    let mut channel = DefaultTranscript::<F>::new(&[]);
-    let _ = prove_batch(&mut channel, layers);
+    let mut transcript = DefaultTranscript::<F>::new(&[]);
+    let _ = prove_batch(&mut transcript, layers);
 }
 
 /// Prove N instances with mixed sizes (half at num_vars, half at num_vars-2).
@@ -87,8 +87,8 @@ fn bench_individual_mixed_sizes(num_vars: usize, n_instances: usize) {
             num_vars.saturating_sub(2).max(1)
         };
         let layer = make_grand_product_layer(vars, 42 + i as u64 * 100);
-        let mut channel = DefaultTranscript::<F>::new(&[]);
-        let _ = prove(&mut channel, layer);
+        let mut transcript = DefaultTranscript::<F>::new(&[]);
+        let _ = prove(&mut transcript, layer);
     }
 }
 
@@ -104,8 +104,8 @@ fn bench_batch_mixed_sizes(num_vars: usize, n_instances: usize) {
             make_grand_product_layer(vars, 42 + i as u64 * 100)
         })
         .collect();
-    let mut channel = DefaultTranscript::<F>::new(&[]);
-    let _ = prove_batch(&mut channel, layers);
+    let mut transcript = DefaultTranscript::<F>::new(&[]);
+    let _ = prove_batch(&mut transcript, layers);
 }
 
 fn print_comparison(label: &str, individual: std::time::Duration, batch: std::time::Duration) {

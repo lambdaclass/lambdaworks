@@ -7,7 +7,7 @@ use lambdaworks_math::traits::ByteConversion;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 
-use lambdaworks_sumcheck::common::run_sumcheck_with_channel;
+use lambdaworks_sumcheck::common::run_sumcheck_with_transcript;
 use lambdaworks_sumcheck::common::SumcheckProver;
 use lambdaworks_sumcheck::ProverError;
 
@@ -43,25 +43,24 @@ where
 {
     /// Creates a new `LayerOracle`.
     ///
-    /// # Panics
-    ///
-    /// Panics if `input_layer` has zero variables (i.e., is an output layer).
+    /// Returns an error if `input_layer` has zero variables (i.e., is an output layer).
     fn new(
         eq_evals: EqEvaluations<F>,
         input_layer: Layer<F>,
         eq_fixed_var_correction: FieldElement<F>,
         lambda: FieldElement<F>,
-    ) -> Self {
-        assert!(
-            input_layer.n_variables() > 0,
-            "LayerOracle must not wrap an output layer (input_layer has 0 variables)"
-        );
-        Self {
+    ) -> Result<Self, ProverError> {
+        if input_layer.n_variables() == 0 {
+            return Err(ProverError::InvalidState(
+                "LayerOracle must not wrap an output layer (input_layer has 0 variables)".into(),
+            ));
+        }
+        Ok(Self {
             eq_evals,
             input_layer,
             eq_fixed_var_correction,
             lambda,
-        }
+        })
     }
 
     fn is_constant(&self) -> bool {
@@ -81,7 +80,11 @@ where
         claim: &FieldElement<F>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
         let n_variables = self.n_variables();
-        assert!(n_variables > 0, "Cannot sum a constant oracle");
+        if n_variables == 0 {
+            return Err(ProverError::InvalidState(
+                "Cannot sum a constant oracle (0 variables)".into(),
+            ));
+        }
         let n_terms = 1 << (n_variables - 1);
         let y = self.eq_evals.y();
         let lambda = &self.lambda;
@@ -322,7 +325,7 @@ fn correct_sum_as_poly_in_first_variable<F: IsField>(
 
 /// Adapter that wraps a [`LayerOracle`] to implement the sumcheck crate's
 /// [`SumcheckProver`] trait, allowing the GKR prover to use
-/// [`run_sumcheck_with_channel`] for its per-layer sumcheck.
+/// [`run_sumcheck_with_transcript`] for its per-layer sumcheck.
 struct LayerSumcheckProver<F: IsField>
 where
     F::BaseType: Send + Sync,
@@ -346,14 +349,19 @@ where
 
     /// Extracts the oracle, applying the final challenge to make it constant.
     ///
-    /// During `run_sumcheck_with_channel`, the adapter fixes one variable per round
+    /// During `run_sumcheck_with_transcript`, the adapter fixes one variable per round
     /// except the first, so the last challenge needs to be applied here.
-    fn into_oracle(self, final_challenge: Option<&FieldElement<F>>) -> LayerOracle<F> {
-        let mut oracle = self.oracle.expect("oracle must be present after sumcheck");
+    fn into_oracle(
+        self,
+        final_challenge: Option<&FieldElement<F>>,
+    ) -> Result<LayerOracle<F>, ProverError> {
+        let mut oracle = self.oracle.ok_or_else(|| {
+            ProverError::InvalidState("oracle must be present after sumcheck".into())
+        })?;
         if let Some(r) = final_challenge {
             oracle = oracle.fix_first_variable(r);
         }
-        oracle
+        Ok(oracle)
     }
 }
 
@@ -364,10 +372,8 @@ where
 {
     fn num_vars(&self) -> usize {
         // The oracle is always present during sumcheck rounds.
-        self.oracle
-            .as_ref()
-            .expect("oracle must be present during sumcheck")
-            .n_variables()
+        // If it's missing, this is an internal invariant violation.
+        self.oracle.as_ref().map_or(0, |o| o.n_variables())
     }
 
     fn num_factors(&self) -> usize {
@@ -386,18 +392,23 @@ where
             self.claim = self
                 .last_round_poly
                 .as_ref()
-                .expect("last_round_poly must be set after first round")
+                .ok_or_else(|| {
+                    ProverError::InvalidState(
+                        "last_round_poly must be set after first round".into(),
+                    )
+                })?
                 .evaluate(r);
-            let oracle = self
-                .oracle
-                .take()
-                .expect("oracle must be present during sumcheck");
+            let oracle = self.oracle.take().ok_or_else(|| {
+                ProverError::InvalidState("oracle must be present during sumcheck".into())
+            })?;
             self.oracle = Some(oracle.fix_first_variable(r));
         }
         let poly = self
             .oracle
             .as_ref()
-            .expect("oracle must be present during sumcheck")
+            .ok_or_else(|| {
+                ProverError::InvalidState("oracle must be present during sumcheck".into())
+            })?
             .sum_as_poly_in_first_variable(&self.claim)?;
         self.last_round_poly = Some(poly.clone());
         Ok(poly)
@@ -448,7 +459,7 @@ fn prove_batch_sumcheck<F, T>(
     mut claims: Vec<FieldElement<F>>,
     mut oracles: Vec<LayerOracle<F>>,
     alpha: &FieldElement<F>,
-    channel: &mut T,
+    transcript: &mut T,
 ) -> Result<
     (
         SumcheckProof<F>,
@@ -464,18 +475,26 @@ where
     FieldElement<F>: ByteConversion,
     T: IsTranscript<F>,
 {
-    assert_eq!(claims.len(), oracles.len());
+    if claims.len() != oracles.len() {
+        return Err(ProverError::InvalidState(
+            "claims and oracles length mismatch in prove_batch_sumcheck".into(),
+        ));
+    }
     let n_variables = oracles
         .iter()
         .map(|o| o.n_variables())
         .max()
-        .expect("prove_batch_sumcheck requires at least one oracle");
+        .ok_or_else(|| {
+            ProverError::InvalidState("prove_batch_sumcheck requires at least one oracle".into())
+        })?;
 
     let mut round_polys = Vec::with_capacity(n_variables);
     let mut assignment = Vec::with_capacity(n_variables);
 
     // Scale claims by doubling factor for smaller instances.
-    let two_inv = FieldElement::<F>::from(2u64).inv().unwrap();
+    let two_inv = FieldElement::<F>::from(2u64)
+        .inv()
+        .map_err(|_| ProverError::InvalidState("field has characteristic 2".into()))?;
     for (claim, oracle) in claims.iter_mut().zip(oracles.iter()) {
         let n_unused = n_variables - oracle.n_variables();
         if n_unused > 0 {
@@ -514,9 +533,9 @@ where
 
         // Send combined polynomial to verifier.
         for coeff in combined.coefficients() {
-            channel.append_field_element(coeff);
+            transcript.append_field_element(coeff);
         }
-        let challenge: FieldElement<F> = channel.sample_field_element();
+        let challenge: FieldElement<F> = transcript.sample_field_element();
 
         // Update per-oracle claims.
         claims = this_round_polys
@@ -545,12 +564,12 @@ where
 
 /// Proves a single GKR instance.
 ///
-/// The input layer should be committed to the channel before calling this function.
+/// The input layer should be committed to the transcript before calling this function.
 ///
 /// Returns a `Proof` and a `VerificationResult` containing the OOD point and claims
 /// to verify against the input layer's MLE.
 pub fn prove<F, T>(
-    channel: &mut T,
+    transcript: &mut T,
     input_layer: Layer<F>,
 ) -> Result<(Proof<F>, VerificationResult<F>), ProverError>
 where
@@ -560,23 +579,23 @@ where
     T: IsTranscript<F>,
 {
     // Generate all layers from input (leaves) to output (root)
-    let layers = gen_layers(input_layer);
+    let layers = gen_layers(input_layer)?;
     let n_layers = layers.len() - 1; // number of transitions
 
     // Get output values from the root layer
     let output_claims = layers
         .last()
-        .unwrap()
+        .ok_or_else(|| ProverError::InvalidState("no layers generated".into()))?
         .try_into_output_layer_values()
-        .expect("last layer should be output");
+        .ok_or_else(|| ProverError::InvalidState("last layer should be output".into()))?;
 
-    // Append output claims to channel
+    // Append output claims to transcript
     for claim in &output_claims {
-        channel.append_field_element(claim);
+        transcript.append_field_element(claim);
     }
 
     // Sample lambda for combining columns
-    let lambda: FieldElement<F> = channel.sample_field_element();
+    let lambda: FieldElement<F> = transcript.sample_field_element();
 
     let mut sumcheck_proofs = Vec::new();
     let mut layer_masks = Vec::new();
@@ -597,28 +616,29 @@ where
         // Create the multivariate polynomial oracle
         let claim = random_linear_combination(&claims_to_verify, &lambda);
 
-        let oracle = LayerOracle::new(eq_evals, layer.clone(), FieldElement::one(), lambda.clone());
+        let oracle =
+            LayerOracle::new(eq_evals, layer.clone(), FieldElement::one(), lambda.clone())?;
 
         // Run sumcheck via the adapter
         let mut layer_prover = LayerSumcheckProver::new(oracle, claim);
         let (round_polys, sumcheck_ood_point) =
-            run_sumcheck_with_channel(&mut layer_prover, channel)?;
-        let constant_oracle = layer_prover.into_oracle(sumcheck_ood_point.last());
+            run_sumcheck_with_transcript(&mut layer_prover, transcript)?;
+        let constant_oracle = layer_prover.into_oracle(sumcheck_ood_point.last())?;
         let sumcheck_proof = SumcheckProof { round_polys };
 
         // Extract mask from the constant oracle
-        let mask = constant_oracle
-            .try_into_mask()
-            .expect("oracle is constant after all sumcheck rounds");
+        let mask = constant_oracle.try_into_mask().ok_or_else(|| {
+            ProverError::InvalidState("oracle is not constant after all sumcheck rounds".into())
+        })?;
 
-        // Append mask to channel
+        // Append mask to transcript
         for col in mask.columns() {
-            channel.append_field_element(&col[0]);
-            channel.append_field_element(&col[1]);
+            transcript.append_field_element(&col[0]);
+            transcript.append_field_element(&col[1]);
         }
 
         // Sample challenge for next layer
-        let challenge: FieldElement<F> = channel.sample_field_element();
+        let challenge: FieldElement<F> = transcript.sample_field_element();
 
         // Reduce mask at challenge point (borrow challenge before moving it)
         claims_to_verify = mask.reduce_at_point(&challenge);
@@ -654,7 +674,7 @@ where
 /// Returns a `BatchProof` and `BatchVerificationResult` containing the shared OOD point
 /// and per-instance claims to verify against input layer MLEs.
 pub fn prove_batch<F, T>(
-    channel: &mut T,
+    transcript: &mut T,
     input_layers: Vec<Layer<F>>,
 ) -> Result<
     (
@@ -674,8 +694,8 @@ where
     // Domain separation: commit the batch protocol tag and instance count so the
     // transcript is structurally distinct from single-instance proofs and from
     // batches of different sizes (prevents proof malleability across modes).
-    channel.append_bytes(b"gkr_batch");
-    channel.append_bytes(&(n_instances as u64).to_le_bytes());
+    transcript.append_bytes(b"gkr_batch");
+    transcript.append_bytes(&(n_instances as u64).to_le_bytes());
 
     if n_instances == 0 {
         return Ok((
@@ -692,13 +712,16 @@ where
         ));
     }
     let n_layers_by_instance: Vec<usize> = input_layers.iter().map(|l| l.n_variables()).collect();
-    let n_layers = *n_layers_by_instance.iter().max().expect("n_instances > 0");
+    let n_layers = *n_layers_by_instance
+        .iter()
+        .max()
+        .ok_or_else(|| ProverError::InvalidState("prove_batch: no instances".into()))?;
 
     // Generate all layers per instance and reverse for output-to-input traversal.
     let mut layers_by_instance: Vec<std::iter::Rev<std::vec::IntoIter<Layer<F>>>> = input_layers
         .into_iter()
-        .map(|input_layer| gen_layers(input_layer).into_iter().rev())
-        .collect();
+        .map(|input_layer| gen_layers(input_layer).map(|l| l.into_iter().rev()))
+        .collect::<Result<Vec<_>, _>>()?;
 
     let mut output_claims_by_instance: Vec<Option<Vec<FieldElement<F>>>> = vec![None; n_instances];
     let mut layer_masks_by_instance: Vec<Vec<LayerMask<F>>> = vec![Vec::new(); n_instances];
@@ -711,10 +734,12 @@ where
     // Handle zero-layer instances (size-1 inputs: already at output, no sumcheck needed).
     for (instance, layers) in layers_by_instance.iter_mut().enumerate() {
         if n_layers_by_instance[instance] == 0 {
-            let output_layer = layers.next().unwrap();
-            let output_values = output_layer
-                .try_into_output_layer_values()
-                .expect("should be output layer");
+            let output_layer = layers.next().ok_or_else(|| {
+                ProverError::InvalidState("zero-layer instance has no layers".into())
+            })?;
+            let output_values = output_layer.try_into_output_layer_values().ok_or_else(|| {
+                ProverError::InvalidState("zero-layer instance: not an output layer".into())
+            })?;
             claims_to_verify_by_instance[instance] = Some(output_values.clone());
             output_claims_by_instance[instance] = Some(output_values);
         }
@@ -726,26 +751,33 @@ where
         // Detect output layers for each instance.
         for (instance, layers) in layers_by_instance.iter_mut().enumerate() {
             if n_layers_by_instance[instance] == n_remaining_layers {
-                let output_layer = layers.next().unwrap();
-                let output_layer_values = output_layer
-                    .try_into_output_layer_values()
-                    .expect("should be output layer");
+                let output_layer = layers.next().ok_or_else(|| {
+                    ProverError::InvalidState(format!(
+                        "instance {instance}: no output layer available"
+                    ))
+                })?;
+                let output_layer_values =
+                    output_layer.try_into_output_layer_values().ok_or_else(|| {
+                        ProverError::InvalidState(format!(
+                            "instance {instance}: not an output layer"
+                        ))
+                    })?;
                 claims_to_verify_by_instance[instance] = Some(output_layer_values.clone());
                 output_claims_by_instance[instance] = Some(output_layer_values);
             }
         }
 
-        // Seed channel with active claims.
+        // Seed transcript with active claims.
         for claims in claims_to_verify_by_instance.iter().flatten() {
             for claim in claims {
-                channel.append_field_element(claim);
+                transcript.append_field_element(claim);
             }
         }
 
         // Generate shared eq_evals and sample randomness.
         let eq_evals = EqEvaluations::generate(&ood_point);
-        let sumcheck_alpha: FieldElement<F> = channel.sample_field_element();
-        let lambda: FieldElement<F> = channel.sample_field_element();
+        let sumcheck_alpha: FieldElement<F> = transcript.sample_field_element();
+        let lambda: FieldElement<F> = transcript.sample_field_element();
 
         let mut sumcheck_oracles = Vec::new();
         let mut sumcheck_claims = Vec::new();
@@ -757,14 +789,18 @@ where
                 if n_layers_by_instance[instance] == 0 {
                     continue;
                 }
-                let next_layer = layers_by_instance[instance].next().unwrap();
+                let next_layer = layers_by_instance[instance].next().ok_or_else(|| {
+                    ProverError::InvalidState(format!(
+                        "instance {instance}: no next layer available"
+                    ))
+                })?;
                 // TODO: eq_evals is read-only during sumcheck — share via Arc instead of cloning.
                 let oracle = LayerOracle::new(
                     eq_evals.clone(),
                     next_layer,
                     FieldElement::one(),
                     lambda.clone(),
-                );
+                )?;
                 let claim = random_linear_combination(claims, &lambda);
                 sumcheck_oracles.push(oracle);
                 sumcheck_claims.push(claim);
@@ -774,30 +810,35 @@ where
 
         // Run batch sumcheck.
         let (sumcheck_proof, sumcheck_ood_point, constant_oracles, _final_claims) =
-            prove_batch_sumcheck(sumcheck_claims, sumcheck_oracles, &sumcheck_alpha, channel)?;
+            prove_batch_sumcheck(
+                sumcheck_claims,
+                sumcheck_oracles,
+                &sumcheck_alpha,
+                transcript,
+            )?;
 
         sumcheck_proofs.push(sumcheck_proof);
 
-        // Extract masks from constant oracles and seed channel.
+        // Extract masks from constant oracles and seed transcript.
         let masks: Vec<LayerMask<F>> = constant_oracles
             .into_iter()
             .map(|oracle| {
-                oracle
-                    .try_into_mask()
-                    .expect("oracle should be constant after sumcheck")
+                oracle.try_into_mask().ok_or_else(|| {
+                    ProverError::InvalidState("oracle should be constant after sumcheck".into())
+                })
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
 
         for (&instance, mask) in sumcheck_instances.iter().zip(masks.iter()) {
             for col in mask.columns() {
-                channel.append_field_element(&col[0]);
-                channel.append_field_element(&col[1]);
+                transcript.append_field_element(&col[0]);
+                transcript.append_field_element(&col[1]);
             }
             layer_masks_by_instance[instance].push(mask.clone());
         }
 
         // Sample challenge, reduce masks (borrow challenge before moving it).
-        let challenge: FieldElement<F> = channel.sample_field_element();
+        let challenge: FieldElement<F> = transcript.sample_field_element();
         for (instance, mask) in sumcheck_instances.into_iter().zip(masks) {
             claims_to_verify_by_instance[instance] = Some(mask.reduce_at_point(&challenge));
         }
@@ -809,13 +850,23 @@ where
 
     let output_claims_by_instance: Vec<Vec<FieldElement<F>>> = output_claims_by_instance
         .into_iter()
-        .map(|o| o.expect("all instances should have output claims"))
-        .collect();
+        .enumerate()
+        .map(|(i, o)| {
+            o.ok_or_else(|| {
+                ProverError::InvalidState(format!("instance {i}: missing output claims"))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     let claims_to_verify_by_instance: Vec<Vec<FieldElement<F>>> = claims_to_verify_by_instance
         .into_iter()
-        .map(|c| c.expect("all instances should have claims"))
-        .collect();
+        .enumerate()
+        .map(|(i, c)| {
+            c.ok_or_else(|| {
+                ProverError::InvalidState(format!("instance {i}: missing claims to verify"))
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
     let proof = crate::verifier::BatchProof {
         sumcheck_proofs,
@@ -847,21 +898,21 @@ mod tests {
     fn prove_and_verify_grand_product(values: Vec<FE>) -> VerificationResult<F> {
         let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, _artifact) = prove(&mut prover_channel, input_layer).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, _artifact) = prove(&mut prover_transcript, input_layer).unwrap();
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        verifier::verify(Gate::GrandProduct, &proof, &mut verifier_channel)
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        verifier::verify(Gate::GrandProduct, &proof, &mut verifier_transcript)
             .expect("verification should succeed")
     }
 
     /// Helper: prove and verify a LogUp layer, returning the artifact.
     fn prove_and_verify_logup(input_layer: Layer<F>) -> VerificationResult<F> {
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, _artifact) = prove(&mut prover_channel, input_layer).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, _artifact) = prove(&mut prover_transcript, input_layer).unwrap();
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        verifier::verify(Gate::LogUp, &proof, &mut verifier_channel)
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        verifier::verify(Gate::LogUp, &proof, &mut verifier_transcript)
             .expect("verification should succeed")
     }
 
@@ -871,8 +922,8 @@ mod tests {
         let product: FE = values.iter().cloned().reduce(|a, b| a * b).unwrap();
 
         let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
-        let mut channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, artifact) = prove(&mut channel, input_layer).unwrap();
+        let mut transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, artifact) = prove(&mut transcript, input_layer).unwrap();
 
         assert_eq!(proof.output_claims, vec![product]);
         assert_eq!(proof.sumcheck_proofs.len(), 3); // log2(8) = 3 layers
@@ -895,8 +946,8 @@ mod tests {
             numerators: DenseMultilinearPolynomial::new(numerators),
             denominators: DenseMultilinearPolynomial::new(denominators),
         };
-        let mut channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, _artifact) = prove(&mut channel, input_layer).unwrap();
+        let mut transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, _artifact) = prove(&mut transcript, input_layer).unwrap();
 
         assert_eq!(proof.output_claims.len(), 2);
         let out_ratio = proof.output_claims[0] * expected.denominator.inv().unwrap();
@@ -995,14 +1046,14 @@ mod tests {
         let values: Vec<FE> = (1u64..=4).map(FE::from).collect();
         let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (mut proof, _) = prove(&mut prover_channel, input_layer).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (mut proof, _) = prove(&mut prover_transcript, input_layer).unwrap();
 
         // Corrupt the output claims
         proof.output_claims[0] = FE::from(999);
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_transcript);
         assert!(result.is_err());
     }
 
@@ -1011,8 +1062,8 @@ mod tests {
         let values: Vec<FE> = (1u64..=8).map(FE::from).collect();
         let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (mut proof, _) = prove(&mut prover_channel, input_layer).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (mut proof, _) = prove(&mut prover_transcript, input_layer).unwrap();
 
         // Find a sumcheck proof with non-empty round polys and corrupt it
         let idx = proof
@@ -1022,8 +1073,8 @@ mod tests {
             .expect("should have at least one non-trivial sumcheck");
         proof.sumcheck_proofs[idx].round_polys[0] = Polynomial::new(&[FE::from(1), FE::from(2)]);
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_transcript);
         assert!(result.is_err());
     }
 
@@ -1032,14 +1083,14 @@ mod tests {
         let values: Vec<FE> = (1u64..=4).map(FE::from).collect();
         let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (mut proof, _) = prove(&mut prover_channel, input_layer).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (mut proof, _) = prove(&mut prover_transcript, input_layer).unwrap();
 
         // Corrupt the first mask
         proof.layer_masks[0] = LayerMask::new(vec![[FE::from(42), FE::from(43)]]);
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_transcript);
         assert!(result.is_err());
     }
 
@@ -1049,11 +1100,11 @@ mod tests {
         let values: Vec<FE> = (1u64..=4).map(FE::from).collect();
         let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, _) = prove(&mut prover_channel, input_layer).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, _) = prove(&mut prover_transcript, input_layer).unwrap();
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify(Gate::LogUp, &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify(Gate::LogUp, &proof, &mut verifier_transcript);
         assert!(result.is_err());
     }
 
@@ -1064,11 +1115,11 @@ mod tests {
         gates: Vec<Gate>,
         input_layers: Vec<Layer<F>>,
     ) -> verifier::BatchVerificationResult<F> {
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, _artifact) = prove_batch(&mut prover_channel, input_layers).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, _artifact) = prove_batch(&mut prover_transcript, input_layers).unwrap();
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        verifier::verify_batch(&gates, &proof, &mut verifier_channel)
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        verifier::verify_batch(&gates, &proof, &mut verifier_transcript)
             .expect("batch verification should succeed")
     }
 
@@ -1193,9 +1244,9 @@ mod tests {
         let values0: Vec<FE> = (1u64..=8).map(FE::from).collect();
         let values1: Vec<FE> = (11u64..=18).map(FE::from).collect();
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
         let (mut proof, _) = prove_batch(
-            &mut prover_channel,
+            &mut prover_transcript,
             vec![
                 Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
                 Layer::GrandProduct(DenseMultilinearPolynomial::new(values1)),
@@ -1205,11 +1256,11 @@ mod tests {
 
         proof.output_claims_by_instance[0][0] = FE::from(999);
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
         let result = verifier::verify_batch(
             &[Gate::GrandProduct, Gate::GrandProduct],
             &proof,
-            &mut verifier_channel,
+            &mut verifier_transcript,
         );
         assert!(result.is_err());
     }
@@ -1219,9 +1270,9 @@ mod tests {
         let values0: Vec<FE> = (1u64..=8).map(FE::from).collect();
         let values1: Vec<FE> = (11u64..=18).map(FE::from).collect();
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
         let (mut proof, _) = prove_batch(
-            &mut prover_channel,
+            &mut prover_transcript,
             vec![
                 Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
                 Layer::GrandProduct(DenseMultilinearPolynomial::new(values1)),
@@ -1236,11 +1287,11 @@ mod tests {
             .expect("should have at least one non-trivial sumcheck");
         proof.sumcheck_proofs[idx].round_polys[0] = Polynomial::new(&[FE::from(1), FE::from(2)]);
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
         let result = verifier::verify_batch(
             &[Gate::GrandProduct, Gate::GrandProduct],
             &proof,
-            &mut verifier_channel,
+            &mut verifier_transcript,
         );
         assert!(result.is_err());
     }
@@ -1250,9 +1301,9 @@ mod tests {
         let values0: Vec<FE> = (1u64..=4).map(FE::from).collect();
         let values1: Vec<FE> = (11u64..=14).map(FE::from).collect();
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
         let (mut proof, _) = prove_batch(
-            &mut prover_channel,
+            &mut prover_transcript,
             vec![
                 Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
                 Layer::GrandProduct(DenseMultilinearPolynomial::new(values1)),
@@ -1262,11 +1313,11 @@ mod tests {
 
         proof.layer_masks_by_instance[0][0] = LayerMask::new(vec![[FE::from(42), FE::from(43)]]);
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
         let result = verifier::verify_batch(
             &[Gate::GrandProduct, Gate::GrandProduct],
             &proof,
-            &mut verifier_channel,
+            &mut verifier_transcript,
         );
         assert!(result.is_err());
     }
@@ -1313,14 +1364,17 @@ mod tests {
         };
 
         // Batch prove both instances
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
         let (proof, _artifact) =
-            prove_batch(&mut prover_channel, vec![access_layer, table_layer]).unwrap();
+            prove_batch(&mut prover_transcript, vec![access_layer, table_layer]).unwrap();
 
         // Batch verify
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result =
-            verifier::verify_batch(&[Gate::LogUp, Gate::LogUp], &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify_batch(
+            &[Gate::LogUp, Gate::LogUp],
+            &proof,
+            &mut verifier_transcript,
+        );
         assert!(result.is_ok(), "batch verification failed");
 
         // Check that both instances produce the same fraction:
@@ -1358,14 +1412,17 @@ mod tests {
             denominators: DenseMultilinearPolynomial::new(table_dens),
         };
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
         let (proof, _artifact) =
-            prove_batch(&mut prover_channel, vec![access_layer, table_layer]).unwrap();
+            prove_batch(&mut prover_transcript, vec![access_layer, table_layer]).unwrap();
 
         // GKR itself verifies fine (each instance is internally consistent)
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result =
-            verifier::verify_batch(&[Gate::LogUp, Gate::LogUp], &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify_batch(
+            &[Gate::LogUp, Gate::LogUp],
+            &proof,
+            &mut verifier_transcript,
+        );
         assert!(result.is_ok(), "GKR verification should still pass");
 
         // But the ROM check fails: fractions don't match
@@ -1385,16 +1442,16 @@ mod tests {
         let values: Vec<FE> = (1u64..=8).map(FE::from).collect();
         let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (mut proof, _) = prove(&mut prover_channel, input_layer).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (mut proof, _) = prove(&mut prover_transcript, input_layer).unwrap();
 
         // Remove round polynomials from the second layer to make sumcheck_ood_point too short.
         if proof.sumcheck_proofs.len() > 1 && !proof.sumcheck_proofs[1].round_polys.is_empty() {
             proof.sumcheck_proofs[1].round_polys.clear();
         }
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_transcript);
         assert!(result.is_err(), "should return error, not panic");
     }
 
@@ -1403,14 +1460,15 @@ mod tests {
         // Issue 2: size-1 instance (0 variables, 0 layers) should not panic.
         let single = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(42)]));
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, artifact) = prove_batch(&mut prover_channel, vec![single]).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, artifact) = prove_batch(&mut prover_transcript, vec![single]).unwrap();
 
         assert_eq!(artifact.n_variables_by_instance, vec![0]);
         assert_eq!(artifact.claims_to_verify_by_instance[0], vec![FE::from(42)]);
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify_batch(&[Gate::GrandProduct], &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result =
+            verifier::verify_batch(&[Gate::GrandProduct], &proof, &mut verifier_transcript);
         assert!(
             result.is_ok(),
             "batch verification of size-1 instance should succeed"
@@ -1452,11 +1510,11 @@ mod tests {
         // A size-1 GrandProduct verified with LogUp gate should fail.
         let input = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(42)]));
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, _) = prove(&mut prover_channel, input).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, _) = prove(&mut prover_transcript, input).unwrap();
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify(Gate::LogUp, &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify(Gate::LogUp, &proof, &mut verifier_transcript);
         assert!(
             result.is_err(),
             "wrong gate on 0-layer instance should be rejected"
@@ -1468,11 +1526,11 @@ mod tests {
         // A size-1 GrandProduct in batch verified with LogUp gate should fail.
         let single = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(42)]));
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, _) = prove_batch(&mut prover_channel, vec![single]).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, _) = prove_batch(&mut prover_transcript, vec![single]).unwrap();
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify_batch(&[Gate::LogUp], &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify_batch(&[Gate::LogUp], &proof, &mut verifier_transcript);
         assert!(
             result.is_err(),
             "wrong gate on 0-layer batch instance should be rejected"
@@ -1484,8 +1542,8 @@ mod tests {
     #[test]
     fn batch_empty_instances() {
         // Zero instances: prove_batch returns empty proof, verify_batch accepts it.
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, artifact) = prove_batch(&mut prover_channel, vec![]).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, artifact) = prove_batch(&mut prover_transcript, vec![]).unwrap();
 
         assert!(proof.sumcheck_proofs.is_empty());
         assert!(proof.layer_masks_by_instance.is_empty());
@@ -1493,8 +1551,8 @@ mod tests {
         assert!(artifact.ood_point.is_empty());
         assert!(artifact.claims_to_verify_by_instance.is_empty());
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify_batch(&[], &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify_batch(&[], &proof, &mut verifier_transcript);
         assert!(result.is_ok(), "empty batch should verify successfully");
 
         let vr = result.unwrap();
@@ -1506,8 +1564,8 @@ mod tests {
         // Size-1 input (0 variables, 0 sumcheck layers) for single prove/verify.
         let input = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(42)]));
 
-        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, artifact) = prove(&mut prover_channel, input).unwrap();
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let (proof, artifact) = prove(&mut prover_transcript, input).unwrap();
 
         assert_eq!(proof.output_claims, vec![FE::from(42)]);
         assert!(proof.sumcheck_proofs.is_empty());
@@ -1516,8 +1574,8 @@ mod tests {
         assert!(artifact.ood_point.is_empty());
         assert_eq!(artifact.claims_to_verify, vec![FE::from(42)]);
 
-        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_channel);
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_transcript);
         assert!(result.is_ok(), "size-1 single prove should verify");
 
         let vr = result.unwrap();
