@@ -8,17 +8,19 @@ use sha3::{Digest, Keccak256};
 
 use rand::SeedableRng;
 
+use std::ops::Neg;
+
 /// Schnorr Signature of a message using an elliptic curve as the group.
 pub struct MessageSigned {
     pub message: String,
     pub signature: (FE, FE),
 }
 
-/// Function that should use the the signer to obtain her public key.
+/// Function that should use the signer to obtain her public key.
 pub fn get_public_key(private_key: &FE) -> CurvePoint {
     let g = Curve::generator();
-    // h = g^{-k}, where h = public_key and k = private_key.
-    g.operate_with_self(private_key.canonical()).neg()
+    // h = g^{k}, where h = public_key and k = private_key.
+    g.operate_with_self(private_key.canonical())
 }
 
 /// Function that should use the signer to sign a message.
@@ -63,10 +65,10 @@ pub fn verify_signature(public_key: &CurvePoint, message_signed: &MessageSigned)
     let message = &message_signed.message;
     let (s, e) = &message_signed.signature;
 
-    // rv = g^s * h^e, with h = public_key and (s, e) = signature.
+    // rv = g^s * h^-e, with h = public_key and (s, e) = signature.
     let rv = g
         .operate_with_self(s.canonical())
-        .operate_with(&public_key.operate_with_self(e.canonical()));
+        .operate_with(&public_key.operate_with_self(e.neg().canonical()));
 
     // We want to compute ev = H(rv || M).
     let mut hasher = Keccak256::new();
