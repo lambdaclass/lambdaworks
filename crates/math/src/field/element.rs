@@ -66,6 +66,38 @@ pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
 
+/// Minimum batch size for parallel inversion.
+/// Below this threshold, sequential inversion is used to avoid parallelization overhead.
+///
+/// Architecture-specific defaults based on empirical benchmarking:
+/// - x86-64 (AMD/Intel): 1024 elements (thread spawning overhead is low, ~10-30% speedup)
+/// - ARM64 (Apple M1/M2): 32768 elements (higher overhead, optimized for 64-bit fields like Goldilocks)
+///
+/// Note: The ARM64 threshold is optimized for small fields (u64 Goldilocks: 3-4x faster operations).
+/// For larger fields (252-bit Stark252), a smaller threshold like 8192 may be better.
+/// Override via `LAMBDAWORKS_PARALLEL_THRESHOLD` environment variable if needed:
+///   export LAMBDAWORKS_PARALLEL_THRESHOLD=8192
+///
+/// Benchmarking methodology: see `benches/benches/batch_inverse.rs`
+#[cfg(all(feature = "alloc", feature = "parallel", target_arch = "x86_64"))]
+pub const PARALLEL_INVERSION_THRESHOLD: usize = 1024;
+
+#[cfg(all(feature = "alloc", feature = "parallel", target_arch = "aarch64"))]
+pub const PARALLEL_INVERSION_THRESHOLD: usize = 32768;
+
+#[cfg(all(
+    feature = "alloc",
+    feature = "parallel",
+    not(any(target_arch = "x86_64", target_arch = "aarch64"))
+))]
+pub const PARALLEL_INVERSION_THRESHOLD: usize = 4096;
+
+/// Minimum chunk size for parallel batch inversion.
+/// Ensures each thread has enough work to amortize parallelization overhead
+/// and maintain cache efficiency.
+#[cfg(all(feature = "alloc", feature = "parallel"))]
+const MIN_CHUNK_SIZE: usize = 64;
+
 #[cfg(feature = "alloc")]
 impl<F: IsField> FieldElement<F> {
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
@@ -94,24 +126,64 @@ impl<F: IsField> FieldElement<F> {
     }
 
     #[cfg(feature = "parallel")]
+    /// Gets the parallelization threshold, with optional runtime override.
+    ///
+    /// Returns the threshold from `LAMBDAWORKS_PARALLEL_THRESHOLD` environment variable
+    /// if set, otherwise uses the architecture-specific default.
+    ///
+    /// This allows tuning for specific hardware without recompilation.
+    fn get_parallel_threshold() -> usize {
+        #[cfg(feature = "std")]
+        {
+            if let Ok(threshold_str) = std::env::var("LAMBDAWORKS_PARALLEL_THRESHOLD") {
+                if let Ok(threshold) = threshold_str.parse::<usize>() {
+                    return threshold;
+                }
+            }
+        }
+        PARALLEL_INVERSION_THRESHOLD
+    }
+
+    #[cfg(feature = "parallel")]
+    /// Computes the optimal chunk size for parallel batch inversion.
+    ///
+    /// The chunk size balances:
+    /// - Number of available CPU cores (for parallelization)
+    /// - Minimum work per thread (to amortize overhead)
+    /// - Load balancing (allowing some slack with extra chunks)
+    fn optimal_chunk_size(batch_size: usize) -> usize {
+        let num_threads = rayon::current_num_threads();
+        // Allow up to 4x as many chunks as threads for better load balancing
+        let max_chunks = num_threads.saturating_mul(4);
+        let chunk_size = batch_size.div_ceil(max_chunks);
+
+        // Ensure minimum chunk size for cache efficiency
+        core::cmp::max(MIN_CHUNK_SIZE, chunk_size)
+    }
+
+    #[cfg(feature = "parallel")]
     /// Parallel batch inversion using chunked Montgomery's trick.
     /// Each chunk performs independent batch inversion in parallel.
     /// Falls back to sequential for small batches.
     ///
     /// Trade-off: Uses one inversion per chunk instead of one total,
-    /// but parallelism provides net speedup for large batches (>= 4096).
+    /// but parallelism provides net speedup for batches >= [`PARALLEL_INVERSION_THRESHOLD`].
+    ///
+    /// # Arguments
+    /// * `numbers` - Mutable slice of field elements to invert in place
+    ///
+    /// # Returns
+    /// * `Ok(())` if all elements were successfully inverted
+    /// * `Err(FieldError)` if any element is zero (not invertible)
     pub fn inplace_batch_inverse_parallel(numbers: &mut [Self]) -> Result<(), FieldError> {
         use rayon::prelude::*;
 
-        const PARALLEL_THRESHOLD: usize = 4096;
-
-        if numbers.len() < PARALLEL_THRESHOLD {
+        let threshold = Self::get_parallel_threshold();
+        if numbers.len() < threshold {
             return Self::inplace_batch_inverse(numbers);
         }
 
-        // Determine chunk size based on number of available threads
-        let num_threads = rayon::current_num_threads();
-        let chunk_size = numbers.len().div_ceil(num_threads);
+        let chunk_size = Self::optimal_chunk_size(numbers.len());
 
         // Process each chunk independently in parallel
         // Each chunk does its own batch inversion (one inversion per chunk)
@@ -1087,6 +1159,155 @@ mod tests {
             for (i, x) in inverses.into_iter().enumerate() {
                 prop_assert_eq!(x * input[i], FieldElement::<Stark252PrimeField>::one());
             }
+        }
+    }
+
+    // Tests for parallel batch inversion
+    #[cfg(all(feature = "alloc", feature = "parallel"))]
+    mod parallel_batch_inverse_tests {
+        use super::*;
+
+        #[test]
+        fn test_parallel_batch_inverse_empty() {
+            let mut numbers: Vec<FieldElement<Stark252PrimeField>> = vec![];
+            FieldElement::inplace_batch_inverse_parallel(&mut numbers)
+                .expect("empty batch should succeed");
+            assert!(numbers.is_empty());
+        }
+
+        #[test]
+        fn test_parallel_batch_inverse_single_element() {
+            let original = FieldElement::<Stark252PrimeField>::from(42u64);
+            let mut numbers = vec![original];
+            FieldElement::inplace_batch_inverse_parallel(&mut numbers)
+                .expect("single element batch should succeed");
+
+            assert_eq!(
+                numbers[0] * original,
+                FieldElement::<Stark252PrimeField>::one()
+            );
+        }
+
+        #[test]
+        fn test_parallel_batch_inverse_below_threshold() {
+            // Test with size below PARALLEL_INVERSION_THRESHOLD (falls back to sequential)
+            let size = 100;
+            let input: Vec<_> = (1..=size)
+                .map(|i| FieldElement::<Stark252PrimeField>::from(i as u64))
+                .collect();
+            let mut inverses = input.clone();
+            FieldElement::inplace_batch_inverse_parallel(&mut inverses)
+                .expect("batch inversion should succeed");
+
+            for (inv, orig) in inverses.iter().zip(input.iter()) {
+                assert_eq!(inv * orig, FieldElement::<Stark252PrimeField>::one());
+            }
+        }
+
+        #[test]
+        fn test_parallel_batch_inverse_at_threshold() {
+            // Test exactly at the threshold boundary
+            let size = super::super::PARALLEL_INVERSION_THRESHOLD;
+            let input: Vec<_> = (1..=size)
+                .map(|i| FieldElement::<Stark252PrimeField>::from(i as u64))
+                .collect();
+            let mut inverses = input.clone();
+            FieldElement::inplace_batch_inverse_parallel(&mut inverses)
+                .expect("batch inversion should succeed");
+
+            for (inv, orig) in inverses.iter().zip(input.iter()) {
+                assert_eq!(inv * orig, FieldElement::<Stark252PrimeField>::one());
+            }
+        }
+
+        #[test]
+        fn test_parallel_batch_inverse_above_threshold() {
+            // Test with size above PARALLEL_INVERSION_THRESHOLD (uses parallel path)
+            let size = super::super::PARALLEL_INVERSION_THRESHOLD + 500;
+            let input: Vec<_> = (1..=size)
+                .map(|i| FieldElement::<Stark252PrimeField>::from(i as u64))
+                .collect();
+            let mut inverses = input.clone();
+            FieldElement::inplace_batch_inverse_parallel(&mut inverses)
+                .expect("batch inversion should succeed");
+
+            for (inv, orig) in inverses.iter().zip(input.iter()) {
+                assert_eq!(inv * orig, FieldElement::<Stark252PrimeField>::one());
+            }
+        }
+
+        #[test]
+        fn test_parallel_and_sequential_produce_same_results() {
+            let size = super::super::PARALLEL_INVERSION_THRESHOLD + 100;
+            let input: Vec<_> = (1..=size)
+                .map(|i| FieldElement::<Stark252PrimeField>::from(i as u64))
+                .collect();
+
+            let mut sequential = input.clone();
+            let mut parallel = input.clone();
+
+            FieldElement::inplace_batch_inverse(&mut sequential)
+                .expect("sequential batch inversion should succeed");
+            FieldElement::inplace_batch_inverse_parallel(&mut parallel)
+                .expect("parallel batch inversion should succeed");
+
+            // Both should produce valid inverses (not necessarily identical due to chunking)
+            for (i, orig) in input.iter().enumerate() {
+                assert_eq!(
+                    sequential[i] * orig,
+                    FieldElement::<Stark252PrimeField>::one(),
+                    "sequential inverse at index {} is incorrect",
+                    i
+                );
+                assert_eq!(
+                    parallel[i] * orig,
+                    FieldElement::<Stark252PrimeField>::one(),
+                    "parallel inverse at index {} is incorrect",
+                    i
+                );
+            }
+        }
+
+        #[test]
+        fn test_parallel_batch_inverse_with_zero_fails() {
+            let mut numbers = vec![
+                FieldElement::<Stark252PrimeField>::from(1u64),
+                FieldElement::<Stark252PrimeField>::zero(),
+                FieldElement::<Stark252PrimeField>::from(3u64),
+            ];
+            let result = FieldElement::inplace_batch_inverse_parallel(&mut numbers);
+            assert!(result.is_err(), "batch with zero should fail");
+        }
+
+        #[test]
+        fn test_optimal_chunk_size_minimum() {
+            // Small batch should still respect minimum chunk size
+            let batch_size = 100;
+            let chunk_size = FieldElement::<Stark252PrimeField>::optimal_chunk_size(batch_size);
+            assert!(
+                chunk_size >= super::super::MIN_CHUNK_SIZE,
+                "chunk size {} should be at least MIN_CHUNK_SIZE {}",
+                chunk_size,
+                super::super::MIN_CHUNK_SIZE
+            );
+        }
+
+        #[test]
+        fn test_optimal_chunk_size_scales_with_batch() {
+            // Large batch should produce reasonable chunk sizes
+            let small_batch = 1000;
+            let large_batch = 10000;
+
+            let small_chunk = FieldElement::<Stark252PrimeField>::optimal_chunk_size(small_batch);
+            let large_chunk = FieldElement::<Stark252PrimeField>::optimal_chunk_size(large_batch);
+
+            // Larger batches should have larger or equal chunk sizes
+            assert!(
+                large_chunk >= small_chunk,
+                "large batch chunk size {} should be >= small batch chunk size {}",
+                large_chunk,
+                small_chunk
+            );
         }
     }
 
