@@ -13,6 +13,7 @@ use crate::utils::{fold_mle_evals, random_linear_combination};
 
 /// Proof for the sumcheck protocol: one round polynomial per variable.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SumcheckProof<F: IsField> {
     pub round_polys: Vec<Polynomial<FieldElement<F>>>,
 }
@@ -63,6 +64,7 @@ impl Gate {
 
 /// Stores two evaluations (at 0 and 1) of each column in a GKR layer.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LayerMask<F: IsField> {
     columns: Vec<[FieldElement<F>; 2]>,
 }
@@ -87,6 +89,7 @@ impl<F: IsField> LayerMask<F> {
 
 /// Single-instance GKR proof.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Proof<F: IsField> {
     /// One sumcheck proof per layer (output to input).
     pub sumcheck_proofs: Vec<SumcheckProof<F>>,

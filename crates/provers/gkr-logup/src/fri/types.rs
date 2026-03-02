@@ -6,6 +6,7 @@ use lambdaworks_math::field::traits::IsField;
 
 /// FRI protocol configuration.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FriConfig {
     /// log2 of the blowup factor. 1 means 2x blowup, 2 means 4x, etc.
     pub log_blowup: usize,
@@ -53,6 +54,7 @@ impl Default for FriConfig {
 
 /// Proof data for a single FRI query at one layer.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FriQueryRound<F: IsField> {
     /// Evaluation at the query index.
     pub eval: FieldElement<F>,
@@ -66,6 +68,7 @@ pub struct FriQueryRound<F: IsField> {
 
 /// Complete FRI proof.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FriProof<F: IsField> {
     /// Merkle roots for each layer (sent to verifier).
     pub layer_merkle_roots: Vec<[u8; 32]>,
@@ -80,6 +83,7 @@ pub struct FriProof<F: IsField> {
 /// Contains evaluations and Merkle authentication paths at both the query
 /// index and its symmetric partner in the LDE domain.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct OriginalPolyDecommitment<F: IsField> {
     /// Evaluation at the query index.
     pub eval: FieldElement<F>,

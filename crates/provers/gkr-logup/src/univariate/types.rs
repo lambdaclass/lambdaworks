@@ -12,6 +12,7 @@ use super::pcs::CommitmentSchemeError;
 /// The verifier checks that committed univariate polynomials are consistent with the
 /// GKR output via Lagrange column inner products.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnivariateIopProof<F: IsField> {
     /// Committed univariate polynomial values (Phase 1: raw values as Fiat-Shamir commitment).
     pub committed_columns: Vec<Vec<FieldElement<F>>>,
@@ -26,6 +27,7 @@ pub struct UnivariateIopProof<F: IsField> {
 /// Instead of raw polynomial values, uses cryptographic commitments (e.g. FRI Merkle roots).
 /// The inner product check is replaced by a univariate sumcheck verified at a random point.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnivariateIopProofV2<
     F: IsField,
     C: Clone + core::fmt::Debug,

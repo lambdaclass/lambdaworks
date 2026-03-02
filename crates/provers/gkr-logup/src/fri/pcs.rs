@@ -36,6 +36,7 @@ pub struct FriCommitmentScheme {
 
 /// FRI commitment: Merkle root of the LDE evaluations.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FriCommitment {
     pub merkle_root: [u8; 32],
 }
@@ -60,6 +61,7 @@ where
 /// decommitments from the original polynomial LDEs that bind the quotient
 /// to the committed polynomials.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FriBatchOpeningProof<F: IsFFTField> {
     /// The FRI proof for the combined quotient polynomial.
     pub fri_proof: FriProof<F>,
@@ -226,7 +228,7 @@ where
 
         // FRI query phase for the quotient
         let query_rounds = if commit_result.layers.is_empty() {
-            vec![vec![]; config.num_queries]
+            vec![vec![]; query_indices.len()]
         } else {
             fri_query_all(
                 &query_indices,
