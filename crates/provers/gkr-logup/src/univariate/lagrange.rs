@@ -45,7 +45,10 @@ impl<F: IsFFTField> UnivariateLagrange<F> {
         self.values.is_empty()
     }
 
-    pub fn fix_first_variable(&self, assignment: &FieldElement<F>) -> Self {
+    pub fn fix_first_variable(
+        &self,
+        assignment: &FieldElement<F>,
+    ) -> Result<Self, CyclicDomainError> {
         let n = self.values.len();
         let log_n = n.ilog2() as usize;
         let domain = &self.domain;
@@ -67,16 +70,15 @@ impl<F: IsFFTField> UnivariateLagrange<F> {
             let new_val = numerator
                 * denominator
                     .inv()
-                    .expect("consecutive roots of unity are always distinct");
+                    .map_err(|_| CyclicDomainError::InversionFailed)?;
             new_values.push(new_val);
         }
 
-        let new_domain =
-            CyclicDomain::new(log_n - 1).expect("half-size domain exists if parent does");
-        Self {
+        let new_domain = CyclicDomain::new(log_n - 1)?;
+        Ok(Self {
             values: new_values,
             domain: new_domain,
-        }
+        })
     }
 }
 
@@ -173,7 +175,7 @@ mod tests {
         let values: Vec<FE> = (0..8).map(|i| FE::from(i as u64)).collect();
         let univariate = UnivariateLagrange::from_multilinear(values).unwrap();
 
-        let fixed = univariate.fix_first_variable(&FE::from(3));
+        let fixed = univariate.fix_first_variable(&FE::from(3)).unwrap();
 
         assert_eq!(fixed.len(), 4);
     }

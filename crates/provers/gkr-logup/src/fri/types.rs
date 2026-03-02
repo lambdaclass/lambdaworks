@@ -47,7 +47,7 @@ impl Default for FriConfig {
     fn default() -> Self {
         Self {
             log_blowup: 1,   // 2x blowup
-            num_queries: 30, // ~30 bits of security per query
+            num_queries: 30, // ~12 bits total security with 2x blowup (increase log_blowup for more)
         }
     }
 }
@@ -143,3 +143,5 @@ impl core::fmt::Display for FriError {
         }
     }
 }
+
+impl std::error::Error for FriError {}

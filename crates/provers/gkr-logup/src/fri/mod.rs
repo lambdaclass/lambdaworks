@@ -57,6 +57,11 @@ where
     // Deduplicate: duplicate queries don't add security and waste prover/verifier work.
     // Both sides sample the same indices from the transcript, so both get the same
     // unique set after dedup.
+    // NOTE: With domain_size/2 possible indices, the expected number of unique queries
+    // from `num_queries` samples is `(domain_size/2) * (1 - (1 - 2/domain_size)^num_queries)`.
+    // For small domains (e.g. degree 8 with 2x blowup → 8 indices, 30 queries),
+    // dedup significantly reduces the effective query count. This is acceptable
+    // because small domains have few FRI layers and the final value check dominates.
     query_indices.sort_unstable();
     query_indices.dedup();
 

@@ -869,4 +869,47 @@ mod tests {
         );
         assert!(result.is_err(), "wrong gate type should be rejected");
     }
+
+    #[test]
+    fn test_v2_grand_product_size_128() {
+        let pcs = default_fri_pcs();
+        let values: Vec<FE> = (1..=128).map(|i| FE::from(i as u64)).collect();
+        let layer = make_grand_product_layer(values);
+
+        let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_gp128");
+        let (proof, _) =
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
+
+        let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_gp128");
+        verify_with_pcs::<F, _, FriCommitmentScheme>(
+            Gate::GrandProduct,
+            &proof,
+            &mut verifier_transcript,
+            &pcs,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_v2_logup_singles_size_128() {
+        let pcs = default_fri_pcs();
+        let z = FE::from(10000u64);
+        let dens: Vec<FE> = (1..=128).map(|a| z - FE::from(a as u64)).collect();
+        let layer = make_logup_singles_layer(dens);
+
+        let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_ls128");
+        let (proof, _) =
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
+
+        let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_ls128");
+        verify_with_pcs::<F, _, FriCommitmentScheme>(
+            Gate::LogUp,
+            &proof,
+            &mut verifier_transcript,
+            &pcs,
+        )
+        .unwrap();
+    }
 }

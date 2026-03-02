@@ -70,6 +70,12 @@ Two phases provide different tradeoffs:
 
 **Phase 2 (PCS-based):** The prover commits via a polynomial commitment scheme (e.g., FRI with Merkle roots) and uses a **univariate sumcheck** to reduce the inner product to a single point evaluation. Proof size is $O(\log^2 N)$.
 
+> **Note:** The Phase 2 verifier computes the Lagrange column evaluation $C_t(z)$ via
+> barycentric interpolation in $O(N)$ time. This makes the overall verification complexity
+> $O(N)$ despite the succinct proof. Achieving $O(\log N)$ verification would require the
+> paper's $\{-1,+1\}^n$ convention with selector polynomials on the cyclic domain (Section
+> 5.2, equations 13-14).
+
 The univariate sumcheck relies on the identity:
 
 $$u_f(X) \cdot C_t(X) - \frac{v}{N} = q(X) \cdot (X^N - 1) + X \cdot r'(X)$$

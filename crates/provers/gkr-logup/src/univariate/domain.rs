@@ -53,6 +53,8 @@ pub enum CyclicDomainError {
         expected: usize,
         got: usize,
     },
+    /// Field element inversion failed during domain arithmetic.
+    InversionFailed,
 }
 
 impl core::fmt::Display for CyclicDomainError {
@@ -69,6 +71,9 @@ impl core::fmt::Display for CyclicDomainError {
             }
             CyclicDomainError::SizeMismatch { expected, got } => {
                 write!(f, "values length mismatch: expected {expected}, got {got}")
+            }
+            CyclicDomainError::InversionFailed => {
+                write!(f, "field element inversion failed during domain arithmetic")
             }
         }
     }

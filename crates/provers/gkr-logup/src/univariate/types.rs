@@ -88,6 +88,17 @@ impl core::fmt::Display for UnivariateIopError {
     }
 }
 
+impl std::error::Error for UnivariateIopError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::DomainError(e) => Some(e),
+            Self::CommitmentSchemeError(e) => Some(e),
+            Self::LagrangeConstraintFailed(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
 impl From<CommitmentSchemeError> for UnivariateIopError {
     fn from(e: CommitmentSchemeError) -> Self {
         Self::CommitmentSchemeError(e)

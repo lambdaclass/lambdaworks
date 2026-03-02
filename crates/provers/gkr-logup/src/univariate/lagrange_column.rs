@@ -105,6 +105,8 @@ impl core::fmt::Display for LagrangeColumnError {
     }
 }
 
+impl std::error::Error for LagrangeColumnError {}
+
 /// Verifies the periodic constraints (eqs. 10, 11 from Section 5.1) on a Lagrange column.
 ///
 /// - **Eq. 10**: `c[0] = prod_{k=0}^{n-1} (1 - t_k)`

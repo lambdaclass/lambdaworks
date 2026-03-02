@@ -31,6 +31,8 @@ impl core::fmt::Display for CommitmentSchemeError {
     }
 }
 
+impl std::error::Error for CommitmentSchemeError {}
+
 /// Generic polynomial commitment scheme for univariate polynomials
 /// given as evaluations on a cyclic domain of size N = 2^n.
 pub trait IsUnivariateCommitmentScheme<F: IsFFTField> {
