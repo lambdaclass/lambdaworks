@@ -55,11 +55,13 @@ where
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             }
             | TransitionEvaluationContext::Verifier {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             } => (frame, periodic_values, rap_challenges),
         };
 
@@ -115,11 +117,13 @@ where
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             }
             | TransitionEvaluationContext::Verifier {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             } => (frame, periodic_values, rap_challenges),
         };
 
@@ -177,6 +181,7 @@ impl AIR for DummyAIR {
     fn boundary_constraints(
         &self,
         _rap_challenges: &[FieldElement<Self::Field>],
+        _bus_public_inputs: Option<&crate::lookup::BusPublicInputs<Self::Field>>,
     ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_main(1, 0, FieldElement::<Self::Field>::one());
         let a1 = BoundaryConstraint::new_main(1, 1, FieldElement::<Self::Field>::one());

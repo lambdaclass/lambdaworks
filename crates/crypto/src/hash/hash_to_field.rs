@@ -29,13 +29,11 @@ pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
         return Err(HashToFieldError);
     }
 
-    let mut u = vec![FieldElement::zero(); count];
-    for (i, item) in u.iter_mut().enumerate() {
-        let elm_offset = l * i;
-        let tv = &pseudo_random_bytes[elm_offset..elm_offset + l];
-
-        *item = os2ip::<M, N>(tv);
-    }
+    let u = pseudo_random_bytes
+        .chunks_exact(l)
+        .take(count)
+        .map(|tv| os2ip::<M, N>(tv))
+        .collect();
     Ok(u)
 }
 

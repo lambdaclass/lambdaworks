@@ -4,7 +4,13 @@ This folder contains hash functions that are typically used in non-interactive p
 - [Monolith](./monolith/mod.rs)
 - [Poseidon](./poseidon/)
 - [Pedersen](./pedersen/)
-- [Rescue Prime](./rescue_prime/)
+- [Rescue](./rescue/)
+
+Rescue contains two hash functions:
+- **RPO** (Rescue Prime Optimized): https://eprint.iacr.org/2022/1577
+- **RPX** (Rescue Prime eXtension / XHash-12): https://eprint.iacr.org/2023/1045
+
+RPX is ~2x faster than RPO by using cubic extension field arithmetic in the extension rounds.
 
 Pedersen is based on elliptic curves, while [Monolith](https://eprint.iacr.org/2023/1025), [Poseidon](https://eprint.iacr.org/2019/458.pdf) and [Rescue Prime](https://eprint.iacr.org/2020/1143) are algebraic hash functions.
 

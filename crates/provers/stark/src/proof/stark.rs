@@ -14,6 +14,7 @@ use crate::{
     config::Commitment,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
+    lookup::BusPublicInputs,
     table::Table,
     traits::AIR,
     transcript::StoneProverTranscript,
@@ -66,6 +67,9 @@ pub struct StarkProof<F: IsSubFieldOf<E>, E: IsField> {
     pub deep_poly_openings: DeepPolynomialOpenings<F, E>,
     // nonce obtained from grinding
     pub nonce: Option<u64>,
+    // Bus interaction public inputs for LogUp accumulated column boundary constraints.
+    // Contains initial term values and final accumulated value for cross-table bus balance.
+    pub bus_public_inputs: Option<BusPublicInputs<E>>,
 }
 
 /// Serializer compatible with Stone prover

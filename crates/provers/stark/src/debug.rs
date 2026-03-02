@@ -1,5 +1,6 @@
 use super::domain::Domain;
 use super::traits::{TransitionEvaluationContext, AIR};
+use crate::lookup::types::{logup_table_offset, BusPublicInputs};
 use crate::{frame::Frame, trace::LDETraceTable};
 use lambdaworks_math::field::traits::IsSubFieldOf;
 use lambdaworks_math::{
@@ -22,6 +23,7 @@ pub fn validate_trace<
     aux_trace_polys: &[Polynomial<FieldElement<FieldExtension>>],
     domain: &Domain<Field>,
     rap_challenges: &[FieldElement<FieldExtension>],
+    bus_public_inputs: Option<&BusPublicInputs<FieldExtension>>,
 ) -> bool {
     info!("Starting constraints validation over trace...");
     let mut ret = true;
@@ -63,7 +65,7 @@ pub fn validate_trace<
         .collect();
 
     // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
-    air.boundary_constraints(rap_challenges)
+    air.boundary_constraints(rap_challenges, bus_public_inputs)
         .constraints
         .iter()
         .for_each(|constraint| {
@@ -91,6 +93,8 @@ pub fn validate_trace<
         .map(|(trace_steps, constraint)| trace_steps - constraint.end_exemptions())
         .collect();
 
+    let logup_table_offset = logup_table_offset(bus_public_inputs, air.trace_length());
+
     // Iterate over trace and compute transitions
     for step in 0..lde_trace.num_steps() {
         let frame = Frame::read_step_from_lde(&lde_trace, step, &air.context().transition_offsets);
@@ -98,8 +102,12 @@ pub fn validate_trace<
             .iter()
             .map(|col| col[step].clone())
             .collect();
-        let transition_evaluation_context =
-            TransitionEvaluationContext::new_prover(&frame, &periodic_values, rap_challenges);
+        let transition_evaluation_context = TransitionEvaluationContext::new_prover(
+            &frame,
+            &periodic_values,
+            rap_challenges,
+            &logup_table_offset,
+        );
         let evaluations = air.compute_transition(&transition_evaluation_context);
 
         // Iterate over each transition evaluation. When the evaluated step is not from

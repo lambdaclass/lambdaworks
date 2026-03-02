@@ -6,7 +6,10 @@ use super::{
     proof::stark::StarkProof,
     traits::{TransitionEvaluationContext, AIR},
 };
-use crate::{config::Commitment, domain::new_domain, proof::stark::DeepPolynomialOpening};
+use crate::{
+    config::Commitment, domain::new_domain, lookup::types::logup_table_offset,
+    proof::stark::DeepPolynomialOpening,
+};
 use lambdaworks_crypto::{
     fiat_shamir::is_transcript::IsStarkTranscript, merkle_tree::proof::Proof,
 };
@@ -118,7 +121,10 @@ pub trait IsStarkVerifier<
 
         // <<<< Receive challenge: 𝛽
         let beta = transcript.sample_field_element();
-        let num_boundary_constraints = air.boundary_constraints(&rap_challenges).constraints.len();
+        let num_boundary_constraints = air
+            .boundary_constraints(&rap_challenges, proof.bus_public_inputs.as_ref())
+            .constraints
+            .len();
 
         let num_transition_constraints = air.context().num_transition_constraints;
 
@@ -235,7 +241,8 @@ pub trait IsStarkVerifier<
         domain: &Domain<Field>,
         challenges: &Challenges<FieldExtension>,
     ) -> bool {
-        let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
+        let boundary_constraints =
+            air.boundary_constraints(&challenges.rap_challenges, proof.bus_public_inputs.as_ref());
 
         let trace_length = air.trace_length();
         let number_of_b_constraints = boundary_constraints.constraints.len();
@@ -291,12 +298,16 @@ pub trait IsStarkVerifier<
         let num_main_trace_columns =
             proof.trace_ood_evaluations.width - air.num_auxiliary_rap_columns();
 
+        let logup_table_offset =
+            logup_table_offset(proof.bus_public_inputs.as_ref(), air.trace_length());
+
         let ood_frame =
             (proof.trace_ood_evaluations).into_frame(num_main_trace_columns, air.step_size());
         let transition_evaluation_context = TransitionEvaluationContext::new_verifier(
             &ood_frame,
             &periodic_values,
             &challenges.rap_challenges,
+            &logup_table_offset,
         );
         let transition_ood_frame_evaluations =
             air.compute_transition(&transition_evaluation_context);
@@ -749,6 +760,18 @@ pub trait IsStarkVerifier<
     {
         // Verify there are enough queries
         if proof.query_list.len() < air.context().proof_options.fri_number_of_queries {
+            return false;
+        }
+
+        // Validate bus_public_inputs presence against AIR layout.
+        // A dishonest prover could omit bus_public_inputs entirely (None) to
+        // bypass the circular transition constraint's offset.
+        if air.has_bus_interactions() && proof.bus_public_inputs.is_none() {
+            error!("AIR has bus interactions but proof is missing bus_public_inputs");
+            return false;
+        }
+        if proof.bus_public_inputs.is_some() && !air.has_bus_interactions() {
+            error!("Proof has bus_public_inputs but AIR has no bus interactions");
             return false;
         }
 

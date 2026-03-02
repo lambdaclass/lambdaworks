@@ -52,11 +52,13 @@ impl TransitionConstraint<StarkField, StarkField> for BitConstraint {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             }
             | TransitionEvaluationContext::Verifier {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             } => (frame, periodic_values, rap_challenges),
         };
 
@@ -110,11 +112,13 @@ impl TransitionConstraint<StarkField, StarkField> for ZeroFlagConstraint {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             }
             | TransitionEvaluationContext::Verifier {
                 frame,
                 periodic_values,
                 rap_challenges,
+                ..
             } => (frame, periodic_values, rap_challenges),
         };
 
@@ -175,6 +179,7 @@ impl AIR for BitFlagsAIR {
     fn boundary_constraints(
         &self,
         _rap_challenges: &[FieldElement<Self::FieldExtension>],
+        _bus_public_inputs: Option<&crate::lookup::BusPublicInputs<Self::FieldExtension>>,
     ) -> BoundaryConstraints<Self::FieldExtension> {
         BoundaryConstraints::from_constraints(vec![])
     }
