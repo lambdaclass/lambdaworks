@@ -46,13 +46,19 @@ where
         commit_result.layers[0].domain_size
     };
 
-    let query_indices: Vec<usize> = if first_domain_size == 0 {
+    let mut query_indices: Vec<usize> = if first_domain_size == 0 {
         vec![0; config.num_queries]
     } else {
         (0..config.num_queries)
             .map(|_| transcript.sample_u64((first_domain_size / 2) as u64) as usize)
             .collect()
     };
+
+    // Deduplicate: duplicate queries don't add security and waste prover/verifier work.
+    // Both sides sample the same indices from the transcript, so both get the same
+    // unique set after dedup.
+    query_indices.sort_unstable();
+    query_indices.dedup();
 
     Ok((commit_result, query_indices))
 }
@@ -75,7 +81,7 @@ where
 
     // Query phase
     let query_rounds = if commit_result.layers.is_empty() {
-        vec![vec![]; config.num_queries]
+        vec![vec![]; query_indices.len()]
     } else {
         query::fri_query_all(
             &query_indices,

@@ -52,9 +52,13 @@ where
         ));
     }
     let half_domain = first_domain_size / 2;
-    let query_indices: Vec<usize> = (0..config.num_queries)
+    let mut query_indices: Vec<usize> = (0..config.num_queries)
         .map(|_| transcript.sample_u64(half_domain as u64) as usize)
         .collect();
+
+    // Deduplicate to match prover (both sides sample then dedup identically).
+    query_indices.sort_unstable();
+    query_indices.dedup();
 
     // Defensive bounds check on sampled indices
     for &qi in &query_indices {
@@ -65,10 +69,10 @@ where
         }
     }
 
-    if proof.query_rounds.len() != config.num_queries {
+    if proof.query_rounds.len() != query_indices.len() {
         return Err(FriError::InvalidConfig(format!(
-            "expected {} query rounds, got {}",
-            config.num_queries,
+            "expected {} query rounds (unique), got {}",
+            query_indices.len(),
             proof.query_rounds.len()
         )));
     }
