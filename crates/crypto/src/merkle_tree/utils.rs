@@ -1,8 +1,6 @@
 use alloc::vec::Vec;
 
 use super::traits::IsMerkleTreeBackend;
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
 
 pub fn sibling_index(node_index: usize) -> usize {
     if node_index.is_multiple_of(2) {
@@ -42,20 +40,11 @@ where
         let new_level_begin_index = level_begin_index / 2;
         let new_level_length = level_begin_index - new_level_begin_index;
 
-        let (new_level_iter, children_iter) =
-            nodes[new_level_begin_index..level_end_index + 1].split_at_mut(new_level_length);
+        let children = &nodes[new_level_begin_index + new_level_length..level_end_index + 1];
+        let parents = B::hash_level(children);
 
-        #[cfg(feature = "parallel")]
-        let parent_and_children_zipped_iter = new_level_iter
-            .into_par_iter()
-            .zip(children_iter.par_chunks_exact(2));
-        #[cfg(not(feature = "parallel"))]
-        let parent_and_children_zipped_iter =
-            new_level_iter.iter_mut().zip(children_iter.chunks_exact(2));
-
-        parent_and_children_zipped_iter.for_each(|(new_parent, children)| {
-            *new_parent = B::hash_new_parent(&children[0], &children[1]);
-        });
+        nodes[new_level_begin_index..new_level_begin_index + new_level_length]
+            .clone_from_slice(&parents);
 
         level_end_index = level_begin_index - 1;
         level_begin_index = new_level_begin_index;

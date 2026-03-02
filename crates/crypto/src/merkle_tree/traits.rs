@@ -1,6 +1,8 @@
 use alloc::vec::Vec;
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+#[cfg(feature = "parallel")]
+use rayon::slice::ParallelSlice;
 
 /// A backend for Merkle trees. This defines raw `Data` from which the Merkle
 /// tree is built from. It also defines the `Node` type and the hash function
@@ -26,4 +28,18 @@ pub trait IsMerkleTreeBackend {
     /// This function takes to children nodes and builds a new parent node.
     /// It will be used in the construction of the Merkle tree.
     fn hash_new_parent(child_1: &Self::Node, child_2: &Self::Node) -> Self::Node;
+
+    /// Hash an entire level of children nodes into parent nodes.
+    ///
+    /// Takes `2N` children and produces `N` parent nodes. Override this method
+    /// in GPU backends to batch-process an entire tree level at once.
+    fn hash_level(children: &[Self::Node]) -> Vec<Self::Node> {
+        #[cfg(feature = "parallel")]
+        let iter = children.par_chunks_exact(2);
+        #[cfg(not(feature = "parallel"))]
+        let iter = children.chunks_exact(2);
+
+        iter.map(|pair| Self::hash_new_parent(&pair[0], &pair[1]))
+            .collect()
+    }
 }
