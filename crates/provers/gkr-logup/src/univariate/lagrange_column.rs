@@ -1,19 +1,52 @@
+//! Lagrange column computation and verification for the univariate LogUp-GKR protocol.
+//!
+//! # Relation to the paper (Section 5.1, Papini & Haboeck, ePrint 2023/1284)
+//!
+//! The paper defines the Lagrange kernel over `{-1,+1}^n` (the "signed" hypercube):
+//!
+//! ```text
+//! L_n(X, Y) = (1/2^n) * prod_{k=0}^{n-1} (1 + X_k * Y_k)
+//! ```
+//!
+//! and uses a cyclic domain map `iota: H -> H_n` to index the column entries as
+//! `c_i = L_n(t, iota(g^i))`, which gives them **periodic structure** on the
+//! cyclic group `H = <g>`. This periodic structure enables succinct verification
+//! via selector polynomials (equations 13-14 in the paper).
+//!
+//! # This implementation: Boolean hypercube `{0,1}^n`
+//!
+//! Instead, we use the standard MLE eq polynomial over `{0,1}^n`:
+//!
+//! ```text
+//! eq(x, t) = prod_{k=0}^{n-1} (x_k * t_k + (1 - x_k) * (1 - t_k))
+//! ```
+//!
+//! The two formulations are related by an affine change of variables (`x_k = (1 - s_k) / 2`)
+//! and produce the **same inner product**: for any multilinear polynomial `f`,
+//!
+//! ```text
+//! sum_i f(i) * eq(i, t)  =  f(t)
+//! ```
+//!
+//! regardless of which convention is used. The GKR reduction and univariate sumcheck
+//! work identically with either convention.
+//!
+//! The constraint verification in [`verify_lagrange_column_constraints`] checks the
+//! butterfly structure of the `{0,1}` eq polynomial (ratio `t_k / (1 - t_k)` between
+//! sibling entries), which is the Boolean-hypercube analogue of the paper's equations
+//! (10)-(11). This gives O(N) verification — the paper's selector polynomial approach
+//! would allow O(log N) verification but requires the cyclic domain indexing.
+
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
 
-/// Computes the Lagrange column `c_i = eq(iota(i), t)` for all `i in [0, 2^n)`.
+/// Computes the Lagrange column `c_i = eq(i, t)` for all `i in [0, 2^n)`.
 ///
-/// This is the evaluation of the multilinear eq polynomial at the point `t`, but
-/// indexed in **cyclic domain order** (LSB-first bit indexing) rather than
-/// MLE lexicographic order.
+/// Uses the `{0,1}^n` Boolean hypercube eq polynomial (see module docs for the
+/// relationship to the paper's `{-1,+1}^n` formulation).
 ///
 /// Butterfly algorithm processing variables in **reverse** order to match
-/// the `DenseMultilinearPolynomial` indexing convention.
-///
-/// # Formula (adapted to `{0,1}^n`)
-///
-/// `c_i = eq(iota(i), t)` where `iota(i)` maps index `i` to the hypercube point
-/// matching the MLE's layout: variable 0 occupies the MSB of the index.
+/// the `DenseMultilinearPolynomial` indexing convention (variable 0 = MSB).
 ///
 /// This is the same butterfly as `gen_eq_evals` (with `v = 1`).
 pub fn compute_lagrange_column<F: IsField>(
