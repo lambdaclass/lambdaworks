@@ -260,20 +260,37 @@ impl IsPairing for BLS12381AtePairing {
     type OutputField = Degree12ExtensionField;
 
     /// Compute the product of the ate pairings for a list of point pairs.
+    ///
+    /// Uses a shared-square multi-Miller loop: the Fp12 squaring is performed once
+    /// per iteration (not once per pair), and each pair's line evaluations are
+    /// multiplied into the shared accumulator. This saves (n-1)×63 Fp12 squares
+    /// for n-pair batches.
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
-        let mut result = FieldElement::one();
+        // Validate subgroup membership and filter neutral elements
+        let mut valid_pairs = Vec::with_capacity(pairs.len());
         for (p, q) in pairs {
             if !p.is_in_subgroup() || !q.is_in_subgroup() {
                 return Err(PairingError::PointNotInSubgroup);
             }
             if !p.is_neutral_element() && !q.is_neutral_element() {
-                let p = p.to_affine();
-                let q = q.to_affine();
-                result *= miller(&q, &p);
+                valid_pairs.push((p.to_affine(), q.to_affine()));
             }
         }
+
+        if valid_pairs.is_empty() {
+            return Ok(FieldElement::one());
+        }
+
+        // Single pair: use direct miller loop (no allocation overhead)
+        if valid_pairs.len() == 1 {
+            let result = miller(&valid_pairs[0].1, &valid_pairs[0].0);
+            return final_exponentiation(&result);
+        }
+
+        // Multi-pair: shared-square Miller loop
+        let result = multi_miller(&valid_pairs);
         final_exponentiation(&result)
     }
 }
@@ -300,6 +317,70 @@ pub fn miller(
             f = mul_fp12_by_line_line(&f.square(), &line_line);
         } else {
             f = sparse_fp12_mul_by_line(&f.square(), &db0, &db2, &db3);
+        }
+    }
+
+    f.conjugate()
+}
+
+/// Multi-pair Miller loop with shared squaring.
+///
+/// Instead of computing n independent Miller loops and multiplying the results,
+/// this function shares the Fp12 squaring across all pairs. Each iteration:
+/// 1. Square the shared accumulator once (not n times)
+/// 2. For each pair, compute line evaluations and multiply into the accumulator
+///
+/// Saves (n-1) × 63 Fp12 squares for n-pair batches, which is the dominant
+/// cost reduction for batch pairings.
+#[cfg(feature = "alloc")]
+fn multi_miller(
+    pairs: &[(
+        ShortWeierstrassJacobianPoint<BLS12381Curve>,
+        ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    )],
+) -> Fp12E {
+    let n = pairs.len();
+
+    // Initialize R points (running G2 accumulators) and P/Q points
+    let mut rs: Vec<ShortWeierstrassJacobianPoint<BLS12381TwistCurve>> =
+        pairs.iter().map(|(_, q)| q.to_affine()).collect();
+    let qs: Vec<ShortWeierstrassJacobianPoint<BLS12381TwistCurve>> = rs.clone();
+    let ps: Vec<ShortWeierstrassJacobianPoint<BLS12381Curve>> =
+        pairs.iter().map(|(p, _)| p.to_affine()).collect();
+
+    // Process first bit (MSB = 1) separately to avoid squaring 1
+    // X_BINARY[0] = true, so first iteration is always double+add
+    let mut f = {
+        // First pair: compute lines, assign to f directly (no mul needed)
+        let (db0, db2, db3) = double_step(&mut rs[0], &ps[0]);
+        let (ab0, ab2, ab3) = add_step(&mut rs[0], &qs[0], &ps[0]);
+        let mut acc = mul_line_by_line(&db0, &db2, &db3, &ab0, &ab2, &ab3);
+
+        // Remaining pairs: compute lines, multiply into accumulator
+        for k in 1..n {
+            let (db0, db2, db3) = double_step(&mut rs[k], &ps[k]);
+            let (ab0, ab2, ab3) = add_step(&mut rs[k], &qs[k], &ps[k]);
+            let ll = mul_line_by_line(&db0, &db2, &db3, &ab0, &ab2, &ab3);
+            acc = &acc * &ll;
+        }
+        acc
+    };
+
+    // Process remaining bits
+    for bit in X_BINARY.iter().skip(2) {
+        // ONE shared square
+        f = f.square();
+
+        for k in 0..n {
+            let (db0, db2, db3) = double_step(&mut rs[k], &ps[k]);
+
+            if *bit {
+                let (ab0, ab2, ab3) = add_step(&mut rs[k], &qs[k], &ps[k]);
+                let ll = mul_line_by_line(&db0, &db2, &db3, &ab0, &ab2, &ab3);
+                f = mul_fp12_by_line_line(&f, &ll);
+            } else {
+                f = sparse_fp12_mul_by_line(&f, &db0, &db2, &db3);
+            }
         }
     }
 
