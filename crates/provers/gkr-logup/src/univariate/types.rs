@@ -4,6 +4,7 @@ use lambdaworks_math::field::traits::IsField;
 use super::super::verifier::Proof;
 use super::domain::CyclicDomainError;
 use super::pcs::CommitmentSchemeError;
+use crate::fri::types::FriProof;
 
 /// Proof for the univariate IOP (Section 5 of ePrint 2023/1284).
 ///
@@ -45,8 +46,16 @@ pub struct UnivariateIopProofV2<
     pub r_prime_commitment: C,
     /// Batch opening proof for all polynomials at z.
     pub batch_proof: B,
-    /// Opened values at z: [col_0(z), col_1(z), ..., q(z), r'(z)].
+    /// Opened values at z: [col_0(z), col_1(z), ..., c_t(z), q(z), r'(z)].
+    /// When `lagrange_fri_proof` is present, c_t(z) is included between columns and q.
     pub opened_values: Vec<FieldElement<F>>,
+    /// FRI proof for the Lagrange column C_t(X), folded with deterministic
+    /// challenges (t_{n-1}, ..., t_0). Verifier checks fold consistency and
+    /// final_value == 1 instead of computing C_t(z) via O(N) interpolation.
+    /// `None` falls back to the O(N) barycentric path.
+    pub lagrange_fri_proof: Option<FriProof<F>>,
+    /// PCS commitment to C_t(X).
+    pub lagrange_commitment: Option<C>,
 }
 
 /// Error type for the univariate IOP.

@@ -9,6 +9,157 @@ use lambdaworks_math::traits::{AsBytes, ByteConversion};
 use super::fold::fold_eval;
 use super::types::{FriConfig, FriError, FriProof};
 
+/// Verify a FRI proof with **deterministic** folding challenges.
+///
+/// Identical to [`fri_verify`] except that folding challenges come from the
+/// `challenges` slice instead of being sampled from the transcript.  Merkle
+/// roots are still absorbed into the transcript (for replay consistency), and
+/// the final value is checked against `expected_final_value` (typically 1 for
+/// the Lagrange column).
+///
+/// Returns the sampled query indices on success.
+pub fn fri_verify_deterministic<F, T>(
+    proof: &FriProof<F>,
+    challenges: &[FieldElement<F>],
+    poly_degree_bound: usize,
+    config: &FriConfig,
+    transcript: &mut T,
+    expected_final_value: &FieldElement<F>,
+) -> Result<Vec<usize>, FriError>
+where
+    F: IsFFTField,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: AsBytes + ByteConversion + Clone + Send + Sync,
+    T: IsTranscript<F>,
+{
+    let num_layers = proof.layer_merkle_roots.len();
+    let blowup = config.blowup_factor();
+
+    // Replay commit phase: absorb Merkle roots, use deterministic betas
+    let mut betas = Vec::with_capacity(num_layers);
+    for (i, root) in proof.layer_merkle_roots.iter().enumerate() {
+        transcript.append_bytes(root);
+        if i >= challenges.len() {
+            return Err(FriError::InvalidConfig(format!(
+                "ran out of deterministic challenges at layer {i} \
+                 (provided {} challenges but proof has {num_layers} layers)",
+                challenges.len()
+            )));
+        }
+        betas.push(challenges[i].clone());
+    }
+
+    // Append final value
+    transcript.append_field_element(&proof.final_value);
+
+    // Check final value matches expected
+    if proof.final_value != *expected_final_value {
+        return Err(FriError::FinalValueMismatch);
+    }
+
+    // Sample query indices
+    let first_domain_size = poly_degree_bound.next_power_of_two() * blowup;
+    if first_domain_size == 0 {
+        return Err(FriError::InvalidConfig(
+            "first domain size is zero (bad degree bound or blowup)".into(),
+        ));
+    }
+    let half_domain = first_domain_size / 2;
+    let mut query_indices: Vec<usize> = (0..config.num_queries)
+        .map(|_| transcript.sample_u64(half_domain as u64) as usize)
+        .collect();
+
+    query_indices.sort_unstable();
+    query_indices.dedup();
+
+    for &qi in &query_indices {
+        if qi >= half_domain {
+            return Err(FriError::InvalidConfig(format!(
+                "query index {qi} >= half domain size {half_domain}"
+            )));
+        }
+    }
+
+    if proof.query_rounds.len() != query_indices.len() {
+        return Err(FriError::InvalidConfig(format!(
+            "expected {} query rounds (unique), got {}",
+            query_indices.len(),
+            proof.query_rounds.len()
+        )));
+    }
+
+    // Compute domain sizes for each layer
+    let mut domain_sizes = Vec::with_capacity(num_layers);
+    let mut ds = first_domain_size;
+    for _ in 0..num_layers {
+        domain_sizes.push(ds);
+        ds /= 2;
+    }
+
+    let first_root = F::get_primitive_root_of_unity(first_domain_size.trailing_zeros() as u64)
+        .map_err(|_| FriError::FftError("no root of unity for domain".into()))?;
+
+    // For each query, verify fold consistency + Merkle proofs
+    for (q, query_rounds) in proof.query_rounds.iter().enumerate() {
+        if query_rounds.len() != num_layers {
+            return Err(FriError::InvalidConfig(format!(
+                "query {q}: expected {num_layers} rounds, got {}",
+                query_rounds.len()
+            )));
+        }
+
+        let mut index = query_indices[q];
+
+        for (layer, round) in query_rounds.iter().enumerate() {
+            let ds = domain_sizes[layer];
+            let half = ds / 2;
+            let idx = index % half;
+            let idx_sym = idx + half;
+
+            let root = &proof.layer_merkle_roots[layer];
+            if !round
+                .auth_path
+                .verify::<Keccak256Backend<F>>(root, idx, &round.eval)
+            {
+                return Err(FriError::MerkleProofFailed { query: q, layer });
+            }
+            if !round
+                .auth_path_sym
+                .verify::<Keccak256Backend<F>>(root, idx_sym, &round.eval_sym)
+            {
+                return Err(FriError::MerkleProofFailed { query: q, layer });
+            }
+
+            let omega_ds = first_root.pow(first_domain_size / ds);
+            let x = omega_ds.pow(idx);
+
+            let folded = fold_eval(&round.eval, &round.eval_sym, &betas[layer], &x)?;
+
+            if layer + 1 < num_layers {
+                let next_ds = domain_sizes[layer + 1];
+                let next_half = next_ds / 2;
+                let next_round = &query_rounds[layer + 1];
+
+                let next_eval = if idx < next_half {
+                    &next_round.eval
+                } else {
+                    &next_round.eval_sym
+                };
+
+                if folded != *next_eval {
+                    return Err(FriError::FoldConsistencyFailed { query: q, layer });
+                }
+            } else if folded != proof.final_value {
+                return Err(FriError::FinalValueMismatch);
+            }
+
+            index = idx;
+        }
+    }
+
+    Ok(query_indices)
+}
+
 /// Verify a FRI proof.
 ///
 /// 1. Replay transcript to reconstruct folding challenges (betas).

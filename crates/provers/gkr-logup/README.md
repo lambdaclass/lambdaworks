@@ -70,11 +70,15 @@ Two phases provide different tradeoffs:
 
 **Phase 2 (PCS-based):** The prover commits via a polynomial commitment scheme (e.g., FRI with Merkle roots) and uses a **univariate sumcheck** to reduce the inner product to a single point evaluation. Proof size is $O(\log^2 N)$.
 
-> **Note:** The Phase 2 verifier computes the Lagrange column evaluation $C_t(z)$ via
-> barycentric interpolation in $O(N)$ time. This makes the overall verification complexity
-> $O(N)$ despite the succinct proof. Achieving $O(\log N)$ verification would require the
+> **Note on verifier complexity:** The Phase 2 verifier computes the Lagrange column
+> evaluation $C_t(z)$ via barycentric interpolation in $O(N)$ time. The prover now
+> additionally commits $C_t(X)$ via PCS and includes a deterministic FRI proof (folded
+> with the GKR evaluation point coordinates). The verifier cross-checks the PCS-opened
+> $C_t(z)$ against the locally computed value, providing defense-in-depth. Achieving
+> $O(\log N)$ verification (removing the local computation entirely) would require the
 > paper's $\{-1,+1\}^n$ convention with selector polynomials on the cyclic domain (Section
-> 5.2, equations 13-14).
+> 5.2, equations 13-14), as FRI coefficient-space folding does not directly reduce the
+> $\{0,1\}^n$ eq polynomial.
 
 The univariate sumcheck relies on the identity:
 

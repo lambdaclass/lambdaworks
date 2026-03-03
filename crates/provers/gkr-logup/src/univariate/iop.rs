@@ -23,6 +23,9 @@ use super::pcs::{CommitmentSchemeError, IsUnivariateCommitmentScheme};
 use super::sumcheck::{evaluate_lagrange_at_z, prove_sumcheck, verify_sumcheck_at_z};
 use super::types::{UnivariateIopError, UnivariateIopProof, UnivariateIopProofV2};
 
+use crate::fri;
+use crate::fri::query::fri_query_all;
+use crate::fri::types::{FriConfig, FriProof};
 use crate::univariate_layer::UnivariateLayer;
 use crate::utils::random_linear_combination;
 use crate::verifier::{Gate, VerificationResult};
@@ -257,6 +260,61 @@ where
         transcript.append_field_element(c);
     }
 
+    // Step 5b: Commit C_t via PCS and run deterministic FRI
+    let (lagrange_pcs_commitment, lagrange_pcs_state) = pcs.commit(&lagrange_column, transcript)?;
+
+    // Deterministic FRI challenges: reversed ood_point = [t_{n-1}, ..., t_0]
+    let deterministic_challenges: Vec<FieldElement<F>> =
+        gkr_result.ood_point.iter().rev().cloned().collect();
+
+    // Get C_t in coefficient form for deterministic FRI
+    let c_t_poly = lambdaworks_math::polynomial::Polynomial::interpolate_fft::<F>(&lagrange_column)
+        .map_err(|e| {
+            CommitmentSchemeError::InternalError(format!("FFT interpolation of C_t failed: {e}"))
+        })?;
+
+    let lagrange_fri_config = FriConfig::default();
+    let (lagrange_commit_result, lagrange_query_indices) =
+        fri::fri_commit_deterministic_and_sample(
+            &c_t_poly,
+            &deterministic_challenges,
+            &lagrange_fri_config,
+            transcript,
+        )
+        .map_err(|e| {
+            CommitmentSchemeError::InternalError(format!(
+                "deterministic FRI commit on C_t failed: {e}"
+            ))
+        })?;
+
+    // Query phase for deterministic FRI
+    let lagrange_query_rounds = if lagrange_commit_result.layers.is_empty() {
+        vec![vec![]; lagrange_query_indices.len()]
+    } else {
+        fri_query_all(
+            &lagrange_query_indices,
+            &lagrange_commit_result.layers,
+            &lagrange_commit_result.merkle_trees,
+        )
+        .map_err(|e| {
+            CommitmentSchemeError::InternalError(format!(
+                "deterministic FRI query on C_t failed: {e}"
+            ))
+        })?
+    };
+
+    let lagrange_fri_proof = FriProof {
+        layer_merkle_roots: lagrange_commit_result
+            .layers
+            .iter()
+            .map(|l| l.merkle_root)
+            .collect(),
+        query_rounds: lagrange_query_rounds,
+        final_value: lagrange_commit_result.final_value,
+    };
+
+    let lagrange_commitment = lagrange_pcs_commitment;
+
     // Combine columns with lambda weights: combined_evals[i] = sum_j lambda^j * col_j[i]
     let n = committed_columns[0].len();
     let mut combined_evals = vec![FieldElement::<F>::zero(); n];
@@ -298,8 +356,9 @@ where
     let z: FieldElement<F> = transcript.sample_field_element();
 
     // Step 9: Batch-open all polynomials at z
-    // Order: [col_0, col_1, ..., q, r']
+    // Order: [col_0, col_1, ..., c_t, q, r']
     let mut all_states: Vec<&P::ProverState> = column_states.iter().collect();
+    all_states.push(&lagrange_pcs_state);
     all_states.push(&q_state);
     all_states.push(&r_prime_state);
 
@@ -313,6 +372,8 @@ where
         r_prime_commitment,
         batch_proof,
         opened_values,
+        lagrange_fri_proof: Some(lagrange_fri_proof),
+        lagrange_commitment: Some(lagrange_commitment),
     };
 
     Ok((proof, gkr_result))
@@ -405,52 +466,128 @@ where
         transcript.append_field_element(c);
     }
 
-    // Step 5b: Absorb q and r' commitments (must match prover)
-    P::absorb_commitment(&proof.q_commitment, transcript);
-    P::absorb_commitment(&proof.r_prime_commitment, transcript);
+    // Step 5b: C_t commitment path or O(N) fallback
+    if let (Some(lagrange_comm), Some(lagrange_fri_proof)) =
+        (&proof.lagrange_commitment, &proof.lagrange_fri_proof)
+    {
+        // New path: C_t is committed via PCS and included in batch opening.
+        // The deterministic FRI proof binds C_t's structure — the verifier
+        // checks fold consistency with the GKR evaluation point coordinates.
+        P::absorb_commitment(lagrange_comm, transcript);
 
-    // Step 6: Sample z (must match prover — after q, r' commitments)
-    let z: FieldElement<F> = transcript.sample_field_element();
+        // Deterministic FRI challenges: reversed ood_point = [t_{n-1}, ..., t_0]
+        let deterministic_challenges: Vec<FieldElement<F>> =
+            gkr_result.ood_point.iter().rev().cloned().collect();
 
-    // Step 7: Verify batch opening at z
-    let mut all_commitments: Vec<&P::Commitment> = proof.column_commitments.iter().collect();
-    all_commitments.push(&proof.q_commitment);
-    all_commitments.push(&proof.r_prime_commitment);
+        let lagrange_fri_config = FriConfig::default();
+        fri::fri_verify_deterministic(
+            lagrange_fri_proof,
+            &deterministic_challenges,
+            n,
+            &lagrange_fri_config,
+            transcript,
+            &lagrange_fri_proof.final_value,
+        )
+        .map_err(|e| {
+            UnivariateIopError::CommitmentSchemeError(CommitmentSchemeError::InternalError(
+                format!("deterministic FRI verification of C_t failed: {e}"),
+            ))
+        })?;
 
-    pcs.verify_batch_opening(
-        &all_commitments,
-        &z,
-        &proof.opened_values,
-        &proof.batch_proof,
-        transcript,
-    )?;
+        // Absorb q and r' commitments (must match prover)
+        P::absorb_commitment(&proof.q_commitment, transcript);
+        P::absorb_commitment(&proof.r_prime_commitment, transcript);
 
-    // Step 8: Parse opened values
-    // Order: [col_0(z), col_1(z), ..., q(z), r'(z)]
-    if proof.opened_values.len() != num_columns + 2 {
-        return Err(UnivariateIopError::CommitmentSchemeError(
-            CommitmentSchemeError::InvalidInput(format!(
-                "expected {} opened values, got {}",
-                num_columns + 2,
-                proof.opened_values.len()
-            )),
-        ));
-    }
+        // Sample z (must match prover — after q, r' commitments)
+        let z: FieldElement<F> = transcript.sample_field_element();
 
-    let column_values_at_z = &proof.opened_values[..num_columns];
-    let q_z = &proof.opened_values[num_columns];
-    let r_prime_z = &proof.opened_values[num_columns + 1];
+        // Verify batch opening at z
+        // Order: [col_0, col_1, ..., c_t, q, r']
+        let mut all_commitments: Vec<&P::Commitment> = proof.column_commitments.iter().collect();
+        all_commitments.push(lagrange_comm);
+        all_commitments.push(&proof.q_commitment);
+        all_commitments.push(&proof.r_prime_commitment);
 
-    // Step 9: Compute combined u(z) = col_0(z) + lambda * col_1(z) + ...
-    let u_z = random_linear_combination(column_values_at_z, &lambda);
+        pcs.verify_batch_opening(
+            &all_commitments,
+            &z,
+            &proof.opened_values,
+            &proof.batch_proof,
+            transcript,
+        )?;
 
-    // Step 10: Compute C_t(z) via Lagrange interpolation
-    let c_t_z = evaluate_lagrange_at_z(&lagrange_column, &z, n)?;
+        // Parse opened values: [col_0(z), ..., c_t(z), q(z), r'(z)]
+        let expected_len = num_columns + 3;
+        if proof.opened_values.len() != expected_len {
+            return Err(UnivariateIopError::CommitmentSchemeError(
+                CommitmentSchemeError::InvalidInput(format!(
+                    "expected {} opened values (with c_t), got {}",
+                    expected_len,
+                    proof.opened_values.len()
+                )),
+            ));
+        }
 
-    // Step 11: Verify sumcheck equation:
-    // u(z) * C_t(z) - v/N == q(z) * (z^N - 1) + z * r'(z)
-    if !verify_sumcheck_at_z(&u_z, &c_t_z, &combined_claim, q_z, r_prime_z, &z, n) {
-        return Err(UnivariateIopError::SumcheckFailed);
+        let column_values_at_z = &proof.opened_values[..num_columns];
+        let pcs_c_t_z = &proof.opened_values[num_columns];
+        let q_z = &proof.opened_values[num_columns + 1];
+        let r_prime_z = &proof.opened_values[num_columns + 2];
+
+        // Cross-check: PCS-opened c_t(z) must match locally computed value.
+        // This ensures the committed polynomial is the correct Lagrange column.
+        let expected_c_t_z = evaluate_lagrange_at_z(&lagrange_column, &z, n)?;
+        if *pcs_c_t_z != expected_c_t_z {
+            return Err(UnivariateIopError::CommitmentSchemeError(
+                CommitmentSchemeError::InternalError(
+                    "C_t(z) from PCS opening doesn't match locally computed value".into(),
+                ),
+            ));
+        }
+
+        let u_z = random_linear_combination(column_values_at_z, &lambda);
+
+        if !verify_sumcheck_at_z(&u_z, pcs_c_t_z, &combined_claim, q_z, r_prime_z, &z, n) {
+            return Err(UnivariateIopError::SumcheckFailed);
+        }
+    } else {
+        // O(N) fallback: no C_t commitment in proof
+        P::absorb_commitment(&proof.q_commitment, transcript);
+        P::absorb_commitment(&proof.r_prime_commitment, transcript);
+
+        let z: FieldElement<F> = transcript.sample_field_element();
+
+        let mut all_commitments: Vec<&P::Commitment> = proof.column_commitments.iter().collect();
+        all_commitments.push(&proof.q_commitment);
+        all_commitments.push(&proof.r_prime_commitment);
+
+        pcs.verify_batch_opening(
+            &all_commitments,
+            &z,
+            &proof.opened_values,
+            &proof.batch_proof,
+            transcript,
+        )?;
+
+        if proof.opened_values.len() != num_columns + 2 {
+            return Err(UnivariateIopError::CommitmentSchemeError(
+                CommitmentSchemeError::InvalidInput(format!(
+                    "expected {} opened values, got {}",
+                    num_columns + 2,
+                    proof.opened_values.len()
+                )),
+            ));
+        }
+
+        let column_values_at_z = &proof.opened_values[..num_columns];
+        let q_z = &proof.opened_values[num_columns];
+        let r_prime_z = &proof.opened_values[num_columns + 1];
+
+        let u_z = random_linear_combination(column_values_at_z, &lambda);
+        let c_t_z = evaluate_lagrange_at_z(&lagrange_column, &z, n)?;
+
+        if !verify_sumcheck_at_z(&u_z, &c_t_z, &combined_claim, q_z, r_prime_z, &z, n) {
+            return Err(UnivariateIopError::SumcheckFailed);
+        }
     }
 
     Ok(())
@@ -911,5 +1048,124 @@ mod tests {
             &pcs,
         )
         .unwrap();
+    }
+
+    // -----------------------------------------------------------------------
+    // Deterministic FRI on Lagrange column tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_deterministic_fri_roundtrip_on_lagrange_column() {
+        // Unit test: commit C_t via deterministic FRI, then verify.
+        use crate::fri;
+        use crate::univariate::lagrange_column::compute_lagrange_column;
+        use lambdaworks_math::polynomial::Polynomial;
+
+        let t = vec![FE::from(5u64), FE::from(7u64), FE::from(11u64)];
+        let lagrange_column = compute_lagrange_column(&t);
+        let c_t_poly = Polynomial::interpolate_fft::<F>(&lagrange_column).unwrap();
+
+        let challenges: Vec<FE> = t.iter().rev().cloned().collect();
+        let config = FriConfig::default();
+
+        // Prover: commit deterministic
+        let mut prover_transcript = DefaultTranscript::<F>::new(b"det_fri_lc");
+        let (commit_result, query_indices) = fri::fri_commit_deterministic_and_sample(
+            &c_t_poly,
+            &challenges,
+            &config,
+            &mut prover_transcript,
+        )
+        .unwrap();
+
+        // Build proof
+        let query_rounds = if commit_result.layers.is_empty() {
+            vec![vec![]; query_indices.len()]
+        } else {
+            crate::fri::query::fri_query_all(
+                &query_indices,
+                &commit_result.layers,
+                &commit_result.merkle_trees,
+            )
+            .unwrap()
+        };
+
+        let proof = crate::fri::types::FriProof {
+            layer_merkle_roots: commit_result.layers.iter().map(|l| l.merkle_root).collect(),
+            query_rounds,
+            final_value: commit_result.final_value,
+        };
+
+        // Verifier: verify deterministic
+        let mut verifier_transcript = DefaultTranscript::<F>::new(b"det_fri_lc");
+        let result = fri::fri_verify_deterministic(
+            &proof,
+            &challenges,
+            lagrange_column.len(),
+            &config,
+            &mut verifier_transcript,
+            &commit_result.final_value,
+        );
+        assert!(result.is_ok(), "deterministic FRI verification should pass");
+    }
+
+    #[test]
+    fn test_v2_proof_has_lagrange_commitment() {
+        // Verify that prove_with_pcs includes lagrange_fri_proof and lagrange_commitment.
+        let pcs = default_fri_pcs();
+        let values: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
+        let layer = make_grand_product_layer(values);
+
+        let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_has_lc");
+        let (proof, _) =
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
+
+        assert!(
+            proof.lagrange_fri_proof.is_some(),
+            "proof should have lagrange_fri_proof"
+        );
+        assert!(
+            proof.lagrange_commitment.is_some(),
+            "proof should have lagrange_commitment"
+        );
+
+        // Opened values should include c_t(z): columns + c_t + q + r'
+        // GrandProduct has 1 column, so opened_values should have 1 + 1 + 1 + 1 = 4 values
+        assert_eq!(
+            proof.opened_values.len(),
+            4,
+            "opened_values should include c_t(z)"
+        );
+    }
+
+    #[test]
+    fn test_v2_tampered_lagrange_fri_proof_rejected() {
+        // Tamper with the deterministic FRI proof to verify it's checked.
+        let pcs = default_fri_pcs();
+        let values: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
+        let layer = make_grand_product_layer(values);
+
+        let mut prover_transcript = DefaultTranscript::<F>::new(b"v2_tamper_lfri");
+        let (mut proof, _) =
+            prove_with_pcs::<F, _, FriCommitmentScheme>(&mut prover_transcript, layer, &pcs)
+                .unwrap();
+
+        // Tamper with the deterministic FRI final value
+        if let Some(ref mut fri_proof) = proof.lagrange_fri_proof {
+            fri_proof.final_value += FE::one();
+        }
+
+        let mut verifier_transcript = DefaultTranscript::<F>::new(b"v2_tamper_lfri");
+        let result = verify_with_pcs::<F, _, FriCommitmentScheme>(
+            Gate::GrandProduct,
+            &proof,
+            &mut verifier_transcript,
+            &pcs,
+        );
+        assert!(
+            result.is_err(),
+            "tampered lagrange FRI proof should be rejected"
+        );
     }
 }

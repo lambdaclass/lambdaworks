@@ -68,6 +68,43 @@ where
     Ok((commit_result, query_indices))
 }
 
+/// Run the deterministic FRI commit phase and sample query indices.
+///
+/// Like [`fri_commit_and_sample`] but uses predetermined folding challenges.
+pub fn fri_commit_deterministic_and_sample<F, T>(
+    poly: &Polynomial<FieldElement<F>>,
+    challenges: &[FieldElement<F>],
+    config: &FriConfig,
+    transcript: &mut T,
+) -> Result<(FriCommitResult<F>, Vec<usize>), FriError>
+where
+    F: IsFFTField,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: AsBytes + ByteConversion + Clone + Send + Sync,
+    T: IsTranscript<F>,
+{
+    let commit_result = commit::fri_commit_deterministic(poly, challenges, config, transcript)?;
+
+    let first_domain_size = if commit_result.layers.is_empty() {
+        0
+    } else {
+        commit_result.layers[0].domain_size
+    };
+
+    let mut query_indices: Vec<usize> = if first_domain_size == 0 {
+        vec![0; config.num_queries]
+    } else {
+        (0..config.num_queries)
+            .map(|_| transcript.sample_u64((first_domain_size / 2) as u64) as usize)
+            .collect()
+    };
+
+    query_indices.sort_unstable();
+    query_indices.dedup();
+
+    Ok((commit_result, query_indices))
+}
+
 /// Run the full FRI prover: commit + query.
 ///
 /// Takes a polynomial in coefficient form and produces a FRI proof.
@@ -105,6 +142,7 @@ where
 }
 
 pub use verify::fri_verify;
+pub use verify::fri_verify_deterministic;
 
 #[cfg(test)]
 mod tests {
