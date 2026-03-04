@@ -9,7 +9,7 @@ use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::Pa
 use crate::{
     elliptic_curve::short_weierstrass::{
         curves::bls12_381::field_extension::Degree6ExtensionField,
-        point::ShortWeierstrassJacobianPoint, traits::IsShortWeierstrass,
+        point::ShortWeierstrassJacobianPoint,
     },
     field::element::FieldElement,
     unsigned_integer::element::U256,
@@ -84,13 +84,13 @@ fn precompute_double_line(
 ) -> (Fp2E, Fp2E, Fp2E) {
     let [x1, y1, z1] = t.coordinates();
 
-    let a = &TWO_INV * x1 * y1;
+    let a = mul_fp2_by_fp(&TWO_INV_FP, &(x1 * y1));
     let b = y1.square();
     let c = z1.square();
     let d = triple_fp2(&c);
-    let e = BLS12381TwistCurve::b() * &d;
+    let e = mul_fp2_by_twist_b(&d); // b'·d using additions only
     let f = triple_fp2(&e);
-    let g = &TWO_INV * (&b + &f);
+    let g = mul_fp2_by_fp(&TWO_INV_FP, &(&b + &f));
     let h = (y1 + z1).square() - (&b + &c);
 
     let x3 = &a * (&b - &f);
@@ -387,16 +387,34 @@ fn multi_miller(
     f.conjugate()
 }
 
-/// The multiplicative inverse of 2 in Fp2.
-const TWO_INV: Fp2E = Fp2E::const_from_raw([
-    FpE::from_hex_unchecked("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556"),
-    FpE::from_hex_unchecked("0"),
-]);
+/// The multiplicative inverse of 2 in the base field Fp.
+/// Used for halving Fp2 elements component-wise (2 Fp muls instead of 3 via Karatsuba).
+const TWO_INV_FP: FpE = FpE::from_hex_unchecked("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
 
 /// Multiplies an Fp2 element by 3 using addition chain: 3x = 2x + x
 #[inline]
 fn triple_fp2(x: &Fp2E) -> Fp2E {
     x.double() + x
+}
+
+/// Multiply Fp2 element by a base field (Fp) scalar.
+/// Cost: 2 Fp multiplications (vs 3 for generic Fp2 × Fp2 Karatsuba when one operand is (c, 0)).
+#[inline]
+fn mul_fp2_by_fp(scalar: &FpE, a: &Fp2E) -> Fp2E {
+    let [a0, a1] = a.value();
+    Fp2E::new([scalar * a0, scalar * a1])
+}
+
+/// Multiply Fp2 element by the twist curve parameter b' = (4 + 4i).
+/// Uses addition chains only: (a₀+a₁i)(4+4i) = 4(a₀-a₁) + 4(a₀+a₁)i.
+/// Cost: ~0 Fp multiplications (only Fp additions/subtractions),
+/// vs 3 Fp muls for generic Fp2 Karatsuba.
+#[inline]
+fn mul_fp2_by_twist_b(a: &Fp2E) -> Fp2E {
+    let [a0, a1] = a.value();
+    let diff = a0 - a1;
+    let sum = a0 + a1;
+    Fp2E::new([diff.double().double(), sum.double().double()])
 }
 
 /// Specialized Fp4 squaring for BLS12-381 where the quadratic non-residue is β = 1+u.
@@ -587,13 +605,13 @@ fn double_step(
     let [x1, y1, z1] = t.coordinates();
     let [px, py, _] = p.coordinates();
 
-    let a = &TWO_INV * x1 * y1;
+    let a = mul_fp2_by_fp(&TWO_INV_FP, &(x1 * y1));
     let b = y1.square();
     let c = z1.square();
     let d = triple_fp2(&c); // 3c via addition chain
-    let e = BLS12381TwistCurve::b() * d;
+    let e = mul_fp2_by_twist_b(&d); // b'·d using additions only
     let f = triple_fp2(&e); // 3e via addition chain
-    let g = &TWO_INV * (&b + &f);
+    let g = mul_fp2_by_fp(&TWO_INV_FP, &(&b + &f));
     let h = (y1 + z1).square() - (&b + &c);
 
     let x3 = &a * (&b - &f);
