@@ -18,8 +18,6 @@ pub struct UnivariateIopProof<F: IsField> {
     pub committed_columns: Vec<Vec<FieldElement<F>>>,
     /// The standard GKR proof over the multilinear representation.
     pub gkr_proof: Proof<F>,
-    /// Lagrange column values `c_i = eq(iota(i), t)` for the evaluation point `t`.
-    pub lagrange_column: Vec<FieldElement<F>>,
 }
 
 /// Proof for the univariate IOP Phase 2: PCS-based commitments + univariate sumcheck.
@@ -55,8 +53,6 @@ pub struct UnivariateIopProofV2<
 /// Error type for the univariate IOP.
 #[derive(Debug)]
 pub enum UnivariateIopError {
-    /// Lagrange column constraint verification failed.
-    LagrangeConstraintFailed(super::lagrange_column::LagrangeColumnError),
     /// Inner product of committed values and Lagrange column doesn't match the GKR claim.
     InnerProductMismatch,
     /// Univariate sumcheck equation check failed.
@@ -72,9 +68,6 @@ pub enum UnivariateIopError {
 impl core::fmt::Display for UnivariateIopError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::LagrangeConstraintFailed(e) => {
-                write!(f, "Lagrange column constraint failed: {e}")
-            }
             Self::InnerProductMismatch => {
                 write!(
                     f,
@@ -96,7 +89,6 @@ impl std::error::Error for UnivariateIopError {
         match self {
             Self::DomainError(e) => Some(e),
             Self::CommitmentSchemeError(e) => Some(e),
-            Self::LagrangeConstraintFailed(e) => Some(e),
             _ => None,
         }
     }
@@ -114,8 +106,3 @@ impl From<CyclicDomainError> for UnivariateIopError {
     }
 }
 
-impl From<super::lagrange_column::LagrangeColumnError> for UnivariateIopError {
-    fn from(e: super::lagrange_column::LagrangeColumnError) -> Self {
-        Self::LagrangeConstraintFailed(e)
-    }
-}

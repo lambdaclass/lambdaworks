@@ -16,9 +16,7 @@ use lambdaworks_math::traits::{AsBytes, ByteConversion};
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 
-use super::lagrange_column::{
-    combined_inner_product, compute_lagrange_column, verify_lagrange_column_constraints,
-};
+use super::lagrange_column::{combined_inner_product, compute_lagrange_column};
 use super::pcs::{CommitmentSchemeError, IsUnivariateCommitmentScheme};
 use super::sumcheck::{evaluate_lagrange_at_z, prove_sumcheck, verify_sumcheck_at_z};
 use super::types::{UnivariateIopError, UnivariateIopProof, UnivariateIopProofV2};
@@ -93,7 +91,8 @@ where
     // Step 8: Verify inner product (prover sanity check)
     let col_refs: Vec<&[FieldElement<F>]> =
         committed_columns.iter().map(|c| c.as_slice()).collect();
-    let ip = combined_inner_product(&col_refs, &lagrange_column, &lambda)?;
+    let ip = combined_inner_product(&col_refs, &lagrange_column, &lambda)
+        .map_err(|_| UnivariateIopError::InnerProductMismatch)?;
 
     if ip != combined_claim {
         return Err(UnivariateIopError::InnerProductMismatch);
@@ -102,7 +101,6 @@ where
     let proof = UnivariateIopProof {
         committed_columns,
         gkr_proof,
-        lagrange_column,
     };
 
     Ok((proof, gkr_result))
@@ -113,7 +111,7 @@ where
 /// Mirrors the prover's transcript interaction exactly:
 /// 1. Reads committed columns and appends to transcript.
 /// 2. Runs GKR verification.
-/// 3. Verifies Lagrange column constraints.
+/// 3. Recomputes the Lagrange column from the GKR OOD point (never accepts it from the prover).
 /// 4. Checks inner product consistency.
 pub fn verify_univariate<F, T>(
     gate: Gate,
@@ -151,21 +149,21 @@ where
     // Step 4: Combine claims
     let combined_claim = random_linear_combination(&gkr_result.claims_to_verify, &lambda);
 
-    // Step 5: Read Lagrange column and append to transcript (must match prover)
-    for c in &proof.lagrange_column {
+    // Step 5: Recompute Lagrange column from OOD point (verifier never accepts this from the prover;
+    // compute_lagrange_column is deterministic so the transcript stays consistent with the prover).
+    let lagrange_column = compute_lagrange_column(&gkr_result.ood_point);
+    for c in &lagrange_column {
         transcript.append_field_element(c);
     }
 
-    // Step 6: Verify Lagrange column periodic constraints (eqs. 10, 11)
-    verify_lagrange_column_constraints(&proof.lagrange_column, &gkr_result.ood_point)?;
-
-    // Step 7: Verify inner product
+    // Step 6: Verify inner product
     let col_refs: Vec<&[FieldElement<F>]> = proof
         .committed_columns
         .iter()
         .map(|c| c.as_slice())
         .collect();
-    let ip = combined_inner_product(&col_refs, &proof.lagrange_column, &lambda)?;
+    let ip = combined_inner_product(&col_refs, &lagrange_column, &lambda)
+        .map_err(|_| UnivariateIopError::InnerProductMismatch)?;
 
     if ip != combined_claim {
         return Err(UnivariateIopError::InnerProductMismatch);
@@ -635,24 +633,6 @@ mod tests {
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(b"lm");
         verify_univariate(Gate::LogUp, &proof, &mut verifier_transcript).unwrap();
-    }
-
-    #[test]
-    fn test_tampered_lagrange_column_fails() {
-        let values: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
-        let layer = make_grand_product_layer(values);
-
-        let mut prover_transcript = DefaultTranscript::<F>::new(b"tamper_lc");
-        let (mut proof, _) = prove_univariate(&mut prover_transcript, layer).unwrap();
-
-        // Tamper with the Lagrange column
-        if let Some(c) = proof.lagrange_column.get_mut(0) {
-            *c += FE::one();
-        }
-
-        let mut verifier_transcript = DefaultTranscript::<F>::new(b"tamper_lc");
-        let result = verify_univariate(Gate::GrandProduct, &proof, &mut verifier_transcript);
-        assert!(result.is_err());
     }
 
     #[test]

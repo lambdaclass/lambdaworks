@@ -81,7 +81,6 @@ fn test_logup_singles() {
         proof.gkr_proof.sumcheck_proofs.len()
     );
     println!("  OOD point dimension: {}", result.ood_point.len());
-    println!("  Lagrange column size: {}", proof.lagrange_column.len());
 
     let mut verifier_transcript = DefaultTranscript::<F>::new(b"logup_singles_example");
     verify_univariate(Gate::LogUp, &proof, &mut verifier_transcript).unwrap();
