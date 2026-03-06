@@ -47,6 +47,9 @@ pub struct UnivariateIopProofV2<
     pub batch_proof: B,
     /// Opened values at z: [col_0(z), col_1(z), ..., q(z), r'(z)].
     pub opened_values: Vec<FieldElement<F>>,
+    /// Whether the all-ones column is implicit (i.e. not committed via PCS).
+    /// True only for `LogUpSingles`, where the numerator is always 1.
+    pub ones_are_implicit: bool,
 }
 
 /// Error type for the univariate IOP.

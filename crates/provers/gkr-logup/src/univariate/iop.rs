@@ -227,6 +227,7 @@ where
     absorb_gate(input_layer.gate_type(), transcript);
     transcript.append_bytes(&(committed_columns.len() as u64).to_le_bytes());
     transcript.append_bytes(&(first_len as u64).to_le_bytes());
+    transcript.append_bytes(&[has_ones_prefix as u8]);
 
     // Step 1: Commit columns via PCS
     let mut column_commitments = Vec::with_capacity(committed_columns.len());
@@ -324,6 +325,7 @@ where
         r_prime_commitment,
         batch_proof,
         opened_values,
+        ones_are_implicit: has_ones_prefix,
     };
 
     Ok((proof, gkr_result))
@@ -368,6 +370,7 @@ where
     absorb_gate(gate, transcript);
     transcript.append_bytes(&(num_columns as u64).to_le_bytes());
     transcript.append_bytes(&(domain_size as u64).to_le_bytes());
+    transcript.append_bytes(&[proof.ones_are_implicit as u8]);
 
     // Step 1: Absorb column commitments into transcript (must match prover)
     for commitment in &proof.column_commitments {
@@ -453,10 +456,9 @@ where
     let r_prime_z = &proof.opened_values[num_columns + 1];
 
     // Step 9: Compute combined u(z) = col_0(z) + lambda * col_1(z) + ...
-    // For LogUpSingles (LogUp gate with 1 committed column), the ones column is implicit:
-    // ones(z) = 1, so u(z) = 1 + lambda * den(z).
-    let is_logup_singles = matches!(gate, Gate::LogUp) && num_columns == 1;
-    let u_z = if is_logup_singles {
+    // If ones_are_implicit, the all-ones column (lambda^0 weight) is not in the proof;
+    // the verifier adds its known contribution: ones(z) = 1.
+    let u_z = if proof.ones_are_implicit {
         FieldElement::<F>::one() + &lambda * &column_values_at_z[0]
     } else {
         random_linear_combination(column_values_at_z, &lambda)
