@@ -274,6 +274,7 @@ pub struct BatchVerificationResult<F: IsField> {
 /// layer MLE evaluations.
 pub fn verify_batch<F, T>(
     gates: &[Gate],
+    n_variables_by_instance: &[usize],
     proof: &BatchProof<F>,
     transcript: &mut T,
 ) -> Result<BatchVerificationResult<F>, VerifierError<F>>
@@ -297,11 +298,21 @@ where
         return Err(VerifierError::MalformedProof);
     }
 
+    // HIGH-003: validate trusted statement matches proof structure
+    if n_variables_by_instance.len() != n_instances {
+        return Err(VerifierError::MalformedProof);
+    }
+    for instance in 0..n_instances {
+        if layer_masks_by_instance[instance].len() != n_variables_by_instance[instance] {
+            return Err(VerifierError::MalformedProof);
+        }
+    }
+
     // Domain separation: must match prover (see prove_batch).
     transcript.append_bytes(b"gkr_batch");
     transcript.append_bytes(&(n_instances as u64).to_le_bytes());
 
-    let instance_n_layers = |instance: usize| layer_masks_by_instance[instance].len();
+    let instance_n_layers = |instance: usize| n_variables_by_instance[instance];
     let n_layers = (0..n_instances).map(instance_n_layers).max().unwrap_or(0);
 
     if n_layers != sumcheck_proofs.len() {
@@ -362,7 +373,8 @@ where
                     continue;
                 }
                 let n_unused = n_layers - instance_n_layers(instance);
-                let doubling_factor = FieldElement::<F>::from(1u64 << n_unused);
+                let doubling_factor =
+                    (0..n_unused).fold(FieldElement::<F>::one(), |acc, _| &acc + &acc);
                 let claim = &random_linear_combination(claims, &lambda) * &doubling_factor;
                 sumcheck_claims.push(claim);
                 sumcheck_instances.push(instance);
@@ -383,7 +395,12 @@ where
         let mut layer_evals = Vec::new();
         for &instance in &sumcheck_instances {
             let n_unused = n_layers - instance_n_layers(instance);
-            let mask = &layer_masks_by_instance[instance][layer - n_unused];
+            if layer < n_unused {
+                return Err(VerifierError::MalformedProof);
+            }
+            let mask = layer_masks_by_instance[instance]
+                .get(layer - n_unused)
+                .ok_or(VerifierError::MalformedProof)?;
             let gate_output = gates[instance].eval(mask)?;
 
             // eq evaluation uses the relevant suffix of the OOD point.
@@ -416,7 +433,12 @@ where
         // Seed transcript with masks (same order as prover).
         for &instance in &sumcheck_instances {
             let n_unused = n_layers - instance_n_layers(instance);
-            let mask = &layer_masks_by_instance[instance][layer - n_unused];
+            if layer < n_unused {
+                return Err(VerifierError::MalformedProof);
+            }
+            let mask = layer_masks_by_instance[instance]
+                .get(layer - n_unused)
+                .ok_or(VerifierError::MalformedProof)?;
             for col in mask.columns() {
                 transcript.append_field_element(&col[0]);
                 transcript.append_field_element(&col[1]);
@@ -427,7 +449,12 @@ where
         let challenge: FieldElement<F> = transcript.sample_field_element();
         for instance in sumcheck_instances {
             let n_unused = n_layers - instance_n_layers(instance);
-            let mask = &layer_masks_by_instance[instance][layer - n_unused];
+            if layer < n_unused {
+                return Err(VerifierError::MalformedProof);
+            }
+            let mask = layer_masks_by_instance[instance]
+                .get(layer - n_unused)
+                .ok_or(VerifierError::MalformedProof)?;
             claims_to_verify_by_instance[instance] = Some(mask.reduce_at_point(&challenge));
         }
 
@@ -444,6 +471,6 @@ where
     Ok(BatchVerificationResult {
         ood_point,
         claims_to_verify_by_instance,
-        n_variables_by_instance: (0..n_instances).map(instance_n_layers).collect(),
+        n_variables_by_instance: n_variables_by_instance.to_vec(),
     })
 }

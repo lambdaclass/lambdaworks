@@ -271,9 +271,17 @@ fn correct_sum_as_poly_in_first_variable<F: IsField>(
     y: &[FieldElement<F>],
     k: usize,
 ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
-    assert!(k > 0);
+    if k == 0 {
+        return Err(ProverError::InvalidState(
+            "correct_sum_as_poly_in_first_variable: k must be > 0".to_string(),
+        ));
+    }
     let n = y.len();
-    assert!(k <= n);
+    if k > n {
+        return Err(ProverError::InvalidState(format!(
+            "correct_sum_as_poly_in_first_variable: k ({k}) > y.len() ({n})"
+        )));
+    }
 
     // a_const = 1 / eq_eval((0^(n-k+1)), y[..n-k+1])
     // eq_eval(0, y_i) = 1 - y_i, so eq_eval(0^m, y) = prod(1 - y_i).
@@ -498,7 +506,9 @@ where
     for (claim, oracle) in claims.iter_mut().zip(oracles.iter()) {
         let n_unused = n_variables - oracle.n_variables();
         if n_unused > 0 {
-            *claim = &*claim * &FieldElement::<F>::from(1u64 << n_unused);
+            let doubling_factor =
+                (0..n_unused).fold(FieldElement::<F>::one(), |acc, _| &acc + &acc);
+            *claim = &*claim * &doubling_factor;
         }
     }
 
@@ -1116,11 +1126,16 @@ mod tests {
         input_layers: Vec<Layer<F>>,
     ) -> verifier::BatchVerificationResult<F> {
         let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
-        let (proof, _artifact) = prove_batch(&mut prover_transcript, input_layers).unwrap();
+        let (proof, artifact) = prove_batch(&mut prover_transcript, input_layers).unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
-        verifier::verify_batch(&gates, &proof, &mut verifier_transcript)
-            .expect("batch verification should succeed")
+        verifier::verify_batch(
+            &gates,
+            &artifact.n_variables_by_instance,
+            &proof,
+            &mut verifier_transcript,
+        )
+        .expect("batch verification should succeed")
     }
 
     #[test]
@@ -1245,7 +1260,7 @@ mod tests {
         let values1: Vec<FE> = (11u64..=18).map(FE::from).collect();
 
         let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
-        let (mut proof, _) = prove_batch(
+        let (mut proof, artifact) = prove_batch(
             &mut prover_transcript,
             vec![
                 Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
@@ -1259,6 +1274,7 @@ mod tests {
         let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
         let result = verifier::verify_batch(
             &[Gate::GrandProduct, Gate::GrandProduct],
+            &artifact.n_variables_by_instance,
             &proof,
             &mut verifier_transcript,
         );
@@ -1271,7 +1287,7 @@ mod tests {
         let values1: Vec<FE> = (11u64..=18).map(FE::from).collect();
 
         let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
-        let (mut proof, _) = prove_batch(
+        let (mut proof, artifact) = prove_batch(
             &mut prover_transcript,
             vec![
                 Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
@@ -1290,6 +1306,7 @@ mod tests {
         let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
         let result = verifier::verify_batch(
             &[Gate::GrandProduct, Gate::GrandProduct],
+            &artifact.n_variables_by_instance,
             &proof,
             &mut verifier_transcript,
         );
@@ -1302,7 +1319,7 @@ mod tests {
         let values1: Vec<FE> = (11u64..=14).map(FE::from).collect();
 
         let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
-        let (mut proof, _) = prove_batch(
+        let (mut proof, artifact) = prove_batch(
             &mut prover_transcript,
             vec![
                 Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
@@ -1316,6 +1333,7 @@ mod tests {
         let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
         let result = verifier::verify_batch(
             &[Gate::GrandProduct, Gate::GrandProduct],
+            &artifact.n_variables_by_instance,
             &proof,
             &mut verifier_transcript,
         );
@@ -1365,13 +1383,14 @@ mod tests {
 
         // Batch prove both instances
         let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
-        let (proof, _artifact) =
+        let (proof, artifact) =
             prove_batch(&mut prover_transcript, vec![access_layer, table_layer]).unwrap();
 
         // Batch verify
         let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
         let result = verifier::verify_batch(
             &[Gate::LogUp, Gate::LogUp],
+            &artifact.n_variables_by_instance,
             &proof,
             &mut verifier_transcript,
         );
@@ -1413,13 +1432,14 @@ mod tests {
         };
 
         let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
-        let (proof, _artifact) =
+        let (proof, artifact) =
             prove_batch(&mut prover_transcript, vec![access_layer, table_layer]).unwrap();
 
         // GKR itself verifies fine (each instance is internally consistent)
         let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
         let result = verifier::verify_batch(
             &[Gate::LogUp, Gate::LogUp],
+            &artifact.n_variables_by_instance,
             &proof,
             &mut verifier_transcript,
         );
@@ -1467,8 +1487,12 @@ mod tests {
         assert_eq!(artifact.claims_to_verify_by_instance[0], vec![FE::from(42)]);
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
-        let result =
-            verifier::verify_batch(&[Gate::GrandProduct], &proof, &mut verifier_transcript);
+        let result = verifier::verify_batch(
+            &[Gate::GrandProduct],
+            &artifact.n_variables_by_instance,
+            &proof,
+            &mut verifier_transcript,
+        );
         assert!(
             result.is_ok(),
             "batch verification of size-1 instance should succeed"
@@ -1527,10 +1551,15 @@ mod tests {
         let single = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(42)]));
 
         let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
-        let (proof, _) = prove_batch(&mut prover_transcript, vec![single]).unwrap();
+        let (proof, artifact) = prove_batch(&mut prover_transcript, vec![single]).unwrap();
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify_batch(&[Gate::LogUp], &proof, &mut verifier_transcript);
+        let result = verifier::verify_batch(
+            &[Gate::LogUp],
+            &artifact.n_variables_by_instance,
+            &proof,
+            &mut verifier_transcript,
+        );
         assert!(
             result.is_err(),
             "wrong gate on 0-layer batch instance should be rejected"
@@ -1552,7 +1581,12 @@ mod tests {
         assert!(artifact.claims_to_verify_by_instance.is_empty());
 
         let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
-        let result = verifier::verify_batch(&[], &proof, &mut verifier_transcript);
+        let result = verifier::verify_batch(
+            &[],
+            &artifact.n_variables_by_instance,
+            &proof,
+            &mut verifier_transcript,
+        );
         assert!(result.is_ok(), "empty batch should verify successfully");
 
         let vr = result.unwrap();

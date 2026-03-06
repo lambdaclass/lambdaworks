@@ -77,7 +77,7 @@ fn main() {
     // -------------------------------------------------------
     println!("--- Proving ---");
     let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
-    let (proof, _artifact) =
+    let (proof, artifact) =
         prove_batch(&mut prover_transcript, vec![access_layer, table_layer]).unwrap();
 
     println!(
@@ -94,17 +94,18 @@ fn main() {
     let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
     let result = verify_batch(
         &[Gate::LogUp, Gate::LogUp],
+        &artifact.n_variables_by_instance,
         &proof,
         &mut verifier_transcript,
     );
 
     match &result {
-        Ok(artifact) => {
+        Ok(gkr_result) => {
             println!("GKR verification: PASSED");
-            println!("  OOD point length: {}", artifact.ood_point.len());
+            println!("  OOD point length: {}", gkr_result.ood_point.len());
             println!(
                 "  Variables by instance: {:?}",
-                artifact.n_variables_by_instance
+                gkr_result.n_variables_by_instance
             );
         }
         Err(e) => {
@@ -156,12 +157,13 @@ fn main() {
     };
 
     let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
-    let (bad_proof, _) =
+    let (bad_proof, bad_artifact) =
         prove_batch(&mut prover_transcript, vec![bad_access_layer, table_layer2]).unwrap();
 
     let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
     let bad_result = verify_batch(
         &[Gate::LogUp, Gate::LogUp],
+        &bad_artifact.n_variables_by_instance,
         &bad_proof,
         &mut verifier_transcript,
     );
