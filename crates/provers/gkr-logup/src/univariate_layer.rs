@@ -235,6 +235,25 @@ where
         }
     }
 
+    /// Returns columns that need PCS binding in Phase 2.
+    ///
+    /// For `LogUpSingles`, omits the all-ones column since it is a known constant
+    /// (the verifier can compute `ones(z) = 1` without a commitment). All other
+    /// variants return the same columns as [`get_univariate_values`].
+    pub fn get_committed_columns(&self) -> Vec<Vec<FieldElement<F>>> {
+        match self {
+            Self::LogUpSingles { denominators, .. } => vec![denominators.values.clone()],
+            _ => self.get_univariate_values(),
+        }
+    }
+
+    /// Returns `true` if this layer has an implicit all-ones prefix column that
+    /// is excluded from PCS commitments but must be accounted for when combining
+    /// columns with lambda weights. Only `LogUpSingles` returns `true`.
+    pub fn has_ones_prefix(&self) -> bool {
+        matches!(self, Self::LogUpSingles { .. })
+    }
+
     /// Sets commitments in the same order as [`get_commitments`] returns them:
     /// - GrandProduct: `[values]`
     /// - LogUpGeneric/LogUpMultiplicities: `[numerator, denominator]`

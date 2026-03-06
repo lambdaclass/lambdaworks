@@ -205,7 +205,8 @@ where
     P: IsUnivariateCommitmentScheme<F>,
 {
     // Step 0: Extract columns and domain separation
-    let committed_columns = input_layer.get_univariate_values();
+    let has_ones_prefix = input_layer.has_ones_prefix();
+    let committed_columns = input_layer.get_committed_columns();
 
     if committed_columns.is_empty() {
         return Err(UnivariateIopError::CommitmentSchemeError(
@@ -258,9 +259,19 @@ where
     }
 
     // Combine columns with lambda weights: combined_evals[i] = sum_j lambda^j * col_j[i]
+    // For LogUpSingles, the ones column (lambda^0 weight) is a known constant 1, not committed.
+    // We account for it as an additive offset and start the committed columns at lambda^1.
     let n = committed_columns[0].len();
-    let mut combined_evals = vec![FieldElement::<F>::zero(); n];
-    let mut lambda_power = FieldElement::<F>::one();
+    let mut combined_evals = if has_ones_prefix {
+        vec![FieldElement::<F>::one(); n]
+    } else {
+        vec![FieldElement::<F>::zero(); n]
+    };
+    let mut lambda_power = if has_ones_prefix {
+        lambda.clone()
+    } else {
+        FieldElement::<F>::one()
+    };
     for col in &committed_columns {
         for (i, val) in col.iter().enumerate() {
             combined_evals[i] = &combined_evals[i] + &(&lambda_power * val);
@@ -442,7 +453,14 @@ where
     let r_prime_z = &proof.opened_values[num_columns + 1];
 
     // Step 9: Compute combined u(z) = col_0(z) + lambda * col_1(z) + ...
-    let u_z = random_linear_combination(column_values_at_z, &lambda);
+    // For LogUpSingles (LogUp gate with 1 committed column), the ones column is implicit:
+    // ones(z) = 1, so u(z) = 1 + lambda * den(z).
+    let is_logup_singles = matches!(gate, Gate::LogUp) && num_columns == 1;
+    let u_z = if is_logup_singles {
+        FieldElement::<F>::one() + &lambda * &column_values_at_z[0]
+    } else {
+        random_linear_combination(column_values_at_z, &lambda)
+    };
 
     // Step 10: Compute C_t(z) via Lagrange interpolation
     let c_t_z = evaluate_lagrange_at_z(&lagrange_column, &z, n)?;
