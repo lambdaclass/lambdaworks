@@ -261,10 +261,10 @@ impl IsPairing for BLS12381AtePairing {
 
     /// Compute the product of the ate pairings for a list of point pairs.
     ///
-    /// Uses a shared-square multi-Miller loop: the Fp12 squaring is performed once
-    /// per iteration (not once per pair), and each pair's line evaluations are
-    /// multiplied into the shared accumulator. This saves (n-1)×63 Fp12 squares
-    /// for n-pair batches.
+    /// With the `parallel` feature, runs independent Miller loops in parallel
+    /// across CPU cores, then multiplies the results and applies a single final
+    /// exponentiation. Without `parallel`, uses a shared-square multi-Miller
+    /// loop that saves (n-1)×63 Fp12 squares.
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
@@ -289,8 +289,20 @@ impl IsPairing for BLS12381AtePairing {
             return final_exponentiation(&result);
         }
 
-        // Multi-pair: shared-square Miller loop
+        // Multi-pair: parallel independent Miller loops (when available)
+        // or shared-square Miller loop (sequential fallback)
+        #[cfg(feature = "parallel")]
+        let result = {
+            use rayon::prelude::*;
+            valid_pairs
+                .par_iter()
+                .map(|(p, q)| miller(q, p))
+                .reduce(Fp12E::one, |acc, f| acc * f)
+        };
+
+        #[cfg(not(feature = "parallel"))]
         let result = multi_miller(&valid_pairs);
+
         final_exponentiation(&result)
     }
 }
@@ -332,7 +344,7 @@ pub fn miller(
 ///
 /// Saves (n-1) × 63 Fp12 squares for n-pair batches, which is the dominant
 /// cost reduction for batch pairings.
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "alloc", not(feature = "parallel")))]
 fn multi_miller(
     pairs: &[(
         ShortWeierstrassJacobianPoint<BLS12381Curve>,
