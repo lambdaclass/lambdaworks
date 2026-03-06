@@ -105,4 +105,3 @@ impl From<CyclicDomainError> for UnivariateIopError {
         Self::DomainError(e)
     }
 }
-

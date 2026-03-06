@@ -44,7 +44,6 @@ impl<F: IsFFTField> UnivariateLagrange<F> {
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
-
 }
 
 fn bit_reverse_indices<F: IsField>(values: &mut [FieldElement<F>]) {
@@ -134,5 +133,4 @@ mod tests {
         assert_eq!(univariate.n_variables(), 3);
         assert_eq!(univariate.len(), 8);
     }
-
 }
