@@ -45,41 +45,6 @@ impl<F: IsFFTField> UnivariateLagrange<F> {
         self.values.is_empty()
     }
 
-    pub fn fix_first_variable(
-        &self,
-        assignment: &FieldElement<F>,
-    ) -> Result<Self, CyclicDomainError> {
-        let n = self.values.len();
-        let log_n = n.ilog2() as usize;
-        let domain = &self.domain;
-
-        let mut new_values = Vec::with_capacity(n / 2);
-
-        for i in 0..(n / 2) {
-            let omega_2i = domain.get_point(2 * i);
-            let omega_2i_plus_1 = domain.get_point(2 * i + 1);
-
-            let val_0 = &self.values[2 * i];
-            let val_1 = &self.values[2 * i + 1];
-
-            let numerator = (val_1 - val_0) * assignment.clone()
-                + val_0.clone() * omega_2i_plus_1.clone()
-                - val_1.clone() * omega_2i.clone();
-            let denominator = omega_2i_plus_1 - omega_2i;
-
-            let new_val = numerator
-                * denominator
-                    .inv()
-                    .map_err(|_| CyclicDomainError::InversionFailed)?;
-            new_values.push(new_val);
-        }
-
-        let new_domain = CyclicDomain::new(log_n - 1)?;
-        Ok(Self {
-            values: new_values,
-            domain: new_domain,
-        })
-    }
 }
 
 fn bit_reverse_indices<F: IsField>(values: &mut [FieldElement<F>]) {
@@ -170,13 +135,4 @@ mod tests {
         assert_eq!(univariate.len(), 8);
     }
 
-    #[test]
-    fn test_fix_first_variable() {
-        let values: Vec<FE> = (0..8).map(|i| FE::from(i as u64)).collect();
-        let univariate = UnivariateLagrange::from_multilinear(values).unwrap();
-
-        let fixed = univariate.fix_first_variable(&FE::from(3)).unwrap();
-
-        assert_eq!(fixed.len(), 4);
-    }
 }

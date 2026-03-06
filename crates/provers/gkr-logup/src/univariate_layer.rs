@@ -4,7 +4,6 @@ use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
 
 use crate::fraction::Fraction;
 use crate::layer::Layer;
-use crate::univariate::domain::CyclicDomainError;
 use crate::univariate::lagrange::UnivariateLagrange;
 use crate::univariate::Commitment;
 
@@ -131,44 +130,6 @@ where
                 vec![FieldElement::one(), denominators.values[0].clone()]
             }
         })
-    }
-
-    pub fn fix_first_variable(self, x0: &FieldElement<F>) -> Result<Self, CyclicDomainError> {
-        match self {
-            Self::GrandProduct { values, commitment } => Ok(Self::GrandProduct {
-                values: values.fix_first_variable(x0)?,
-                commitment,
-            }),
-            Self::LogUpGeneric {
-                numerators,
-                denominators,
-                numerator_commitment,
-                denominator_commitment,
-            } => Ok(Self::LogUpGeneric {
-                numerators: numerators.fix_first_variable(x0)?,
-                denominators: denominators.fix_first_variable(x0)?,
-                numerator_commitment,
-                denominator_commitment,
-            }),
-            Self::LogUpMultiplicities {
-                numerators,
-                denominators,
-                numerator_commitment,
-                denominator_commitment,
-            } => Ok(Self::LogUpGeneric {
-                numerators: numerators.fix_first_variable(x0)?,
-                denominators: denominators.fix_first_variable(x0)?,
-                numerator_commitment,
-                denominator_commitment,
-            }),
-            Self::LogUpSingles {
-                denominators,
-                denominator_commitment,
-            } => Ok(Self::LogUpSingles {
-                denominators: denominators.fix_first_variable(x0)?,
-                denominator_commitment,
-            }),
-        }
     }
 
     /// Converts this univariate layer to a standard multilinear `Layer`.
