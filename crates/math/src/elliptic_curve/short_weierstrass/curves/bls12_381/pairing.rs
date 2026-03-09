@@ -158,6 +158,7 @@ pub fn miller_with_prepared(
         return FieldElement::one();
     }
 
+    let p = p.to_affine();
     let [px, py, _] = p.coordinates();
     let mut f = FieldElement::<Degree12ExtensionField>::one();
     let mut coeff_idx = 0;
@@ -1242,6 +1243,22 @@ mod tests {
         let original = cyclotomic_pow_x(&f_easy);
         let compressed = cyclotomic_pow_x_compressed(&f_easy);
         assert_eq!(original, compressed);
+    }
+
+    #[test]
+    fn miller_with_prepared_accepts_jacobian_p() {
+        // `operate_with_self(2)` returns a Jacobian point with Z != 1.
+        // miller_with_prepared must normalize to affine internally before
+        // extracting coordinates, so the result must equal the affine case.
+        let p_jacobian = BLS12381Curve::generator().operate_with_self(2_u64);
+        let p_affine = p_jacobian.to_affine();
+        let q = BLS12381TwistCurve::generator();
+        let q_prepared = G2Prepared::from_g2_affine(&q);
+
+        let result_jacobian = miller_with_prepared(&q_prepared, &p_jacobian);
+        let result_affine = miller_with_prepared(&q_prepared, &p_affine);
+
+        assert_eq!(result_jacobian, result_affine);
     }
 
     #[test]
