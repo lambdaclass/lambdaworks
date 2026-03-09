@@ -7,6 +7,10 @@ edition = "2021"
 lambdaworks-math = { workspace = true }
 lambdaworks-crypto = { workspace = true }
 lambdaworks-sumcheck = { path = "../sumcheck" }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+
+[features]
+serde = ["dep:serde", "lambdaworks-math/lambdaworks-serde-binary", "lambdaworks-crypto/serde"]
 
 [lib]
 name = "lambdaworks_gkr_logup"

@@ -56,11 +56,16 @@ fn range_check(values: &[u64], n_bits: u32, label: &str) -> bool {
 
     // --- Batch prove ---
     let mut prover_ch = DefaultTranscript::<F>::new(&[]);
-    let (proof, _) = prove_batch(&mut prover_ch, vec![access_layer, table_layer]).unwrap();
+    let (proof, artifact) = prove_batch(&mut prover_ch, vec![access_layer, table_layer]).unwrap();
 
     // --- Batch verify ---
     let mut verifier_ch = DefaultTranscript::<F>::new(&[]);
-    let gkr_result = verify_batch(&[Gate::LogUp, Gate::LogUp], &proof, &mut verifier_ch);
+    let gkr_result = verify_batch(
+        &[Gate::LogUp, Gate::LogUp],
+        &artifact.n_variables_by_instance,
+        &proof,
+        &mut verifier_ch,
+    );
 
     if let Err(e) = &gkr_result {
         println!("  GKR verification: FAILED ({})", e);

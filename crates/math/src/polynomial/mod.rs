@@ -22,6 +22,10 @@ pub use sparse::SparsePolynomial;
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "lambdaworks-serde-binary",
+    derive(serde::Serialize, serde::Deserialize)
+)]
 pub struct Polynomial<FE> {
     pub coefficients: Vec<FE>,
 }

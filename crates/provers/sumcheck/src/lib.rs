@@ -32,7 +32,7 @@ pub use batched::{
     prove_batched, verify_batched, BatchedProofOutput, BatchedProver, StructuredBatchedProver,
 };
 pub use blendy::{prove_blendy, prove_memory_efficient, BlendyProver};
-pub use common::{run_sumcheck_with_channel, SumcheckProver};
+pub use common::{run_sumcheck_with_transcript, SumcheckProver};
 pub use prover::ProverOutput;
 pub use prover::{prove, Prover, ProverError};
 pub use prover_optimized::{prove_optimized, OptimizedProver, OptimizedProverError};
