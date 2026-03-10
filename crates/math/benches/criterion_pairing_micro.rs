@@ -11,8 +11,8 @@ use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::Degree12ExtensionField;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::{
-    cyclotomic_pow_x, cyclotomic_pow_x_compressed, cyclotomic_square, final_exponentiation, miller,
-    frobenius_square, CompressedCyclotomic,
+    cyclotomic_pow_x, cyclotomic_pow_x_compressed, cyclotomic_square, final_exponentiation,
+    frobenius_square, miller, CompressedCyclotomic,
 };
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::twist::BLS12381TwistCurve;
 use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;

@@ -930,7 +930,9 @@ mod aarch64_asm {
                 "adc {tx}, {h1}, xzr",
                 // Phase 3: Reduce. m = t[5]*mu. Montgomery: t[5]+m*q[5] ≡ 0 mod 2^64.
                 // subs xzr, t5, #1 → CF=(t5≥1)=(t5≠0) = carry from (t5+m*q5)>>64.
-                // If t5=0 then m=0 so carry=0; if t5≠0 then sum wraps, carry=1. Correct!
+                // If t5=0 then m=0 so carry=0; if t5≠0 then sum wraps, carry=1.
+                // REQUIRES spare bit: high limb of q < 2^63 (BLS12-381: q[0]=0x1a01..., 57 bits).
+                // This invariant ensures the carry is exactly 0 or 1; do NOT use with full-width moduli.
                 "mul {m}, {t5}, {mu}",
                 "subs xzr, {t5}, #1",
                 // Add lo(m*q[4..0]) to t[4..0] with shift: new_t5=t4+lo(m*q4)+CF, etc.
