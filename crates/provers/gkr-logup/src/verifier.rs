@@ -13,6 +13,7 @@ use crate::utils::{fold_mle_evals, random_linear_combination};
 
 /// Proof for the sumcheck protocol: one round polynomial per variable.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SumcheckProof<F: IsField> {
     pub round_polys: Vec<Polynomial<FieldElement<F>>>,
 }
@@ -63,6 +64,7 @@ impl Gate {
 
 /// Stores two evaluations (at 0 and 1) of each column in a GKR layer.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LayerMask<F: IsField> {
     columns: Vec<[FieldElement<F>; 2]>,
 }
@@ -87,6 +89,7 @@ impl<F: IsField> LayerMask<F> {
 
 /// Single-instance GKR proof.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Proof<F: IsField> {
     /// One sumcheck proof per layer (output to input).
     pub sumcheck_proofs: Vec<SumcheckProof<F>>,
@@ -145,7 +148,7 @@ impl<F: IsField> core::fmt::Display for VerifierError<F> {
 pub fn verify<F, T>(
     gate: Gate,
     proof: &Proof<F>,
-    channel: &mut T,
+    transcript: &mut T,
 ) -> Result<VerificationResult<F>, VerifierError<F>>
 where
     F: IsField + HasDefaultTranscript,
@@ -168,13 +171,13 @@ where
         return Err(VerifierError::MalformedProof);
     }
 
-    // Append output claims to channel (same as prover)
+    // Append output claims to transcript (same as prover)
     for claim in output_claims {
-        channel.append_field_element(claim);
+        transcript.append_field_element(claim);
     }
 
     // Sample lambda (same as prover)
-    let lambda: FieldElement<F> = channel.sample_field_element();
+    let lambda: FieldElement<F> = transcript.sample_field_element();
 
     let mut ood_point: Vec<FieldElement<F>> = Vec::new();
     let mut claims_to_verify = output_claims.clone();
@@ -188,7 +191,7 @@ where
             claim,
             &sumcheck_proofs[layer].round_polys,
             MAX_DEGREE,
-            channel,
+            transcript,
         )
         .map_err(|_| VerifierError::SumcheckFailed { layer })?;
 
@@ -218,14 +221,14 @@ where
             });
         }
 
-        // Append mask to channel (same as prover)
+        // Append mask to transcript (same as prover)
         for col in mask.columns() {
-            channel.append_field_element(&col[0]);
-            channel.append_field_element(&col[1]);
+            transcript.append_field_element(&col[0]);
+            transcript.append_field_element(&col[1]);
         }
 
         // Sample challenge (same as prover)
-        let challenge: FieldElement<F> = channel.sample_field_element();
+        let challenge: FieldElement<F> = transcript.sample_field_element();
 
         // Reduce mask at challenge point (borrow challenge before moving it)
         claims_to_verify = mask.reduce_at_point(&challenge);
@@ -271,8 +274,9 @@ pub struct BatchVerificationResult<F: IsField> {
 /// layer MLE evaluations.
 pub fn verify_batch<F, T>(
     gates: &[Gate],
+    n_variables_by_instance: &[usize],
     proof: &BatchProof<F>,
-    channel: &mut T,
+    transcript: &mut T,
 ) -> Result<BatchVerificationResult<F>, VerifierError<F>>
 where
     F: IsField + HasDefaultTranscript,
@@ -294,11 +298,21 @@ where
         return Err(VerifierError::MalformedProof);
     }
 
-    // Domain separation: must match prover (see prove_batch).
-    channel.append_bytes(b"gkr_batch");
-    channel.append_bytes(&(n_instances as u64).to_le_bytes());
+    // HIGH-003: validate trusted statement matches proof structure
+    if n_variables_by_instance.len() != n_instances {
+        return Err(VerifierError::MalformedProof);
+    }
+    for instance in 0..n_instances {
+        if layer_masks_by_instance[instance].len() != n_variables_by_instance[instance] {
+            return Err(VerifierError::MalformedProof);
+        }
+    }
 
-    let instance_n_layers = |instance: usize| layer_masks_by_instance[instance].len();
+    // Domain separation: must match prover (see prove_batch).
+    transcript.append_bytes(b"gkr_batch");
+    transcript.append_bytes(&(n_instances as u64).to_le_bytes());
+
+    let instance_n_layers = |instance: usize| n_variables_by_instance[instance];
     let n_layers = (0..n_instances).map(instance_n_layers).max().unwrap_or(0);
 
     if n_layers != sumcheck_proofs.len() {
@@ -335,16 +349,16 @@ where
             }
         }
 
-        // Seed channel with active claims.
+        // Seed transcript with active claims.
         for claims in claims_to_verify_by_instance.iter().flatten() {
             for claim in claims {
-                channel.append_field_element(claim);
+                transcript.append_field_element(claim);
             }
         }
 
         // Sample randomness (must match prover).
-        let sumcheck_alpha: FieldElement<F> = channel.sample_field_element();
-        let lambda: FieldElement<F> = channel.sample_field_element();
+        let sumcheck_alpha: FieldElement<F> = transcript.sample_field_element();
+        let lambda: FieldElement<F> = transcript.sample_field_element();
 
         let mut sumcheck_claims = Vec::new();
         let mut sumcheck_instances = Vec::new();
@@ -359,7 +373,8 @@ where
                     continue;
                 }
                 let n_unused = n_layers - instance_n_layers(instance);
-                let doubling_factor = FieldElement::<F>::from(1u64 << n_unused);
+                let doubling_factor =
+                    (0..n_unused).fold(FieldElement::<F>::one(), |acc, _| &acc + &acc);
                 let claim = &random_linear_combination(claims, &lambda) * &doubling_factor;
                 sumcheck_claims.push(claim);
                 sumcheck_instances.push(instance);
@@ -372,7 +387,7 @@ where
             combined_claim,
             &sumcheck_proof.round_polys,
             MAX_DEGREE,
-            channel,
+            transcript,
         )
         .map_err(|_| VerifierError::SumcheckFailed { layer })?;
 
@@ -380,7 +395,12 @@ where
         let mut layer_evals = Vec::new();
         for &instance in &sumcheck_instances {
             let n_unused = n_layers - instance_n_layers(instance);
-            let mask = &layer_masks_by_instance[instance][layer - n_unused];
+            if layer < n_unused {
+                return Err(VerifierError::MalformedProof);
+            }
+            let mask = layer_masks_by_instance[instance]
+                .get(layer - n_unused)
+                .ok_or(VerifierError::MalformedProof)?;
             let gate_output = gates[instance].eval(mask)?;
 
             // eq evaluation uses the relevant suffix of the OOD point.
@@ -410,21 +430,31 @@ where
             });
         }
 
-        // Seed channel with masks (same order as prover).
+        // Seed transcript with masks (same order as prover).
         for &instance in &sumcheck_instances {
             let n_unused = n_layers - instance_n_layers(instance);
-            let mask = &layer_masks_by_instance[instance][layer - n_unused];
+            if layer < n_unused {
+                return Err(VerifierError::MalformedProof);
+            }
+            let mask = layer_masks_by_instance[instance]
+                .get(layer - n_unused)
+                .ok_or(VerifierError::MalformedProof)?;
             for col in mask.columns() {
-                channel.append_field_element(&col[0]);
-                channel.append_field_element(&col[1]);
+                transcript.append_field_element(&col[0]);
+                transcript.append_field_element(&col[1]);
             }
         }
 
         // Sample challenge, reduce masks (borrow challenge before moving it).
-        let challenge: FieldElement<F> = channel.sample_field_element();
+        let challenge: FieldElement<F> = transcript.sample_field_element();
         for instance in sumcheck_instances {
             let n_unused = n_layers - instance_n_layers(instance);
-            let mask = &layer_masks_by_instance[instance][layer - n_unused];
+            if layer < n_unused {
+                return Err(VerifierError::MalformedProof);
+            }
+            let mask = layer_masks_by_instance[instance]
+                .get(layer - n_unused)
+                .ok_or(VerifierError::MalformedProof)?;
             claims_to_verify_by_instance[instance] = Some(mask.reduce_at_point(&challenge));
         }
 
@@ -441,6 +471,6 @@ where
     Ok(BatchVerificationResult {
         ood_point,
         claims_to_verify_by_instance,
-        n_variables_by_instance: (0..n_instances).map(instance_n_layers).collect(),
+        n_variables_by_instance: n_variables_by_instance.to_vec(),
     })
 }
