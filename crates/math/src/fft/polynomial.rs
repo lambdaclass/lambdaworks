@@ -161,6 +161,41 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         Polynomial::evaluate_fft::<F>(&scaled, blowup_factor, domain_size)
     }
 
+    /// Like [`Self::evaluate_fft`], but returns evaluations in **bit-reversed order**.
+    /// The NR DIT FFT naturally produces bit-reversed output; this variant skips
+    /// the final permutation to avoid a redundant round-trip when the output is
+    /// destined for a Merkle tree commitment.
+    pub fn evaluate_fft_bitrev<F: IsFFTField + IsSubFieldOf<E>>(
+        poly: &Self,
+        blowup_factor: usize,
+        domain_size: Option<usize>,
+    ) -> Result<Vec<FieldElement<E>>, FFTError> {
+        let domain_size = domain_size.unwrap_or_default();
+        let len = core::cmp::max(poly.coeff_len(), domain_size).next_power_of_two() * blowup_factor;
+        if len.trailing_zeros() as u64 > F::TWO_ADICITY {
+            return Err(FFTError::DomainSizeError(len.trailing_zeros() as usize));
+        }
+        if poly.coefficients().is_empty() {
+            return Ok(vec![FieldElement::zero(); len]);
+        }
+
+        let mut coeffs = poly.coefficients().to_vec();
+        coeffs.resize(len, FieldElement::zero());
+
+        evaluate_fft_bitrev_cpu::<F, E>(&coeffs)
+    }
+
+    /// Like [`Self::evaluate_offset_fft`], but returns evaluations in **bit-reversed order**.
+    pub fn evaluate_offset_fft_bitrev<F: IsFFTField + IsSubFieldOf<E>>(
+        poly: &Self,
+        blowup_factor: usize,
+        domain_size: Option<usize>,
+        offset: &FieldElement<F>,
+    ) -> Result<Vec<FieldElement<E>>, FFTError> {
+        let scaled = poly.scale(offset);
+        Self::evaluate_fft_bitrev::<F>(&scaled, blowup_factor, domain_size)
+    }
+
     /// Returns a new polynomial that interpolates `(w^i, fft_evals[i])`, with `w` being a
     /// Nth primitive root of unity in a subfield F of E, and `i in 0..N`, with `N = fft_evals.len()`.
     /// This is considered to be the inverse operation of [Self::evaluate_fft()].
@@ -311,6 +346,19 @@ where
     let twiddles = roots_of_unity::get_twiddles::<F>(order.into(), RootsConfig::BitReverse)?;
     // Bit reverse order is needed for NR DIT FFT.
     ops::fft(coeffs, &twiddles)
+}
+
+/// Like [`evaluate_fft_cpu`], but returns evaluations in bit-reversed order.
+pub fn evaluate_fft_bitrev_cpu<F, E>(
+    coeffs: &[FieldElement<E>],
+) -> Result<Vec<FieldElement<E>>, FFTError>
+where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
+{
+    let order = coeffs.len().trailing_zeros();
+    let twiddles = roots_of_unity::get_twiddles::<F>(order.into(), RootsConfig::BitReverse)?;
+    ops::fft_bitrev(coeffs, &twiddles)
 }
 
 pub fn interpolate_fft_cpu<F, E>(
