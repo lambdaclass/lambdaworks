@@ -746,7 +746,7 @@ pub fn frobenius(f: &Fp12E) -> Fp12E {
     Fp12E::new([c1, c2]) //c1 + c2 * w
 }
 
-fn frobenius_square(f: &Fp12E) -> Fp12E {
+pub fn frobenius_square(f: &Fp12E) -> Fp12E {
     let [a, b] = f.value();
     let [a0, a1, a2] = a.value();
     let [b0, b1, b2] = b.value();

@@ -12,7 +12,7 @@ use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curv
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::Degree12ExtensionField;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::{
     cyclotomic_pow_x, cyclotomic_pow_x_compressed, cyclotomic_square, final_exponentiation, miller,
-    CompressedCyclotomic,
+    frobenius_square, CompressedCyclotomic,
 };
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::twist::BLS12381TwistCurve;
 use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
@@ -27,13 +27,14 @@ fn miller_output() -> Fp12E {
     miller(&q, &p)
 }
 
-/// Helper: compute easy part of final exponentiation (cyclotomic subgroup element)
+/// Helper: compute a valid cyclotomic subgroup element via the full easy part:
+/// f^((p^6 - 1)(p^2 + 1))
 fn cyclotomic_element() -> Fp12E {
     let f = miller_output();
-    // f^(p^6 - 1): conjugate is f^(p^6) for unitary elements
-    f.conjugate()
+    let f_easy_aux = f.conjugate()
         * f.inv()
-            .expect("miller output is nonzero for generator points")
+            .expect("miller output is nonzero for generator points");
+    frobenius_square(&f_easy_aux) * &f_easy_aux
 }
 
 fn bench_cyclotomic_square(c: &mut Criterion) {
