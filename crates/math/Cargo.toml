@@ -131,6 +131,10 @@ name = "criterion_external_comparisons"
 harness = false
 
 [[bench]]
+name = "criterion_pairing_micro"
+harness = false
+
+[[bench]]
 name = "metal_fft"
 harness = false
 required-features = ["metal"]

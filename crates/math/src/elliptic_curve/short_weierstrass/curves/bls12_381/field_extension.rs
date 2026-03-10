@@ -248,27 +248,26 @@ impl IsField for Degree6ExtensionField {
         [c0, c1, c2]
     }
 
-    /// Optimized squaring using Chung-Hasan SQR2
+    /// Optimized squaring using Chung-Hasan SQR2 (2M + 3S instead of 3M + 3S).
+    ///
+    /// Saves one Fp2 multiplication by computing the a0*a2 cross-term via
+    /// (a0-a1+a2)² instead of a direct multiplication.
     #[inline]
     fn square(a: &Self::BaseType) -> Self::BaseType {
         let s0 = a[0].square();
-        let s1 = a[1].square();
-        let s2 = a[2].square();
         let ab = &a[0] * &a[1];
-        let bc = &a[1] * &a[2];
-        let ac = &a[0] * &a[2];
-
-        // c0 = s0 + (1+u) * 2bc
-        let two_bc = &bc + &bc;
-        let c0 = &s0 + mul_fp2_by_nonresidue(&two_bc);
-
-        // c1 = 2ab + (1+u) * s2
         let two_ab = &ab + &ab;
-        let c1 = &two_ab + mul_fp2_by_nonresidue(&s2);
+        let t2 = (&a[0] - &a[1] + &a[2]).square();
+        let bc = &a[1] * &a[2];
+        let two_bc = &bc + &bc;
+        let s4 = a[2].square();
 
-        // c2 = 2ac + s1
-        let two_ac = &ac + &ac;
-        let c2 = two_ac + s1;
+        // c0 = s0 + β * 2bc
+        let c0 = &s0 + mul_fp2_by_nonresidue(&two_bc);
+        // c1 = 2ab + β * s4
+        let c1 = &two_ab + mul_fp2_by_nonresidue(&s4);
+        // c2 = 2ab + t2 + 2bc - s0 - s4 = 2ac + b²
+        let c2 = &two_ab + &t2 + &two_bc - &s0 - &s4;
 
         [c0, c1, c2]
     }
@@ -599,7 +598,7 @@ impl FieldElement<Degree12ExtensionField> {
     }
 }
 
-/// Computes the multiplication of an element of fp2 by the level two non-residue 9+u.
+/// Computes the multiplication of an element of fp2 by the level two non-residue 1+u.
 pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
     // (c0 + c1 * u) * (1 + u) = (c0 - c1) + (c1 + c0) * u
     let c0 = &a.value()[0] - &a.value()[1]; // c0 - c1

@@ -7,3 +7,6 @@ pub mod twist;
 
 #[cfg(feature = "alloc")]
 pub mod pairing;
+
+#[cfg(test)]
+mod fuzz_tests;

@@ -2,7 +2,6 @@ use super::{
     curve::BLS12381Curve,
     field_extension::{
         mul_fp2_by_nonresidue, BLS12381PrimeField, Degree12ExtensionField, Degree2ExtensionField,
-        Degree4ExtensionField,
     },
     twist::BLS12381TwistCurve,
 };
@@ -10,7 +9,7 @@ use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::Pa
 use crate::{
     elliptic_curve::short_weierstrass::{
         curves::bls12_381::field_extension::Degree6ExtensionField,
-        point::ShortWeierstrassJacobianPoint, traits::IsShortWeierstrass,
+        point::ShortWeierstrassJacobianPoint,
     },
     field::element::FieldElement,
     unsigned_integer::element::U256,
@@ -20,7 +19,6 @@ use alloc::vec::Vec;
 
 type FpE = FieldElement<BLS12381PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
-type Fp4E = FieldElement<Degree4ExtensionField>;
 type Fp6E = FieldElement<Degree6ExtensionField>;
 type Fp12E = FieldElement<Degree12ExtensionField>;
 
@@ -86,13 +84,13 @@ fn precompute_double_line(
 ) -> (Fp2E, Fp2E, Fp2E) {
     let [x1, y1, z1] = t.coordinates();
 
-    let a = &TWO_INV * x1 * y1;
+    let a = mul_fp2_by_fp(&TWO_INV_FP, &(x1 * y1));
     let b = y1.square();
     let c = z1.square();
     let d = triple_fp2(&c);
-    let e = BLS12381TwistCurve::b() * &d;
+    let e = mul_fp2_by_twist_b(&d); // b'·d using additions only
     let f = triple_fp2(&e);
-    let g = &TWO_INV * (&b + &f);
+    let g = mul_fp2_by_fp(&TWO_INV_FP, &(&b + &f));
     let h = (y1 + z1).square() - (&b + &c);
 
     let x3 = &a * (&b - &f);
@@ -160,34 +158,35 @@ pub fn miller_with_prepared(
         return FieldElement::one();
     }
 
+    let p = p.to_affine();
     let [px, py, _] = p.coordinates();
     let mut f = FieldElement::<Degree12ExtensionField>::one();
     let mut coeff_idx = 0;
 
     for bit in X_BINARY.iter().skip(1) {
         // Use precomputed doubling coefficients
-        let (b0, b2_scale, b3_scale) = &q_prepared.coefficients[coeff_idx];
+        let (db0, db2_scale, db3_scale) = &q_prepared.coefficients[coeff_idx];
         coeff_idx += 1;
 
-        // Compute b2 and b3 using P coordinates
-        let [b2_0, b2_1] = b2_scale.value();
-        let [b3_0, b3_1] = b3_scale.value();
-        let b2 = Fp2E::new([b2_0 * px, b2_1 * px]);
-        let b3 = Fp2E::new([b3_0 * py, b3_1 * py]);
-
-        f = sparse_fp12_mul_by_line(&f.square(), b0, &b2, &b3);
+        let [db2_0, db2_1] = db2_scale.value();
+        let [db3_0, db3_1] = db3_scale.value();
+        let db2 = Fp2E::new([db2_0 * px, db2_1 * px]);
+        let db3 = Fp2E::new([db3_0 * py, db3_1 * py]);
 
         if *bit {
-            // Use precomputed addition coefficients
-            let (b0, b2_scale, b3_scale) = &q_prepared.coefficients[coeff_idx];
+            // Line combining: combine double and add lines, then multiply once
+            let (ab0, ab2_scale, ab3_scale) = &q_prepared.coefficients[coeff_idx];
             coeff_idx += 1;
 
-            let [b2_0, b2_1] = b2_scale.value();
-            let [b3_0, b3_1] = b3_scale.value();
-            let b2 = Fp2E::new([b2_0 * px, b2_1 * px]);
-            let b3 = Fp2E::new([b3_0 * py, b3_1 * py]);
+            let [ab2_0, ab2_1] = ab2_scale.value();
+            let [ab3_0, ab3_1] = ab3_scale.value();
+            let ab2 = Fp2E::new([ab2_0 * px, ab2_1 * px]);
+            let ab3 = Fp2E::new([ab3_0 * py, ab3_1 * py]);
 
-            f = sparse_fp12_mul_by_line(&f, b0, &b2, &b3);
+            let line_line = mul_line_by_line(db0, &db2, &db3, ab0, &ab2, &ab3);
+            f = mul_fp12_by_line_line(&f.square(), &line_line);
+        } else {
+            f = sparse_fp12_mul_by_line(&f.square(), db0, &db2, &db3);
         }
     }
 
@@ -262,20 +261,49 @@ impl IsPairing for BLS12381AtePairing {
     type OutputField = Degree12ExtensionField;
 
     /// Compute the product of the ate pairings for a list of point pairs.
+    ///
+    /// With the `parallel` feature, runs independent Miller loops in parallel
+    /// across CPU cores, then multiplies the results and applies a single final
+    /// exponentiation. Without `parallel`, uses a shared-square multi-Miller
+    /// loop that saves (n-1)×63 Fp12 squares.
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
-        let mut result = FieldElement::one();
+        // Validate subgroup membership and filter neutral elements
+        let mut valid_pairs = Vec::with_capacity(pairs.len());
         for (p, q) in pairs {
             if !p.is_in_subgroup() || !q.is_in_subgroup() {
                 return Err(PairingError::PointNotInSubgroup);
             }
             if !p.is_neutral_element() && !q.is_neutral_element() {
-                let p = p.to_affine();
-                let q = q.to_affine();
-                result *= miller(&q, &p);
+                valid_pairs.push((p.to_affine(), q.to_affine()));
             }
         }
+
+        if valid_pairs.is_empty() {
+            return Ok(FieldElement::one());
+        }
+
+        // Single pair: use direct miller loop (no allocation overhead)
+        if valid_pairs.len() == 1 {
+            let result = miller(&valid_pairs[0].1, &valid_pairs[0].0);
+            return final_exponentiation(&result);
+        }
+
+        // Multi-pair: parallel independent Miller loops (when available)
+        // or shared-square Miller loop (sequential fallback)
+        #[cfg(feature = "parallel")]
+        let result = {
+            use rayon::prelude::*;
+            valid_pairs
+                .par_iter()
+                .map(|(p, q)| miller(q, p))
+                .reduce(Fp12E::one, |acc, f| acc * f)
+        };
+
+        #[cfg(not(feature = "parallel"))]
+        let result = multi_miller(&valid_pairs);
+
         final_exponentiation(&result)
     }
 }
@@ -287,28 +315,94 @@ pub fn miller(
     q: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
 ) -> FieldElement<Degree12ExtensionField> {
-    // Convert to affine to ensure Z=1, which makes the line function formulas work correctly
-    // The line formulas were designed for projective coordinates where (X,Y,Z) = (X/Z, Y/Z)
-    // With Z=1, this is consistent with Jacobian (X,Y,1) = (X/1², Y/1³) = (X, Y)
     let q_affine = q.to_affine();
     let p_affine = p.to_affine();
     let mut r = q_affine.clone();
     let mut f = FieldElement::<Degree12ExtensionField>::one();
-    X_BINARY.iter().skip(1).for_each(|bit| {
-        double_accumulate_line(&mut r, &p_affine, &mut f);
+
+    for bit in X_BINARY.iter().skip(1) {
+        let (db0, db2, db3) = double_step(&mut r, &p_affine);
+
         if *bit {
-            add_accumulate_line(&mut r, &q_affine, &p_affine, &mut f);
+            // Line combining: combine double and add lines, then multiply once
+            let (ab0, ab2, ab3) = add_step(&mut r, &q_affine, &p_affine);
+            let line_line = mul_line_by_line(&db0, &db2, &db3, &ab0, &ab2, &ab3);
+            f = mul_fp12_by_line_line(&f.square(), &line_line);
+        } else {
+            f = sparse_fp12_mul_by_line(&f.square(), &db0, &db2, &db3);
         }
-    });
+    }
 
     f.conjugate()
 }
 
-/// The multiplicative inverse of 2 in Fp2.
-const TWO_INV: Fp2E = Fp2E::const_from_raw([
-    FpE::from_hex_unchecked("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556"),
-    FpE::from_hex_unchecked("0"),
-]);
+/// Multi-pair Miller loop with shared squaring.
+///
+/// Instead of computing n independent Miller loops and multiplying the results,
+/// this function shares the Fp12 squaring across all pairs. Each iteration:
+/// 1. Square the shared accumulator once (not n times)
+/// 2. For each pair, compute line evaluations and multiply into the accumulator
+///
+/// Saves (n-1) × 63 Fp12 squares for n-pair batches, which is the dominant
+/// cost reduction for batch pairings.
+#[cfg(all(feature = "alloc", not(feature = "parallel")))]
+fn multi_miller(
+    pairs: &[(
+        ShortWeierstrassJacobianPoint<BLS12381Curve>,
+        ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    )],
+) -> Fp12E {
+    let n = pairs.len();
+
+    // Initialize R points (running G2 accumulators) and P/Q points
+    let mut rs: Vec<ShortWeierstrassJacobianPoint<BLS12381TwistCurve>> =
+        pairs.iter().map(|(_, q)| q.to_affine()).collect();
+    let qs: Vec<ShortWeierstrassJacobianPoint<BLS12381TwistCurve>> = rs.clone();
+    let ps: Vec<ShortWeierstrassJacobianPoint<BLS12381Curve>> =
+        pairs.iter().map(|(p, _)| p.to_affine()).collect();
+
+    // Process first bit (MSB = 1) separately to avoid squaring 1
+    // X_BINARY[0] = true, so first iteration is always double+add
+    let mut f = {
+        // First pair: compute lines, assign to f directly (no mul needed)
+        let (db0, db2, db3) = double_step(&mut rs[0], &ps[0]);
+        let (ab0, ab2, ab3) = add_step(&mut rs[0], &qs[0], &ps[0]);
+        let mut acc = mul_line_by_line(&db0, &db2, &db3, &ab0, &ab2, &ab3);
+
+        // Remaining pairs: compute lines, multiply into accumulator
+        for k in 1..n {
+            let (db0, db2, db3) = double_step(&mut rs[k], &ps[k]);
+            let (ab0, ab2, ab3) = add_step(&mut rs[k], &qs[k], &ps[k]);
+            let ll = mul_line_by_line(&db0, &db2, &db3, &ab0, &ab2, &ab3);
+            acc = &acc * &ll;
+        }
+        acc
+    };
+
+    // Process remaining bits
+    for bit in X_BINARY.iter().skip(2) {
+        // ONE shared square
+        f = f.square();
+
+        for k in 0..n {
+            let (db0, db2, db3) = double_step(&mut rs[k], &ps[k]);
+
+            if *bit {
+                let (ab0, ab2, ab3) = add_step(&mut rs[k], &qs[k], &ps[k]);
+                let ll = mul_line_by_line(&db0, &db2, &db3, &ab0, &ab2, &ab3);
+                f = mul_fp12_by_line_line(&f, &ll);
+            } else {
+                f = sparse_fp12_mul_by_line(&f, &db0, &db2, &db3);
+            }
+        }
+    }
+
+    f.conjugate()
+}
+
+/// The multiplicative inverse of 2 in the base field Fp.
+/// Used for halving Fp2 elements component-wise (2 Fp muls instead of 3 via Karatsuba).
+const TWO_INV_FP: FpE = FpE::from_hex_unchecked("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
 
 /// Multiplies an Fp2 element by 3 using addition chain: 3x = 2x + x
 #[inline]
@@ -316,50 +410,221 @@ fn triple_fp2(x: &Fp2E) -> Fp2E {
     x.double() + x
 }
 
-/// Sparse Fp12 multiplication by a line evaluation: f * (b0 + b2*w^2 + b3*w^3).
-/// This is specific to BLS12-381 where the line operates at the Fp2 level with
-/// `mul_fp2_by_nonresidue` (different from BN254/BLS12-377's Fp6-level `sparse_fp12_mul`).
+/// Multiply Fp2 element by a base field (Fp) scalar.
+/// Cost: 2 Fp multiplications (vs 3 for generic Fp2 × Fp2 Karatsuba when one operand is (c, 0)).
+#[inline]
+fn mul_fp2_by_fp(scalar: &FpE, a: &Fp2E) -> Fp2E {
+    let [a0, a1] = a.value();
+    Fp2E::new([scalar * a0, scalar * a1])
+}
+
+/// Multiply Fp2 element by the twist curve parameter b' = (4 + 4i).
+/// Uses addition chains only: (a₀+a₁i)(4+4i) = 4(a₀-a₁) + 4(a₀+a₁)i.
+/// Cost: ~0 Fp multiplications (only Fp additions/subtractions),
+/// vs 3 Fp muls for generic Fp2 Karatsuba.
+#[inline]
+fn mul_fp2_by_twist_b(a: &Fp2E) -> Fp2E {
+    let [a0, a1] = a.value();
+    let diff = a0 - a1;
+    let sum = a0 + a1;
+    Fp2E::new([diff.double().double(), sum.double().double()])
+}
+
+/// Specialized Fp4 squaring for BLS12-381 where the quadratic non-residue is β = 1+u.
+///
+/// Uses the complex squaring trick in Fp4 = Fp2[t]/(t² - β):
+///   (a + b·t)² = c0 + c1·t where:
+///     c0 = (a+b)(a+β·b) - (1+β)·v,  with v = a·b
+///     c1 = 2·v
+///
+/// Since β = 1+u, mul by β is free (just 2 Fp additions via mul_fp2_by_nonresidue).
+/// (1+β) = (2+u), so (1+β)·v = (2v₀-v₁, v₀+2v₁) — also just Fp additions.
+///
+/// Cost: 2 Fp2 muls (= 6 Fp muls), vs generic Fp4::square = 2 Fp2 squares + 2 Fp2 muls (= 10 Fp muls).
+#[inline]
+fn fp4_square(a: &Fp2E, b: &Fp2E) -> (Fp2E, Fp2E) {
+    let v = a * b;
+    let beta_b = mul_fp2_by_nonresidue(b);
+    let t = (a + b) * (a + &beta_b);
+    // (1+β)·v = (2+u)·(v₀ + v₁·u) = (2v₀ - v₁) + (v₀ + 2v₁)·u
+    let [v0, v1] = v.value();
+    let one_plus_beta_v = Fp2E::new([v0.double() - v1, v0 + v1.double()]);
+    let c0 = t - &one_plus_beta_v;
+    let c1 = v.double();
+    (c0, c1)
+}
+
+/// Sparse Fp12 multiplication by a line evaluation using Karatsuba.
+///
+/// A line has the form b0 + b2·v + b3·v·w, which in the Fp6[w]/(w²-v) tower gives:
+/// L_X = (b0, b2, 0), L_Y = (0, b3, 0).
+///
+/// Uses Fp12-level Karatsuba: f·L = (X·L_X + v·(Y·L_Y), (X+Y)·(L_X+L_Y) - X·L_X - Y·L_Y)
+///
+/// Cost: 13 Fp2 multiplications (vs 18 without Karatsuba).
 #[inline]
 fn sparse_fp12_mul_by_line(f: &Fp12E, b0: &Fp2E, b2: &Fp2E, b3: &Fp2E) -> Fp12E {
     let [x, y] = f.value();
-    let [a0, a2, a4] = x.value();
-    let [a1, a3, a5] = y.value();
+    let [x0, x1, x2] = x.value();
+    let [y0, y1, y2] = y.value();
 
-    let a3b3 = a3 * b3;
-    let a4b2 = a4 * b2;
-    let a5b3 = a5 * b3;
-    let a4b3 = a4 * b3;
-    let a5b2 = a5 * b2;
+    // A = X · L_X where L_X = (b0, b2, 0), cost: 5 Fp2 muls
+    let v0 = x0 * b0;
+    let v1 = x1 * b2;
+    // v2 = x2 · 0 = 0
+    let a0 = &v0 + mul_fp2_by_nonresidue(&((x1 + x2) * b2 - &v1));
+    let a1 = (x0 + x1) * (b0 + b2) - &v0 - &v1;
+    let a2 = (x0 + x2) * b0 - &v0 + &v1;
+
+    // B = Y · L_Y where L_Y = (0, b3, 0), cost: 3 Fp2 muls
+    // Fp6 product: (y0,y1,y2)·(0,b3,0) = (β·y2·b3, y0·b3, y1·b3)
+    let y0b3 = y0 * b3;
+    let y1b3 = y1 * b3;
+    let y2b3 = y2 * b3;
+    let bb0 = mul_fp2_by_nonresidue(&y2b3); // β·(y2·b3)
+
+    // v·B = (β·B[2], B[0], B[1]) = (β·(y1·b3), β·(y2·b3), y0·b3)
+    let vb0 = mul_fp2_by_nonresidue(&y1b3);
+    // R_X = A + v·B
+    let rx0 = &a0 + &vb0; // a0 + β·(y1·b3)
+    let rx1 = &a1 + &bb0; // a1 + β·(y2·b3)
+    let rx2 = &a2 + &y0b3; // a2 + y0·b3
+
+    // C = (X+Y) · (L_X+L_Y) where L_X+L_Y = (b0, b2+b3, 0), cost: 5 Fp2 muls
+    let sx0 = x0 + y0;
+    let sx1 = x1 + y1;
+    let sx2 = x2 + y2;
+    let sb1 = b2 + b3;
+    let u0 = &sx0 * b0;
+    let u1 = &sx1 * &sb1;
+    let b0_plus_sb1 = b0 + &sb1;
+    let c0 = &u0 + mul_fp2_by_nonresidue(&((&sx1 + &sx2) * &sb1 - &u1));
+    let c1 = (&sx0 + &sx1) * &b0_plus_sb1 - &u0 - &u1;
+    let c2 = (&sx0 + &sx2) * b0 - &u0 + &u1;
+
+    // R_Y = C - A - B
+    let ry0 = c0 - a0 - bb0;
+    let ry1 = c1 - a1 - y0b3;
+    let ry2 = c2 - a2 - y1b3;
+
+    Fp12E::new([Fp6E::new([rx0, rx1, rx2]), Fp6E::new([ry0, ry1, ry2])])
+}
+
+/// Multiply two sparse line evaluation results.
+///
+/// Both lines have the form: L_X = (a0, a1, 0), L_Y = (0, a3, 0) in Fp6[w]/(w²-v).
+/// Result has sparsity: R_X = (d0, d1, d2) dense, R_Y = (0, d4, d5) with position 0 zero.
+///
+/// Cost: 6 Fp2 multiplications.
+#[inline]
+fn mul_line_by_line(a0: &Fp2E, a1: &Fp2E, a3: &Fp2E, c0: &Fp2E, c1: &Fp2E, c3: &Fp2E) -> Fp12E {
+    let t0 = a0 * c0;
+    let t1 = a1 * c1;
+    let t2 = (a0 + a1) * (c0 + c1);
+    let t3 = a3 * c3;
+    let t4 = (a1 + a3) * (c1 + c3);
+    let t5 = (a0 + a1 + a3) * (c0 + c1 + c3);
+
+    // L1_X·L2_X = (t0, t2-t0-t1, t1)
+    // L1_Y·L2_Y = (0,b3,0)·(0,c3,0) = (0, 0, t3) in Fp6
+    // v·(0,0,t3) = (β·t3, 0, 0)
+    // R_X = L1_X·L2_X + v·(L1_Y·L2_Y)
+    let rx0 = &t0 + mul_fp2_by_nonresidue(&t3);
+    let rx1 = &t2 - &t0 - &t1;
+    let rx2 = t1.clone();
+
+    // Cross: (L1_X+L1_Y)·(L2_X+L2_Y) = (a0,a1+a3,0)·(c0,c1+c3,0) = (t0, t5-t0-t4, t4)
+    // R_Y = Cross - L1_X·L2_X - L1_Y·L2_Y = (0, t5-t4-t2+t1, t4-t1-t3)
+    let ry1 = &t5 - &t4 - &t2 + &t1;
+    let ry2 = &t4 - &t1 - &t3;
 
     Fp12E::new([
-        Fp6E::new([
-            a0 * b0 + mul_fp2_by_nonresidue(&(&a3b3 + &a4b2)),
-            a2 * b0 + mul_fp2_by_nonresidue(&a5b3) + a0 * b2,
-            a4 * b0 + a1 * b3 + a2 * b2,
-        ]),
-        Fp6E::new([
-            a1 * b0 + mul_fp2_by_nonresidue(&(&a4b3 + &a5b2)),
-            a3 * b0 + a0 * b3 + a1 * b2,
-            a5 * b0 + a2 * b3 + a3 * b2,
-        ]),
+        Fp6E::new([rx0, rx1, rx2]),
+        Fp6E::new([Fp2E::zero(), ry1, ry2]),
     ])
 }
 
-fn double_accumulate_line(
+/// Multiply full Fp12 element by the result of mul_line_by_line.
+///
+/// The sparse element S has the form: S_X = (s0, s1, s2) fully dense,
+/// S_Y = (0, s4, s5) with position 0 zero.
+///
+/// Cost: 17 Fp2 multiplications (vs 18 for full Fp12 mul).
+#[inline]
+fn mul_fp12_by_line_line(f: &Fp12E, sparse: &Fp12E) -> Fp12E {
+    let [x, y] = f.value();
+    let [x0, x1, x2] = x.value();
+    let [y0, y1, y2] = y.value();
+
+    let [sx, sy] = sparse.value();
+    let [s0, s1, s2] = sx.value();
+    let [_s3, s4, s5] = sy.value(); // _s3 is zero
+
+    // A = X · S_X (full Fp6 × full Fp6, Karatsuba): 6 Fp2 muls
+    let v0 = x0 * s0;
+    let v1 = x1 * s1;
+    let v2 = x2 * s2;
+    let a0 = &v0 + mul_fp2_by_nonresidue(&((x1 + x2) * (s1 + s2) - &v1 - &v2));
+    let a1 = (x0 + x1) * (s0 + s1) - &v0 - &v1 + mul_fp2_by_nonresidue(&v2);
+    let a2 = (x0 + x2) * (s0 + s2) - &v0 + &v1 - &v2;
+
+    // B = Y · S_Y where S_Y = (0, s4, s5): 5 Fp2 muls
+    // Fp6 product: (y0,y1,y2)·(0,s4,s5) = (β·(y1·s5+y2·s4), y0·s4+β·y2·s5, y0·s5+y1·s4)
+    let p1 = y1 * s4;
+    let p2 = y2 * s5;
+    let p3 = (y1 + y2) * (s4 + s5);
+    let p4 = y0 * s4;
+    let p5 = y0 * s5;
+    let b0 = mul_fp2_by_nonresidue(&(&p3 - &p1 - &p2));
+    let b1 = &p4 + mul_fp2_by_nonresidue(&p2);
+    let b2 = &p5 + &p1;
+
+    // v·B = (β·b2, b0, b1)
+    let vb0 = mul_fp2_by_nonresidue(&b2);
+    // R_X = A + v·B
+    let rx0 = &a0 + &vb0;
+    let rx1 = &a1 + &b0;
+    let rx2 = &a2 + &b1;
+
+    // C = (X+Y) · (S_X+S_Y): S_X+S_Y = (s0, s1+s4, s2+s5), full Fp6: 6 Fp2 muls
+    let ux0 = x0 + y0;
+    let ux1 = x1 + y1;
+    let ux2 = x2 + y2;
+    let us1 = s1 + s4;
+    let us2 = s2 + s5;
+    let w0 = &ux0 * s0;
+    let w1 = &ux1 * &us1;
+    let w2 = &ux2 * &us2;
+    let us1_plus_us2 = &us1 + &us2;
+    let s0_plus_us1 = s0 + &us1;
+    let s0_plus_us2 = s0 + &us2;
+    let c0 = &w0 + mul_fp2_by_nonresidue(&((&ux1 + &ux2) * &us1_plus_us2 - &w1 - &w2));
+    let c1 = (&ux0 + &ux1) * &s0_plus_us1 - &w0 - &w1 + mul_fp2_by_nonresidue(&w2);
+    let c2 = (&ux0 + &ux2) * &s0_plus_us2 - &w0 + &w1 - &w2;
+
+    // R_Y = C - A - B
+    let ry0 = c0 - a0 - b0;
+    let ry1 = c1 - a1 - b1;
+    let ry2 = c2 - a2 - b2;
+
+    Fp12E::new([Fp6E::new([rx0, rx1, rx2]), Fp6E::new([ry0, ry1, ry2])])
+}
+
+/// Compute doubling step: updates T ← 2T and returns line coefficients (b0, b2, b3).
+fn double_step(
     t: &mut ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
-    accumulator: &mut FieldElement<Degree12ExtensionField>,
-) {
+) -> (Fp2E, Fp2E, Fp2E) {
     let [x1, y1, z1] = t.coordinates();
     let [px, py, _] = p.coordinates();
 
-    let a = &TWO_INV * x1 * y1;
+    let a = mul_fp2_by_fp(&TWO_INV_FP, &(x1 * y1));
     let b = y1.square();
     let c = z1.square();
     let d = triple_fp2(&c); // 3c via addition chain
-    let e = BLS12381TwistCurve::b() * d;
+    let e = mul_fp2_by_twist_b(&d); // b'·d using additions only
     let f = triple_fp2(&e); // 3e via addition chain
-    let g = &TWO_INV * (&b + &f);
+    let g = mul_fp2_by_fp(&TWO_INV_FP, &(&b + &f));
     let h = (y1 + z1).square() - (&b + &c);
 
     let x3 = &a * (&b - &f);
@@ -372,22 +637,21 @@ fn double_accumulate_line(
     let x1_sq_3 = triple_fp2(&x1_sq); // 3*x1^2 via addition chain
     let [x1_sq_30, x1_sq_31] = x1_sq_3.value();
 
-    // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
     t.set_unchecked([x3, y3, z3]);
 
     let b0 = e - b;
     let b2 = Fp2E::new([x1_sq_30 * px, x1_sq_31 * px]);
     let b3 = Fp2E::new([-h0 * py, -h1 * py]);
 
-    *accumulator = sparse_fp12_mul_by_line(&accumulator.square(), &b0, &b2, &b3);
+    (b0, b2, b3)
 }
 
-fn add_accumulate_line(
+/// Compute addition step: updates T ← T + Q and returns line coefficients (b0, b2, b3).
+fn add_step(
     t: &mut ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
     q: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
-    accumulator: &mut FieldElement<Degree12ExtensionField>,
-) {
+) -> (Fp2E, Fp2E, Fp2E) {
     let [x1, y1, z1] = t.coordinates();
     let [x2, y2, _] = q.coordinates();
     let [px, py, _] = p.coordinates();
@@ -408,7 +672,6 @@ fn add_accumulate_line(
     let y3 = &theta * (g - h) - i;
     let z3 = z1 * e;
 
-    // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
     t.set_unchecked([x3, y3, z3]);
 
     let [lambda0, lambda1] = lambda.value();
@@ -418,7 +681,7 @@ fn add_accumulate_line(
     let b2 = Fp2E::new([-theta0 * px, -theta1 * px]);
     let b3 = Fp2E::new([lambda0 * py, lambda1 * py]);
 
-    *accumulator = sparse_fp12_mul_by_line(accumulator, &b0, &b2, &b3);
+    (b0, b2, b3)
 }
 
 // To understand more about how to reduce the final exponentiation
@@ -483,7 +746,7 @@ pub fn frobenius(f: &Fp12E) -> Fp12E {
     Fp12E::new([c1, c2]) //c1 + c2 * w
 }
 
-fn frobenius_square(f: &Fp12E) -> Fp12E {
+pub fn frobenius_square(f: &Fp12E) -> Fp12E {
     let [a, b] = f.value();
     let [a0, a1, a2] = a.value();
     let [b0, b1, b2] = b.value();
@@ -507,44 +770,45 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     let [b0, b1, b2] = g.value();
     let [b3, b4, b5] = h.value();
 
-    let v0 = Fp4E::new([b0.clone(), b4.clone()]).square();
-    let v1 = Fp4E::new([b3.clone(), b2.clone()]).square();
-    let v2 = Fp4E::new([b1.clone(), b5.clone()]).square();
+    // Specialized Fp4 squaring (2 Fp2 muls each instead of 2S+2M in generic)
+    let (v0_0, v0_1) = fp4_square(b0, b4);
+    let (v1_0, v1_1) = fp4_square(b3, b2);
+    let (v2_0, v2_1) = fp4_square(b1, b5);
 
     // r = r0 + r1 * w
     // r0 = r00 + r01 * v + r02 * v^2
     // r1 = r10 + r11 * v + r12 * v^2
 
     // r00 = 3v00 - 2b0
-    let mut r00 = &v0.value()[0] - b0;
+    let mut r00 = &v0_0 - b0;
     r00 = r00.double();
-    r00 += v0.value()[0].clone();
+    r00 += v0_0;
 
-    // r01 = 3v10 -2b1
-    let mut r01 = &v1.value()[0] - b1;
+    // r01 = 3v10 - 2b1
+    let mut r01 = &v1_0 - b1;
     r01 = r01.double();
-    r01 += v1.value()[0].clone();
+    r01 += v1_0;
 
-    // r11 = 3v01 - 2b4
-    let mut r11 = &v0.value()[1] + b4;
+    // r11 = 3v01 + 2b4
+    let mut r11 = &v0_1 + b4;
     r11 = r11.double();
-    r11 += v0.value()[1].clone();
+    r11 += v0_1;
 
-    // r12 = 3v11 - 2b5
-    let mut r12 = &v1.value()[1] + b5;
+    // r12 = 3v11 + 2b5
+    let mut r12 = &v1_1 + b5;
     r12 = r12.double();
-    r12 += v1.value()[1].clone();
+    r12 += v1_1;
 
-    // 3 * (9 + u) * v21 + 2b3
-    let v21 = mul_fp2_by_nonresidue(&v2.value()[1]);
-    let mut r10 = &v21 + b3;
+    // 3 * β * v21 + 2b3
+    let beta_v2_1 = mul_fp2_by_nonresidue(&v2_1);
+    let mut r10 = &beta_v2_1 + b3;
     r10 = r10.double();
-    r10 += v21;
+    r10 += beta_v2_1;
 
-    // 3 * (9 + u) * v20 - 2b3
-    let mut r02 = &v2.value()[0] - b2;
+    // r02 = 3v20 - 2b2
+    let mut r02 = &v2_0 - b2;
     r02 = r02.double();
-    r02 += v2.value()[0].clone();
+    r02 += v2_0;
 
     Fp12E::new([Fp6E::new([r00, r01, r02]), Fp6E::new([r10, r11, r12])])
 }
@@ -666,37 +930,30 @@ impl CompressedCyclotomic {
         let g3 = &self.g3;
         let g5 = &self.g5;
 
-        // Compute the Fp4 squares we need (only v1 and v2)
-        // v1 = Fp4(g3, g2).square() = [g3² + α*g2², 2*g3*g2]
-        let v1 = Fp4E::new([g3.clone(), g2.clone()]).square();
-        let [v1_0, v1_1] = v1.value();
+        // Specialized Fp4 squaring (2 Fp2 muls each instead of 2S+2M in generic)
+        let (v1_0, v1_1) = fp4_square(g3, g2);
+        let (v2_0, v2_1) = fp4_square(g1, g5);
 
-        // v2 = Fp4(g1, g5).square() = [g1² + α*g5², 2*g1*g5]
-        let v2 = Fp4E::new([g1.clone(), g5.clone()]).square();
-        let [v2_0, v2_1] = v2.value();
-
-        // g1' = 3*v1[0] - 2*g1
-        let mut h1 = v1_0 - g1;
+        // g1' = 3*v1_0 - 2*g1
+        let mut h1 = &v1_0 - g1;
         h1 = h1.double();
-        h1 = &h1 + v1_0;
+        h1 = &h1 + &v1_0;
 
-        // g2' = 3*v2[0] - 2*g2
-        let mut h2 = v2_0 - g2;
+        // g2' = 3*v2_0 - 2*g2
+        let mut h2 = &v2_0 - g2;
         h2 = h2.double();
-        h2 = &h2 + v2_0;
+        h2 = &h2 + &v2_0;
 
-        // g3' = 3*α*v2[1] + 2*g3
-        // Note: v2[1] = 2*g1*g5, so α*v2[1] = mul_fp2_by_nonresidue(2*g1*g5)
-        let alpha_v2_1 = mul_fp2_by_nonresidue(v2_1);
-        let mut h3 = &alpha_v2_1 + g3;
+        // g3' = 3*β*v2_1 + 2*g3
+        let beta_v2_1 = mul_fp2_by_nonresidue(&v2_1);
+        let mut h3 = &beta_v2_1 + g3;
         h3 = h3.double();
-        h3 = &h3 + &alpha_v2_1;
+        h3 = &h3 + &beta_v2_1;
 
-        // g5' = 3*v1[1] + 2*g5
-        // Note: v1[1] = 2*g3*g2
-        let mut h5 = v1_1 + g5;
+        // g5' = 3*v1_1 + 2*g5
+        let mut h5 = &v1_1 + g5;
         h5 = h5.double();
-        h5 = &h5 + v1_1;
+        h5 = &h5 + &v1_1;
 
         Self {
             g1: h1,
@@ -710,59 +967,146 @@ impl CompressedCyclotomic {
     pub fn mul_by_fp12(&self, other: &Fp12E) -> Fp12E {
         self.decompress() * other
     }
-}
 
-/// Computes f^X using Karabina compression for efficient cyclotomic squaring.
-///
-/// X = 0xd201000000010000 has only 6 set bits, allowing us to batch consecutive
-/// squarings in compressed form and only decompress when multiplication is needed.
-pub fn cyclotomic_pow_x_compressed(f: &Fp12E) -> Fp12E {
-    let mut result = f.clone();
+    /// Decompress a compressed cyclotomic element using a precomputed inverse of 4*g3.
+    ///
+    /// This avoids the per-element Fp2 inversion, enabling batch decompression.
+    fn decompress_with_inverse(&self, inv_four_g3: &Fp2E) -> Fp12E {
+        let g1 = &self.g1;
+        let g2 = &self.g2;
+        let g3 = &self.g3;
+        let g5 = &self.g5;
 
-    // Bit 1: f -> f^2 -> f^3
-    result = cyclotomic_square(&result);
-    result = &result * f;
+        // Recover g4 = (β*g5² + 3*g1² - 2*g2) / (4*g3)
+        let g5_sq = g5.square();
+        let g1_sq = g1.square();
+        let e_g5_sq = mul_fp2_by_nonresidue(&g5_sq);
+        let three_g1_sq = triple_fp2(&g1_sq);
+        let two_g2 = g2.double();
+        let num = &e_g5_sq + &three_g1_sq - &two_g2;
+        let g4 = &num * inv_four_g3;
 
-    // Bit 3: f^3 -> f^12 -> f^13
-    result = apply_compressed_squares(&result, 2);
-    result = &result * f;
+        // Recover g0 = β*(2*g4² + g3*g5 - 3*g2*g1) + 1
+        let g4_sq = g4.square();
+        let two_g4_sq = g4_sq.double();
+        let g3_g5 = g3 * g5;
+        let g2_g1 = g2 * g1;
+        let three_g2_g1 = triple_fp2(&g2_g1);
+        let inner = &two_g4_sq + &g3_g5 - &three_g2_g1;
+        let g0 = mul_fp2_by_nonresidue(&inner) + Fp2E::one();
 
-    // Bit 6: f^13 -> f^104 -> f^105
-    result = apply_compressed_squares(&result, 3);
-    result = &result * f;
-
-    // Bit 15: f^105 -> f^53760 -> f^53761
-    result = apply_compressed_squares(&result, 9);
-    result = &result * f;
-
-    // Bit 47: 32 squares then multiply
-    result = apply_compressed_squares(&result, 32);
-    result = &result * f;
-
-    // Final 16 trailing zeros
-    apply_compressed_squares(&result, 16)
-}
-
-/// Applies n consecutive cyclotomic squarings, using Karabina compression for long runs.
-///
-/// For runs of 10+ squares, compression amortizes the decompression cost.
-/// For shorter runs, regular squaring avoids the inversion overhead.
-fn apply_compressed_squares(f: &Fp12E, n: u32) -> Fp12E {
-    const COMPRESSION_THRESHOLD: u32 = 10;
-
-    if n < COMPRESSION_THRESHOLD {
-        let mut result = f.clone();
-        for _ in 0..n {
-            result = cyclotomic_square(&result);
-        }
-        result
-    } else {
-        let mut compressed = CompressedCyclotomic::compress(f);
-        for _ in 0..n {
-            compressed = compressed.square();
-        }
-        compressed.decompress()
+        Fp12E::new([
+            Fp6E::new([g0, g1.clone(), g2.clone()]),
+            Fp6E::new([g3.clone(), g4, g5.clone()]),
+        ])
     }
+}
+
+/// Batch-decompress multiple Karabina-compressed cyclotomic elements using
+/// a single Fp2 batch inversion (Montgomery's trick).
+///
+/// Elements with g3 = 0 are handled via the fallback formula g4 = (2*g1*g5) / g2,
+/// matching the single-element decompress() behaviour.
+///
+/// Cost: 1 Fp2 inversion + 3*(n-1) Fp2 muls for the batch,
+/// vs n individual inversions without batching. Saves (n-1) Fp2 inversions.
+#[cfg(feature = "alloc")]
+fn batch_decompress_karabina(elements: &[CompressedCyclotomic]) -> Vec<Fp12E> {
+    if elements.is_empty() {
+        return Vec::new();
+    }
+
+    // Separate elements with g3 = 0 (fallback path) from the rest (batch path).
+    // Track original indices so results can be written back in order.
+    let mut result: Vec<Option<Fp12E>> = (0..elements.len()).map(|_| None).collect();
+
+    let mut batch_indices: Vec<usize> = Vec::new();
+    let mut denominators: Vec<Fp2E> = Vec::new();
+
+    for (i, c) in elements.iter().enumerate() {
+        if c.g3 == Fp2E::zero() {
+            result[i] = Some(c.decompress());
+        } else {
+            batch_indices.push(i);
+            denominators.push(c.g3.double().double());
+        }
+    }
+
+    // Batch invert the non-zero denominators (all g3 != 0 here).
+    if !denominators.is_empty() {
+        Fp2E::inplace_batch_inverse(&mut denominators)
+            .expect("denominators are nonzero by construction");
+        for (idx, inv) in batch_indices.iter().zip(denominators.iter()) {
+            result[*idx] = Some(elements[*idx].decompress_with_inverse(inv));
+        }
+    }
+
+    result.into_iter().map(Option::unwrap).collect()
+}
+
+/// Computes f^|X| using a right-to-left decomposition with all-compressed squarings.
+///
+/// |X| = 0xd201000000010000 = 2^16 + 2^48 + 2^57 + 2^60 + 2^62 + 2^63
+///
+/// Instead of MSB-to-LSB scanning (which requires regular cyclotomic squares between
+/// multiplications), we compute all 63 squarings as a single chain of cheap Karabina
+/// compressed squares, saving checkpoints at each set-bit position. At the end, we
+/// batch-decompress all checkpoints using a single Fp2 inversion, then multiply.
+///
+/// Cost: 63 Karabina compressed squares + 1 batch decompression (1 Fp2 inv for 6 elements)
+///       + 5 Fp12 multiplications.
+pub fn cyclotomic_pow_x_compressed(f: &Fp12E) -> Fp12E {
+    // Early return for identity (all compressed components are zero)
+    if *f == Fp12E::one() {
+        return Fp12E::one();
+    }
+
+    // |x| = 2^16 + 2^48 + 2^57 + 2^60 + 2^62 + 2^63
+    let mut compressed = CompressedCyclotomic::compress(f);
+
+    // Square 16 times → f^(2^16)
+    for _ in 0..16 {
+        compressed = compressed.square();
+    }
+    let c16 = compressed.clone();
+
+    // Square 32 more → f^(2^48)
+    for _ in 0..32 {
+        compressed = compressed.square();
+    }
+    let c48 = compressed.clone();
+
+    // Square 9 more → f^(2^57)
+    for _ in 0..9 {
+        compressed = compressed.square();
+    }
+    let c57 = compressed.clone();
+
+    // Square 3 more → f^(2^60)
+    for _ in 0..3 {
+        compressed = compressed.square();
+    }
+    let c60 = compressed.clone();
+
+    // Square 2 more → f^(2^62)
+    for _ in 0..2 {
+        compressed = compressed.square();
+    }
+    let c62 = compressed.clone();
+
+    // Square 1 more → f^(2^63)
+    compressed = compressed.square();
+    let c63 = compressed;
+
+    // Batch decompress all 6 checkpoints (1 Fp2 inversion total)
+    let decompressed = batch_decompress_karabina(&[c16, c48, c57, c60, c62, c63]);
+
+    // Multiply all checkpoints: f^(2^16) * f^(2^48) * f^(2^57) * f^(2^60) * f^(2^62) * f^(2^63)
+    let mut result = &decompressed[0] * &decompressed[1];
+    result = &result * &decompressed[2];
+    result = &result * &decompressed[3];
+    result = &result * &decompressed[4];
+    &result * &decompressed[5]
 }
 
 #[cfg(test)]
@@ -886,6 +1230,23 @@ mod tests {
     }
 
     #[test]
+    fn batch_decompress_karabina_matches_decompress_when_g3_is_zero() {
+        // When g3 = 0, batch_decompress_karabina must use the fallback formula
+        // g4 = (2*g1*g5) / g2, matching single-element decompress().
+        let compressed = CompressedCyclotomic {
+            g1: Fp2E::one(),
+            g2: Fp2E::one(),
+            g3: Fp2E::zero(),
+            g5: Fp2E::one(),
+        };
+
+        let single = compressed.decompress();
+        let batch = batch_decompress_karabina(&[compressed])[0].clone();
+
+        assert_eq!(batch, single);
+    }
+
+    #[test]
     fn karabina_compressed_square_equals_cyclotomic_square() {
         let p = BLS12381Curve::generator();
         let q = BLS12381TwistCurve::generator();
@@ -915,6 +1276,22 @@ mod tests {
         let original = cyclotomic_pow_x(&f_easy);
         let compressed = cyclotomic_pow_x_compressed(&f_easy);
         assert_eq!(original, compressed);
+    }
+
+    #[test]
+    fn miller_with_prepared_accepts_jacobian_p() {
+        // `operate_with_self(2)` returns a Jacobian point with Z != 1.
+        // miller_with_prepared must normalize to affine internally before
+        // extracting coordinates, so the result must equal the affine case.
+        let p_jacobian = BLS12381Curve::generator().operate_with_self(2_u64);
+        let p_affine = p_jacobian.to_affine();
+        let q = BLS12381TwistCurve::generator();
+        let q_prepared = G2Prepared::from_g2_affine(&q);
+
+        let result_jacobian = miller_with_prepared(&q_prepared, &p_jacobian);
+        let result_affine = miller_with_prepared(&q_prepared, &p_affine);
+
+        assert_eq!(result_jacobian, result_affine);
     }
 
     #[test]

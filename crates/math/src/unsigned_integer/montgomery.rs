@@ -863,17 +863,21 @@ mod aarch64_asm {
         super::cios_6_limbs_optimized_rust(a, b, q, mu, sub_6_limbs_asm)
     }
 
-    /// ARM64 inline assembly CIOS for 6 limbs with spare bit optimization
-    /// Implements EdMSM Algorithm 2 using true ARM64 inline assembly for 384-bit fields
+    /// ARM64 inline assembly CIOS for 6 limbs with spare bit optimization.
     ///
-    /// CORRECTED VERSION: Uses proper carry propagation pattern matching 4-limb version.
-    /// The key pattern for (c_out, t[j]) = t[j] + a[j]*b[i] + c_in is:
-    ///   mul lo, aj, bi       // lo = (a[j] * b[i])[63:0]
-    ///   umulh hi, aj, bi     // hi = (a[j] * b[i])[127:64]
-    ///   adds tj, tj, lo      // tj += lo, carry1
-    ///   adcs hi, hi, xzr     // hi += carry1
-    ///   adds tj, tj, c       // tj += c_in, carry2
-    ///   adc c, hi, xzr       // c_out = hi + carry2
+    /// Inspired by blst's batched multiply pattern for high ILP on Apple Silicon.
+    /// Each outer iteration has 4 phases:
+    ///   Phase 1: MUL(a[j]*b[i]) interleaved with ADDS/ADCS into t[]
+    ///   Phase 2: UMULH(a[j]*b[i]) interleaved with ADDS/ADCS into t[]
+    ///   Phase 3: MUL(m*q[j]) interleaved with ADCS + shift (subs trick for LSB)
+    ///   Phase 4: UMULH(m*q[j]) interleaved with ADDS/ADCS into shifted t[]
+    ///
+    /// Key: MUL/UMULH don't touch flags, so they can be freely interleaved
+    /// within ADDS/ADCS carry chains. The OoO engine on Apple M1/M2 can
+    /// execute them on separate multiply pipelines, hiding latency.
+    ///
+    /// ~49 instructions per iteration vs ~76 in the serial pattern,
+    /// with dramatically better ILP.
     #[inline(always)]
     pub fn cios_6_limbs_asm_optimized(
         a: &[u64; 6],
@@ -883,661 +887,375 @@ mod aarch64_asm {
     ) -> [u64; 6] {
         let mut t = [0u64; 6];
 
+        // Preload a[] and q[] into registers (constant across all 6 outer iterations).
+        // b[i] is loaded from memory each iteration.
+        // Register budget: 6(a) + 6(q) + 6(t) + 1(mu) + 1(b_ptr) + 5(scratch) = 25 of ~29 available.
+        let a0 = a[0];
+        let a1 = a[1];
+        let a2 = a[2];
+        let a3 = a[3];
+        let a4 = a[4];
+        let a5 = a[5];
+        let q0 = q[0];
+        let q1 = q[1];
+        let q2 = q[2];
+        let q3 = q[3];
+        let q4 = q[4];
+        let q5 = q[5];
+
         unsafe {
             asm!(
-                // ===== ITERATION i=5 (b[5] = LSB) =====
-                "ldr {bi}, [{b_ptr}, #40]",
-
-                // t[5] += a[5] * b[5] (first multiply, no incoming carry)
-                "ldr {ax}, [{a_ptr}, #40]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {c}, {ax}, {bi}",
-                "adds {t5}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                // t[4] += a[4] * b[5] + c
-                "ldr {ax}, [{a_ptr}, #32]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t4}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                // t[3] += a[3] * b[5] + c
-                "ldr {ax}, [{a_ptr}, #24]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t3}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                // t[2] += a[2] * b[5] + c
-                "ldr {ax}, [{a_ptr}, #16]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t2}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                // t[1] += a[1] * b[5] + c
-                "ldr {ax}, [{a_ptr}, #8]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t1}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                // t[0] += a[0] * b[5] + c, t_extra = final overflow
-                "ldr {ax}, [{a_ptr}]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t0}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {hi}, xzr",
-
-                // m = t[5] * mu
+                // ===== ITERATION i=5 (b[5] = LSB, t[] starts at 0) =====
+                // Since t=0, product a[]*b[5] IS the accumulator directly.
+                "ldr {bi}, [{bp}, #40]",
+                // Phase 1: Batch MUL directly into t[] (no flag deps → parallel on M1)
+                "mul {t5}, {a5}, {bi}",
+                "mul {t4}, {a4}, {bi}",
+                "mul {t3}, {a3}, {bi}",
+                "mul {t2}, {a2}, {bi}",
+                "mul {t1}, {a1}, {bi}",
+                "mul {t0}, {a0}, {bi}",
+                // Phase 2: UMULH interleaved with ADDS/ADCS to combine hi[j] into t[j-1]
+                "umulh {h0}, {a5}, {bi}",
+                "umulh {h1}, {a4}, {bi}",
+                "adds {t4}, {t4}, {h0}",
+                "umulh {h0}, {a3}, {bi}",
+                "adcs {t3}, {t3}, {h1}",
+                "umulh {h1}, {a2}, {bi}",
+                "adcs {t2}, {t2}, {h0}",
+                "umulh {h0}, {a1}, {bi}",
+                "adcs {t1}, {t1}, {h1}",
+                "umulh {h1}, {a0}, {bi}",
+                "adcs {t0}, {t0}, {h0}",
+                "adc {tx}, {h1}, xzr",
+                // Phase 3: Reduce. m = t[5]*mu. Montgomery: t[5]+m*q[5] ≡ 0 mod 2^64.
+                // subs xzr, t5, #1 → CF=(t5≥1)=(t5≠0) = carry from (t5+m*q5)>>64.
+                // If t5=0 then m=0 so carry=0; if t5≠0 then sum wraps, carry=1.
+                // REQUIRES spare bit: high limb of q < 2^63 (BLS12-381: q[0]=0x1a01..., 57 bits).
+                // This invariant ensures the carry is exactly 0 or 1; do NOT use with full-width moduli.
                 "mul {m}, {t5}, {mu}",
-
-                // Reduction: t = (t + m * q) >> 64
-                // First: discard (t[5] + m * q[5]) mod 2^64, keep carry
-                "ldr {qx}, [{q_ptr}, #40]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {c}, {m}, {qx}",
-                "adds {lo}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                // t[5] = t[4] + m * q[4] + c
-                "ldr {qx}, [{q_ptr}, #32]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t5}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t5}, {t5}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                // t[4] = t[3] + m * q[3] + c
-                "ldr {qx}, [{q_ptr}, #24]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t4}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                // t[3] = t[2] + m * q[2] + c
-                "ldr {qx}, [{q_ptr}, #16]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t3}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                // t[2] = t[1] + m * q[1] + c
-                "ldr {qx}, [{q_ptr}, #8]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t2}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                // t[1] = t[0] + m * q[0] + c
-                "ldr {qx}, [{q_ptr}]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t1}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                // t[0] = t_extra + c
-                "add {t0}, {t_extra}, {c}",
+                "subs xzr, {t5}, #1",
+                // Add lo(m*q[4..0]) to t[4..0] with shift: new_t5=t4+lo(m*q4)+CF, etc.
+                "mul {h0}, {m}, {q4}",
+                "mul {h1}, {m}, {q3}",
+                "adcs {t5}, {t4}, {h0}",
+                "mul {h0}, {m}, {q2}",
+                "adcs {t4}, {t3}, {h1}",
+                "mul {h1}, {m}, {q1}",
+                "adcs {t3}, {t2}, {h0}",
+                "mul {h0}, {m}, {q0}",
+                "adcs {t2}, {t1}, {h1}",
+                "adcs {t1}, {t0}, {h0}",
+                "adc {t0}, {tx}, xzr",
+                // Phase 4: Add hi(m*q[5..0]) shifted into t[]
+                "umulh {h0}, {m}, {q5}",
+                "umulh {h1}, {m}, {q4}",
+                "adds {t5}, {t5}, {h0}",
+                "umulh {h0}, {m}, {q3}",
+                "adcs {t4}, {t4}, {h1}",
+                "umulh {h1}, {m}, {q2}",
+                "adcs {t3}, {t3}, {h0}",
+                "umulh {h0}, {m}, {q1}",
+                "adcs {t2}, {t2}, {h1}",
+                "umulh {h1}, {m}, {q0}",
+                "adcs {t1}, {t1}, {h0}",
+                "adc {t0}, {t0}, {h1}",
 
                 // ===== ITERATION i=4 =====
-                "ldr {bi}, [{b_ptr}, #32]",
-
-                "ldr {ax}, [{a_ptr}, #40]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {c}, {ax}, {bi}",
-                "adds {t5}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #32]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t4}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #24]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t3}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #16]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t2}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #8]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t1}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t0}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {hi}, xzr",
-
+                "ldr {bi}, [{bp}, #32]",
+                // Phase 1: MUL(a*bi) interleaved with ADDS/ADCS into t[]
+                "mul {h0}, {a5}, {bi}",
+                "mul {h1}, {a4}, {bi}",
+                "adds {t5}, {t5}, {h0}",
+                "mul {h0}, {a3}, {bi}",
+                "adcs {t4}, {t4}, {h1}",
+                "mul {h1}, {a2}, {bi}",
+                "adcs {t3}, {t3}, {h0}",
+                "mul {h0}, {a1}, {bi}",
+                "adcs {t2}, {t2}, {h1}",
+                "mul {h1}, {a0}, {bi}",
+                "adcs {t1}, {t1}, {h0}",
+                "adcs {t0}, {t0}, {h1}",
+                "adc {tx}, xzr, xzr",
+                // Phase 2: UMULH(a*bi) interleaved with ADDS/ADCS
+                "umulh {h0}, {a5}, {bi}",
+                "umulh {h1}, {a4}, {bi}",
+                "adds {t4}, {t4}, {h0}",
+                "umulh {h0}, {a3}, {bi}",
+                "adcs {t3}, {t3}, {h1}",
+                "umulh {h1}, {a2}, {bi}",
+                "adcs {t2}, {t2}, {h0}",
+                "umulh {h0}, {a1}, {bi}",
+                "adcs {t1}, {t1}, {h1}",
+                "umulh {h1}, {a0}, {bi}",
+                "adcs {t0}, {t0}, {h0}",
+                "adc {tx}, {tx}, {h1}",
+                // Phase 3: Reduce
                 "mul {m}, {t5}, {mu}",
-
-                "ldr {qx}, [{q_ptr}, #40]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {c}, {m}, {qx}",
-                "adds {lo}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #32]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t5}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t5}, {t5}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #24]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t4}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #16]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t3}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #8]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t2}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t1}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "add {t0}, {t_extra}, {c}",
+                "subs xzr, {t5}, #1",
+                "mul {h0}, {m}, {q4}",
+                "mul {h1}, {m}, {q3}",
+                "adcs {t5}, {t4}, {h0}",
+                "mul {h0}, {m}, {q2}",
+                "adcs {t4}, {t3}, {h1}",
+                "mul {h1}, {m}, {q1}",
+                "adcs {t3}, {t2}, {h0}",
+                "mul {h0}, {m}, {q0}",
+                "adcs {t2}, {t1}, {h1}",
+                "adcs {t1}, {t0}, {h0}",
+                "adc {t0}, {tx}, xzr",
+                // Phase 4: hi(m*q) shifted
+                "umulh {h0}, {m}, {q5}",
+                "umulh {h1}, {m}, {q4}",
+                "adds {t5}, {t5}, {h0}",
+                "umulh {h0}, {m}, {q3}",
+                "adcs {t4}, {t4}, {h1}",
+                "umulh {h1}, {m}, {q2}",
+                "adcs {t3}, {t3}, {h0}",
+                "umulh {h0}, {m}, {q1}",
+                "adcs {t2}, {t2}, {h1}",
+                "umulh {h1}, {m}, {q0}",
+                "adcs {t1}, {t1}, {h0}",
+                "adc {t0}, {t0}, {h1}",
 
                 // ===== ITERATION i=3 =====
-                "ldr {bi}, [{b_ptr}, #24]",
-
-                "ldr {ax}, [{a_ptr}, #40]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {c}, {ax}, {bi}",
-                "adds {t5}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #32]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t4}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #24]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t3}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #16]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t2}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #8]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t1}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t0}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {hi}, xzr",
-
+                "ldr {bi}, [{bp}, #24]",
+                "mul {h0}, {a5}, {bi}",
+                "mul {h1}, {a4}, {bi}",
+                "adds {t5}, {t5}, {h0}",
+                "mul {h0}, {a3}, {bi}",
+                "adcs {t4}, {t4}, {h1}",
+                "mul {h1}, {a2}, {bi}",
+                "adcs {t3}, {t3}, {h0}",
+                "mul {h0}, {a1}, {bi}",
+                "adcs {t2}, {t2}, {h1}",
+                "mul {h1}, {a0}, {bi}",
+                "adcs {t1}, {t1}, {h0}",
+                "adcs {t0}, {t0}, {h1}",
+                "adc {tx}, xzr, xzr",
+                "umulh {h0}, {a5}, {bi}",
+                "umulh {h1}, {a4}, {bi}",
+                "adds {t4}, {t4}, {h0}",
+                "umulh {h0}, {a3}, {bi}",
+                "adcs {t3}, {t3}, {h1}",
+                "umulh {h1}, {a2}, {bi}",
+                "adcs {t2}, {t2}, {h0}",
+                "umulh {h0}, {a1}, {bi}",
+                "adcs {t1}, {t1}, {h1}",
+                "umulh {h1}, {a0}, {bi}",
+                "adcs {t0}, {t0}, {h0}",
+                "adc {tx}, {tx}, {h1}",
                 "mul {m}, {t5}, {mu}",
-
-                "ldr {qx}, [{q_ptr}, #40]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {c}, {m}, {qx}",
-                "adds {lo}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #32]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t5}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t5}, {t5}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #24]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t4}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #16]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t3}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #8]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t2}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t1}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "add {t0}, {t_extra}, {c}",
+                "subs xzr, {t5}, #1",
+                "mul {h0}, {m}, {q4}",
+                "mul {h1}, {m}, {q3}",
+                "adcs {t5}, {t4}, {h0}",
+                "mul {h0}, {m}, {q2}",
+                "adcs {t4}, {t3}, {h1}",
+                "mul {h1}, {m}, {q1}",
+                "adcs {t3}, {t2}, {h0}",
+                "mul {h0}, {m}, {q0}",
+                "adcs {t2}, {t1}, {h1}",
+                "adcs {t1}, {t0}, {h0}",
+                "adc {t0}, {tx}, xzr",
+                "umulh {h0}, {m}, {q5}",
+                "umulh {h1}, {m}, {q4}",
+                "adds {t5}, {t5}, {h0}",
+                "umulh {h0}, {m}, {q3}",
+                "adcs {t4}, {t4}, {h1}",
+                "umulh {h1}, {m}, {q2}",
+                "adcs {t3}, {t3}, {h0}",
+                "umulh {h0}, {m}, {q1}",
+                "adcs {t2}, {t2}, {h1}",
+                "umulh {h1}, {m}, {q0}",
+                "adcs {t1}, {t1}, {h0}",
+                "adc {t0}, {t0}, {h1}",
 
                 // ===== ITERATION i=2 =====
-                "ldr {bi}, [{b_ptr}, #16]",
-
-                "ldr {ax}, [{a_ptr}, #40]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {c}, {ax}, {bi}",
-                "adds {t5}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #32]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t4}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #24]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t3}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #16]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t2}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #8]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t1}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t0}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {hi}, xzr",
-
+                "ldr {bi}, [{bp}, #16]",
+                "mul {h0}, {a5}, {bi}",
+                "mul {h1}, {a4}, {bi}",
+                "adds {t5}, {t5}, {h0}",
+                "mul {h0}, {a3}, {bi}",
+                "adcs {t4}, {t4}, {h1}",
+                "mul {h1}, {a2}, {bi}",
+                "adcs {t3}, {t3}, {h0}",
+                "mul {h0}, {a1}, {bi}",
+                "adcs {t2}, {t2}, {h1}",
+                "mul {h1}, {a0}, {bi}",
+                "adcs {t1}, {t1}, {h0}",
+                "adcs {t0}, {t0}, {h1}",
+                "adc {tx}, xzr, xzr",
+                "umulh {h0}, {a5}, {bi}",
+                "umulh {h1}, {a4}, {bi}",
+                "adds {t4}, {t4}, {h0}",
+                "umulh {h0}, {a3}, {bi}",
+                "adcs {t3}, {t3}, {h1}",
+                "umulh {h1}, {a2}, {bi}",
+                "adcs {t2}, {t2}, {h0}",
+                "umulh {h0}, {a1}, {bi}",
+                "adcs {t1}, {t1}, {h1}",
+                "umulh {h1}, {a0}, {bi}",
+                "adcs {t0}, {t0}, {h0}",
+                "adc {tx}, {tx}, {h1}",
                 "mul {m}, {t5}, {mu}",
-
-                "ldr {qx}, [{q_ptr}, #40]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {c}, {m}, {qx}",
-                "adds {lo}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #32]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t5}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t5}, {t5}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #24]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t4}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #16]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t3}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #8]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t2}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t1}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "add {t0}, {t_extra}, {c}",
+                "subs xzr, {t5}, #1",
+                "mul {h0}, {m}, {q4}",
+                "mul {h1}, {m}, {q3}",
+                "adcs {t5}, {t4}, {h0}",
+                "mul {h0}, {m}, {q2}",
+                "adcs {t4}, {t3}, {h1}",
+                "mul {h1}, {m}, {q1}",
+                "adcs {t3}, {t2}, {h0}",
+                "mul {h0}, {m}, {q0}",
+                "adcs {t2}, {t1}, {h1}",
+                "adcs {t1}, {t0}, {h0}",
+                "adc {t0}, {tx}, xzr",
+                "umulh {h0}, {m}, {q5}",
+                "umulh {h1}, {m}, {q4}",
+                "adds {t5}, {t5}, {h0}",
+                "umulh {h0}, {m}, {q3}",
+                "adcs {t4}, {t4}, {h1}",
+                "umulh {h1}, {m}, {q2}",
+                "adcs {t3}, {t3}, {h0}",
+                "umulh {h0}, {m}, {q1}",
+                "adcs {t2}, {t2}, {h1}",
+                "umulh {h1}, {m}, {q0}",
+                "adcs {t1}, {t1}, {h0}",
+                "adc {t0}, {t0}, {h1}",
 
                 // ===== ITERATION i=1 =====
-                "ldr {bi}, [{b_ptr}, #8]",
-
-                "ldr {ax}, [{a_ptr}, #40]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {c}, {ax}, {bi}",
-                "adds {t5}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #32]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t4}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #24]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t3}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #16]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t2}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #8]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t1}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t0}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {hi}, xzr",
-
+                "ldr {bi}, [{bp}, #8]",
+                "mul {h0}, {a5}, {bi}",
+                "mul {h1}, {a4}, {bi}",
+                "adds {t5}, {t5}, {h0}",
+                "mul {h0}, {a3}, {bi}",
+                "adcs {t4}, {t4}, {h1}",
+                "mul {h1}, {a2}, {bi}",
+                "adcs {t3}, {t3}, {h0}",
+                "mul {h0}, {a1}, {bi}",
+                "adcs {t2}, {t2}, {h1}",
+                "mul {h1}, {a0}, {bi}",
+                "adcs {t1}, {t1}, {h0}",
+                "adcs {t0}, {t0}, {h1}",
+                "adc {tx}, xzr, xzr",
+                "umulh {h0}, {a5}, {bi}",
+                "umulh {h1}, {a4}, {bi}",
+                "adds {t4}, {t4}, {h0}",
+                "umulh {h0}, {a3}, {bi}",
+                "adcs {t3}, {t3}, {h1}",
+                "umulh {h1}, {a2}, {bi}",
+                "adcs {t2}, {t2}, {h0}",
+                "umulh {h0}, {a1}, {bi}",
+                "adcs {t1}, {t1}, {h1}",
+                "umulh {h1}, {a0}, {bi}",
+                "adcs {t0}, {t0}, {h0}",
+                "adc {tx}, {tx}, {h1}",
                 "mul {m}, {t5}, {mu}",
-
-                "ldr {qx}, [{q_ptr}, #40]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {c}, {m}, {qx}",
-                "adds {lo}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #32]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t5}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t5}, {t5}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #24]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t4}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #16]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t3}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #8]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t2}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t1}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "add {t0}, {t_extra}, {c}",
+                "subs xzr, {t5}, #1",
+                "mul {h0}, {m}, {q4}",
+                "mul {h1}, {m}, {q3}",
+                "adcs {t5}, {t4}, {h0}",
+                "mul {h0}, {m}, {q2}",
+                "adcs {t4}, {t3}, {h1}",
+                "mul {h1}, {m}, {q1}",
+                "adcs {t3}, {t2}, {h0}",
+                "mul {h0}, {m}, {q0}",
+                "adcs {t2}, {t1}, {h1}",
+                "adcs {t1}, {t0}, {h0}",
+                "adc {t0}, {tx}, xzr",
+                "umulh {h0}, {m}, {q5}",
+                "umulh {h1}, {m}, {q4}",
+                "adds {t5}, {t5}, {h0}",
+                "umulh {h0}, {m}, {q3}",
+                "adcs {t4}, {t4}, {h1}",
+                "umulh {h1}, {m}, {q2}",
+                "adcs {t3}, {t3}, {h0}",
+                "umulh {h0}, {m}, {q1}",
+                "adcs {t2}, {t2}, {h1}",
+                "umulh {h1}, {m}, {q0}",
+                "adcs {t1}, {t1}, {h0}",
+                "adc {t0}, {t0}, {h1}",
 
                 // ===== ITERATION i=0 (MSB) =====
-                "ldr {bi}, [{b_ptr}]",
-
-                "ldr {ax}, [{a_ptr}, #40]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {c}, {ax}, {bi}",
-                "adds {t5}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #32]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t4}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #24]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t3}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #16]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t2}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}, #8]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t1}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {ax}, [{a_ptr}]",
-                "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
-                "adds {t0}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {hi}, xzr",
-
+                "ldr {bi}, [{bp}]",
+                "mul {h0}, {a5}, {bi}",
+                "mul {h1}, {a4}, {bi}",
+                "adds {t5}, {t5}, {h0}",
+                "mul {h0}, {a3}, {bi}",
+                "adcs {t4}, {t4}, {h1}",
+                "mul {h1}, {a2}, {bi}",
+                "adcs {t3}, {t3}, {h0}",
+                "mul {h0}, {a1}, {bi}",
+                "adcs {t2}, {t2}, {h1}",
+                "mul {h1}, {a0}, {bi}",
+                "adcs {t1}, {t1}, {h0}",
+                "adcs {t0}, {t0}, {h1}",
+                "adc {tx}, xzr, xzr",
+                "umulh {h0}, {a5}, {bi}",
+                "umulh {h1}, {a4}, {bi}",
+                "adds {t4}, {t4}, {h0}",
+                "umulh {h0}, {a3}, {bi}",
+                "adcs {t3}, {t3}, {h1}",
+                "umulh {h1}, {a2}, {bi}",
+                "adcs {t2}, {t2}, {h0}",
+                "umulh {h0}, {a1}, {bi}",
+                "adcs {t1}, {t1}, {h1}",
+                "umulh {h1}, {a0}, {bi}",
+                "adcs {t0}, {t0}, {h0}",
+                "adc {tx}, {tx}, {h1}",
                 "mul {m}, {t5}, {mu}",
+                "subs xzr, {t5}, #1",
+                "mul {h0}, {m}, {q4}",
+                "mul {h1}, {m}, {q3}",
+                "adcs {t5}, {t4}, {h0}",
+                "mul {h0}, {m}, {q2}",
+                "adcs {t4}, {t3}, {h1}",
+                "mul {h1}, {m}, {q1}",
+                "adcs {t3}, {t2}, {h0}",
+                "mul {h0}, {m}, {q0}",
+                "adcs {t2}, {t1}, {h1}",
+                "adcs {t1}, {t0}, {h0}",
+                "adc {t0}, {tx}, xzr",
+                "umulh {h0}, {m}, {q5}",
+                "umulh {h1}, {m}, {q4}",
+                "adds {t5}, {t5}, {h0}",
+                "umulh {h0}, {m}, {q3}",
+                "adcs {t4}, {t4}, {h1}",
+                "umulh {h1}, {m}, {q2}",
+                "adcs {t3}, {t3}, {h0}",
+                "umulh {h0}, {m}, {q1}",
+                "adcs {t2}, {t2}, {h1}",
+                "umulh {h1}, {m}, {q0}",
+                "adcs {t1}, {t1}, {h0}",
+                "adc {t0}, {t0}, {h1}",
 
-                "ldr {qx}, [{q_ptr}, #40]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {c}, {m}, {qx}",
-                "adds {lo}, {t5}, {lo}",
-                "adc {c}, {c}, xzr",
+                // ===== Final conditional reduction: if t >= q, t -= q =====
+                // Reuse bi, m, tx, h0, h1 + b_ptr (no longer needed) as scratch
+                "subs {h0}, {t5}, {q5}",
+                "sbcs {h1}, {t4}, {q4}",
+                "sbcs {m}, {t3}, {q3}",
+                "sbcs {bi}, {t2}, {q2}",
+                "sbcs {tx}, {t1}, {q1}",
+                "sbcs {bp}, {t0}, {q0}",
+                // If no borrow (CF=1 after sbcs), use subtracted values
+                "csel {t5}, {h0}, {t5}, cs",
+                "csel {t4}, {h1}, {t4}, cs",
+                "csel {t3}, {m}, {t3}, cs",
+                "csel {t2}, {bi}, {t2}, cs",
+                "csel {t1}, {tx}, {t1}, cs",
+                "csel {t0}, {bp}, {t0}, cs",
 
-                "ldr {qx}, [{q_ptr}, #32]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t5}, {t4}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t5}, {t5}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #24]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t4}, {t3}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t4}, {t4}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #16]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t3}, {t2}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t3}, {t3}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}, #8]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t2}, {t1}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t2}, {t2}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "ldr {qx}, [{q_ptr}]",
-                "mul {lo}, {m}, {qx}",
-                "umulh {hi}, {m}, {qx}",
-                "adds {t1}, {t0}, {lo}",
-                "adcs {hi}, {hi}, xzr",
-                "adds {t1}, {t1}, {c}",
-                "adc {c}, {hi}, xzr",
-
-                "add {t0}, {t_extra}, {c}",
-
-                // ===== Final conditional reduction =====
-                // if t >= q, then t = t - q
-                "ldr {qx}, [{q_ptr}, #40]",
-                "subs {lo}, {t5}, {qx}",
-                "ldr {qx}, [{q_ptr}, #32]",
-                "sbcs {hi}, {t4}, {qx}",
-                "ldr {qx}, [{q_ptr}, #24]",
-                "sbcs {c}, {t3}, {qx}",
-                "ldr {qx}, [{q_ptr}, #16]",
-                "sbcs {m}, {t2}, {qx}",
-                "ldr {qx}, [{q_ptr}, #8]",
-                "sbcs {ax}, {t1}, {qx}",
-                "ldr {qx}, [{q_ptr}]",
-                "sbcs {bi}, {t0}, {qx}",
-
-                // If no borrow (carry set), use subtracted values
-                "csel {t5}, {lo}, {t5}, cs",
-                "csel {t4}, {hi}, {t4}, cs",
-                "csel {t3}, {c}, {t3}, cs",
-                "csel {t2}, {m}, {t2}, cs",
-                "csel {t1}, {ax}, {t1}, cs",
-                "csel {t0}, {bi}, {t0}, cs",
-
-                a_ptr = in(reg) a.as_ptr(),
-                b_ptr = in(reg) b.as_ptr(),
-                q_ptr = in(reg) q.as_ptr(),
+                bp = inout(reg) b.as_ptr() => _,
                 mu = in(reg) mu,
-
-                t0 = inout(reg) t[0],
-                t1 = inout(reg) t[1],
-                t2 = inout(reg) t[2],
-                t3 = inout(reg) t[3],
-                t4 = inout(reg) t[4],
-                t5 = inout(reg) t[5],
-
-                lo = out(reg) _,
-                hi = out(reg) _,
-                c = out(reg) _,
-                m = out(reg) _,
-                t_extra = out(reg) _,
-                ax = out(reg) _,
-                bi = out(reg) _,
-                qx = out(reg) _,
-
+                a0 = in(reg) a0, a1 = in(reg) a1, a2 = in(reg) a2,
+                a3 = in(reg) a3, a4 = in(reg) a4, a5 = in(reg) a5,
+                q0 = in(reg) q0, q1 = in(reg) q1, q2 = in(reg) q2,
+                q3 = in(reg) q3, q4 = in(reg) q4, q5 = in(reg) q5,
+                t0 = inout(reg) t[0], t1 = inout(reg) t[1], t2 = inout(reg) t[2],
+                t3 = inout(reg) t[3], t4 = inout(reg) t[4], t5 = inout(reg) t[5],
+                h0 = out(reg) _, h1 = out(reg) _,
+                m = out(reg) _, bi = out(reg) _, tx = out(reg) _,
                 options(nostack),
             );
         }
@@ -1928,9 +1646,17 @@ mod x86_64_asm {
     }
 
     /// Spare-bit optimized CIOS for 6 limbs.
+    /// Uses ADX+MULX dual carry chain when available, falls back to pure Rust.
     #[inline(always)]
     pub fn cios_6_limbs_optimized(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
-        super::cios_6_limbs_optimized_rust(a, b, q, mu, sub_6_limbs_asm)
+        #[cfg(all(target_feature = "bmi2", target_feature = "adx"))]
+        {
+            cios_6_limbs_adx(a, b, q, mu)
+        }
+        #[cfg(not(all(target_feature = "bmi2", target_feature = "adx")))]
+        {
+            super::cios_6_limbs_optimized_rust(a, b, q, mu, sub_6_limbs_asm)
+        }
     }
 
     /// MULX-based CIOS Montgomery multiplication for 4 limbs (256-bit)
@@ -1944,7 +1670,7 @@ mod x86_64_asm {
     #[inline(always)]
     pub fn cios_4_limbs_mulx(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
         let mut t = [0u64; 4];
-        let mut t_extra: u64;
+        let mut t_extra: u64 = 0;
 
         for i in (0..4).rev() {
             let bi = b[i];
@@ -1952,7 +1678,7 @@ mod x86_64_asm {
             // Multiply-accumulate: t += a * b[i] using MULX
             // MULX puts the multiplier in RDX and outputs hi:lo to any registers
             let (hi0, hi1, hi2, hi3): (u64, u64, u64, u64);
-            let mut carry: u64;
+            let mut carry: u8;
             unsafe {
                 asm!(
                     // a[3] * b[i]
@@ -1989,6 +1715,7 @@ mod x86_64_asm {
             }
 
             // Add the high parts with carry chain
+            let mut carry64: u64;
             unsafe {
                 asm!(
                     "add {t2}, {hi0}",
@@ -2002,11 +1729,11 @@ mod x86_64_asm {
                     hi1 = in(reg) hi1,
                     hi2 = in(reg) hi2,
                     hi3 = in(reg) hi3,
-                    carry = inout(reg) carry as u64 => carry,
+                    carry = inout(reg) carry as u64 => carry64,
                     options(pure, nomem, nostack),
                 );
             }
-            t_extra = carry;
+            t_extra = carry64;
 
             // Montgomery reduction step
             let m = t[3].wrapping_mul(mu);
@@ -2154,6 +1881,170 @@ mod x86_64_asm {
             super::sub_with_6(&mut t, q, sub_6_limbs_asm);
         }
         t
+    }
+
+    /// ADX+MULX CIOS Montgomery multiplication for 6 limbs (384-bit).
+    ///
+    /// Uses MULX (flag-free multiply) with ADCX/ADOX (dual carry chains on
+    /// CF and OF independently) for maximum instruction-level parallelism.
+    /// The entire CIOS is fully unrolled — no loops, no branches in the hot path.
+    ///
+    /// Requires: BMI2 (MULX) + ADX (ADCX/ADOX).
+    /// Enable with: RUSTFLAGS="-C target-feature=+bmi2,+adx"
+    ///
+    /// Register strategy for 6 limbs with 16 GPRs:
+    ///   - t[0..5] in 6 registers
+    ///   - rdx = multiplier (b[i] or m)
+    ///   - 2 scratch registers for mulx hi/lo
+    ///   - t_extra in 1 register
+    ///   - a[], q[] accessed from memory via pointer
+    ///   Total: 6 + 1 + 2 + 1 + 1(ptr) = 11 registers, fits in 15 usable GPRs
+    #[cfg(all(target_feature = "bmi2", target_feature = "adx"))]
+    #[inline(always)]
+    pub fn cios_6_limbs_adx(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
+        let mut t0: u64 = 0;
+        let mut t1: u64 = 0;
+        let mut t2: u64 = 0;
+        let mut t3: u64 = 0;
+        let mut t4: u64 = 0;
+        let mut t5: u64 = 0;
+        let mut t_extra: u64 = 0;
+
+        // Pointers to arrays for memory-based access in asm
+        let a_ptr = a.as_ptr();
+        let q_ptr = q.as_ptr();
+
+        // Macro-like: one full CIOS iteration for b[i].
+        // Each iteration does:
+        //   1) t += a * b[i]  (MULX + ADCX carry chain)
+        //   2) m = t[5] * mu
+        //   3) t += m * q     (MULX + ADOX carry chain)
+        //   4) shift t right by one limb
+        //
+        // lambdaworks big-endian limb order: [0]=MSB, [5]=LSB
+        // a_ptr offsets: a[0] at +0, a[1] at +8, ..., a[5] at +40
+
+        macro_rules! cios_iteration {
+            ($bi:expr) => {
+                unsafe {
+                    asm!(
+                        // ====== Step 1: t += a * b[i] ======
+                        // Clear CF and OF for the ADCX/ADOX chains
+                        "xor {tmp}, {tmp}",   // clears ZF, sets CF=0, OF=0
+
+                        // rdx = b[i] for MULX
+                        "mov rdx, {bi}",
+
+                        // a[5] * b[i] -> (hi, lo); t[5] += lo via ADCX
+                        "mulx {hi}, {lo}, [{a_ptr} + 40]",
+                        "adcx {t5}, {lo}",
+                        // a[4] * b[i] -> (hi2, lo); t[4] += lo via ADCX; accumulate prev hi via ADOX
+                        "mulx {tmp}, {lo}, [{a_ptr} + 32]",
+                        "adcx {t4}, {lo}",
+                        "adox {t4}, {hi}",
+                        // a[3] * b[i]
+                        "mulx {hi}, {lo}, [{a_ptr} + 24]",
+                        "adcx {t3}, {lo}",
+                        "adox {t3}, {tmp}",
+                        // a[2] * b[i]
+                        "mulx {tmp}, {lo}, [{a_ptr} + 16]",
+                        "adcx {t2}, {lo}",
+                        "adox {t2}, {hi}",
+                        // a[1] * b[i]
+                        "mulx {hi}, {lo}, [{a_ptr} + 8]",
+                        "adcx {t1}, {lo}",
+                        "adox {t1}, {tmp}",
+                        // a[0] * b[i]
+                        "mulx {tmp}, {lo}, [{a_ptr}]",
+                        "adcx {t0}, {lo}",
+                        "adox {t0}, {hi}",
+                        // Flush remaining carries into t_extra
+                        "mov {lo}, 0",
+                        "adcx {tex}, {tmp}",
+                        "adox {tex}, {lo}",
+
+                        // ====== Step 2: m = t[5] * mu ======
+                        "mov rdx, {t5}",
+                        "imul rdx, {mu}",
+                        // rdx now holds m
+
+                        // ====== Step 3: t += m * q, with shift ======
+                        // Clear CF and OF
+                        "xor {hi}, {hi}",
+
+                        // q[5] * m -> we add to t[5], result is discarded (shifted out)
+                        "mulx {hi}, {lo}, [{q_ptr} + 40]",
+                        "adcx {t5}, {lo}",
+                        // q[4] * m -> becomes new t[5]
+                        "mulx {tmp}, {lo}, [{q_ptr} + 32]",
+                        "adcx {t4}, {lo}",
+                        "adox {t4}, {hi}",
+                        // q[3] * m -> becomes new t[4]
+                        "mulx {hi}, {lo}, [{q_ptr} + 24]",
+                        "adcx {t3}, {lo}",
+                        "adox {t3}, {tmp}",
+                        // q[2] * m -> becomes new t[3]
+                        "mulx {tmp}, {lo}, [{q_ptr} + 16]",
+                        "adcx {t2}, {lo}",
+                        "adox {t2}, {hi}",
+                        // q[1] * m -> becomes new t[2]
+                        "mulx {hi}, {lo}, [{q_ptr} + 8]",
+                        "adcx {t1}, {lo}",
+                        "adox {t1}, {tmp}",
+                        // q[0] * m -> becomes new t[1]
+                        "mulx {tmp}, {lo}, [{q_ptr}]",
+                        "adcx {t0}, {lo}",
+                        "adox {t0}, {hi}",
+                        // Flush carries into t_extra -> becomes new t[0]
+                        "mov {lo}, 0",
+                        "adcx {tex}, {tmp}",
+                        "adox {tex}, {lo}",
+
+                        // ====== Step 4: Shift right (t[5] discarded) ======
+                        // t[5] = t[4], t[4] = t[3], ..., t[0] = t_extra, t_extra = 0
+                        "mov {t5}, {t4}",
+                        "mov {t4}, {t3}",
+                        "mov {t3}, {t2}",
+                        "mov {t2}, {t1}",
+                        "mov {t1}, {t0}",
+                        "mov {t0}, {tex}",
+                        "xor {tex}, {tex}",
+
+                        bi = in(reg) $bi,
+                        a_ptr = in(reg) a_ptr,
+                        q_ptr = in(reg) q_ptr,
+                        mu = in(reg) mu,
+                        t0 = inout(reg) t0,
+                        t1 = inout(reg) t1,
+                        t2 = inout(reg) t2,
+                        t3 = inout(reg) t3,
+                        t4 = inout(reg) t4,
+                        t5 = inout(reg) t5,
+                        tex = inout(reg) t_extra,
+                        hi = out(reg) _,
+                        lo = out(reg) _,
+                        tmp = out(reg) _,
+                        out("rdx") _,
+                        options(nostack),
+                    );
+                }
+            };
+        }
+
+        // Unroll all 6 iterations (LSB first: b[5], b[4], ..., b[0])
+        cios_iteration!(b[5]);
+        cios_iteration!(b[4]);
+        cios_iteration!(b[3]);
+        cios_iteration!(b[2]);
+        cios_iteration!(b[1]);
+        cios_iteration!(b[0]);
+
+        // Final conditional reduction: if t >= q, subtract q
+        let mut result = [t0, t1, t2, t3, t4, t5];
+        if t_extra > 0 || super::const_ge_6(&result, q) {
+            super::sub_with_6(&mut result, q, sub_6_limbs_asm);
+        }
+        result
     }
 }
 
