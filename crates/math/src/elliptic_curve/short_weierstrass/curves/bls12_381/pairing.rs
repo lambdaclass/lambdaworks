@@ -1005,6 +1005,9 @@ impl CompressedCyclotomic {
 /// Batch-decompress multiple Karabina-compressed cyclotomic elements using
 /// a single Fp2 batch inversion (Montgomery's trick).
 ///
+/// Elements with g3 = 0 are handled via the fallback formula g4 = (2*g1*g5) / g2,
+/// matching the single-element decompress() behaviour.
+///
 /// Cost: 1 Fp2 inversion + 3*(n-1) Fp2 muls for the batch,
 /// vs n individual inversions without batching. Saves (n-1) Fp2 inversions.
 #[cfg(feature = "alloc")]
@@ -1013,19 +1016,32 @@ fn batch_decompress_karabina(elements: &[CompressedCyclotomic]) -> Vec<Fp12E> {
         return Vec::new();
     }
 
-    // Collect denominators: 4*g3 for each element
-    let mut denominators: Vec<Fp2E> = elements.iter().map(|c| c.g3.double().double()).collect();
+    // Separate elements with g3 = 0 (fallback path) from the rest (batch path).
+    // Track original indices so results can be written back in order.
+    let mut result: Vec<Option<Fp12E>> = (0..elements.len()).map(|_| None).collect();
 
-    // Batch invert all denominators
-    Fp2E::inplace_batch_inverse(&mut denominators)
-        .expect("g3 should be nonzero for cyclotomic subgroup elements");
+    let mut batch_indices: Vec<usize> = Vec::new();
+    let mut denominators: Vec<Fp2E> = Vec::new();
 
-    // Decompress each element using the pre-computed inverse
-    elements
-        .iter()
-        .zip(denominators.iter())
-        .map(|(c, inv)| c.decompress_with_inverse(inv))
-        .collect()
+    for (i, c) in elements.iter().enumerate() {
+        if c.g3 == Fp2E::zero() {
+            result[i] = Some(c.decompress());
+        } else {
+            batch_indices.push(i);
+            denominators.push(c.g3.double().double());
+        }
+    }
+
+    // Batch invert the non-zero denominators (all g3 != 0 here).
+    if !denominators.is_empty() {
+        Fp2E::inplace_batch_inverse(&mut denominators)
+            .expect("denominators are nonzero by construction");
+        for (idx, inv) in batch_indices.iter().zip(denominators.iter()) {
+            result[*idx] = Some(elements[*idx].decompress_with_inverse(inv));
+        }
+    }
+
+    result.into_iter().map(Option::unwrap).collect()
 }
 
 /// Computes f^|X| using a right-to-left decomposition with all-compressed squarings.
@@ -1211,6 +1227,23 @@ mod tests {
         let compressed = CompressedCyclotomic::compress(&f_easy);
         let decompressed = compressed.decompress();
         assert_eq!(f_easy, decompressed);
+    }
+
+    #[test]
+    fn batch_decompress_karabina_matches_decompress_when_g3_is_zero() {
+        // When g3 = 0, batch_decompress_karabina must use the fallback formula
+        // g4 = (2*g1*g5) / g2, matching single-element decompress().
+        let compressed = CompressedCyclotomic {
+            g1: Fp2E::one(),
+            g2: Fp2E::one(),
+            g3: Fp2E::zero(),
+            g5: Fp2E::one(),
+        };
+
+        let single = compressed.decompress();
+        let batch = batch_decompress_karabina(&[compressed])[0].clone();
+
+        assert_eq!(batch, single);
     }
 
     #[test]
