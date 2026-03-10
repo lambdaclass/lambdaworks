@@ -598,7 +598,7 @@ impl FieldElement<Degree12ExtensionField> {
     }
 }
 
-/// Computes the multiplication of an element of fp2 by the level two non-residue 9+u.
+/// Computes the multiplication of an element of fp2 by the level two non-residue 1+u.
 pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
     // (c0 + c1 * u) * (1 + u) = (c0 - c1) + (c1 + c0) * u
     let c0 = &a.value()[0] - &a.value()[1]; // c0 - c1
