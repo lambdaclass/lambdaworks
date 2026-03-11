@@ -45,7 +45,7 @@ pub fn bls12_377_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // GLV scalar multiplication comparison benchmarks (G1)
     // Compares baseline (standard double-and-add) vs GLV-optimized scalar multiplication.
-    // GLV decomposes k = k1 + k2*ω, achieving ~2x speedup via Shamir's trick.
+    // GLV decomposes k = k1 + k2*ω; measured speedup: +28% (192-bit), +60% (253-bit).
     let mut glv_group = c.benchmark_group("BLS12-377 G1 Scalar Multiplication");
     glv_group.significance_level(0.1).sample_size(10000);
 
@@ -77,8 +77,8 @@ pub fn bls12_377_elliptic_curve_benchmarks(c: &mut Criterion) {
     glv_group.finish();
 
     // GLS scalar multiplication comparison benchmarks (G2)
-    // GLS uses the Frobenius endomorphism ψ(P) = [u]P where u is the 64-bit curve seed,
-    // achieving ~2x speedup via Shamir's trick.
+    // GLS uses the Frobenius endomorphism ψ(P) = [u]P where u is the 64-bit curve seed.
+    // Measured speedup: +34% (128-bit), +22% (192-bit), +20% (253-bit).
     let mut gls_group = c.benchmark_group("BLS12-377 G2 Scalar Multiplication");
     gls_group.significance_level(0.1).sample_size(10000);
 

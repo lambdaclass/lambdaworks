@@ -359,7 +359,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // GLV scalar multiplication comparison benchmarks (G1)
     // GLV decomposes k = k1 + k2*ω (ω ≈ 2^192), giving k2 ≈ 62 bits, k1 ≈ 192 bits.
-    // Shamir's trick reduces iterations from 254 to ~192 bits (~25% speedup).
+    // Shamir's trick reduces iterations from 254 to ~192 bits; measured speedup: +10% (254-bit).
     let mut glv_group = c.benchmark_group("BN254 G1 Scalar Multiplication");
     glv_group.significance_level(0.1).sample_size(10000);
 
@@ -392,7 +392,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // GLS scalar multiplication comparison benchmarks (G2)
     // GLS uses the Frobenius endomorphism φ(Q) = [p mod r]Q (eigenvalue ≈ 127 bits),
-    // achieving ~50% speedup via Shamir's trick.
+    // Measured speedup: +30% (192-bit), +37% (254-bit).
     let mut gls_group = c.benchmark_group("BN254 G2 Scalar Multiplication");
     gls_group.significance_level(0.1).sample_size(10000);
 

@@ -607,6 +607,26 @@ mod tests {
     // GLV scalar multiplication tests for G1
 
     #[test]
+    fn glv_decompose_splits_large_scalar() {
+        // For a scalar k > ω, the decomposition must produce non-zero k2 and
+        // reduce the max bit length below k. This catches the U256::mul (hi,lo) swap bug
+        // which caused k2 to always be zero.
+        let k = U256::from_hex_unchecked(
+            "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
+        );
+        let (_, k1, _, k2) = glv_decompose_bn254(&k);
+        assert!(
+            k2 > U256::from_u64(0),
+            "k2 should be non-zero for a large scalar"
+        );
+        let max_bits = core::cmp::max(k1.bits_le(), k2.bits_le());
+        assert!(
+            max_bits < k.bits_le(),
+            "decomposition should reduce max bit length"
+        );
+    }
+
+    #[test]
     fn glv_mul_g1_small_scalar() {
         let g = BN254Curve::generator();
         let k = U256::from_u64(12345);
