@@ -1,7 +1,8 @@
 //! Polynomial commitment scheme (PCS) traits and implementations.
 //!
-//! Provides the IsMultilinearPCS trait for committing to multilinear polynomials
-//! and the TrivialPCS implementation for testing.
+//! Provides the IsMultilinearPCS trait for committing to multilinear polynomials,
+//! the TrivialPCS implementation for testing, and the ZeromorphPCS implementation
+//! backed by KZG for production use.
 
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
@@ -54,7 +55,8 @@ where
     fn serialize_commitment(commitment: &Self::Commitment) -> Vec<u8>;
 }
 
-// TODO: rename this module to `trivial` to reflect that it contains TrivialPCS,
-// not an actual Zeromorph implementation. The Zeromorph PCS (KZG-based) should
-// be added as a separate module when implementing production-grade proving.
+pub mod trivial;
 pub mod zeromorph;
+
+pub use trivial::{TrivialCommitment, TrivialPCS, TrivialProof};
+pub use zeromorph::{ZeromorphCommitment, ZeromorphPCS, ZeromorphProof};

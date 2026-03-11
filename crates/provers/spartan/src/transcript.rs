@@ -94,6 +94,7 @@ pub fn append_public_inputs<F>(
     FieldElement<F>: ByteConversion,
 {
     transcript.append_bytes(b"public_inputs");
+    transcript.append_bytes(&(public_inputs.len() as u64).to_be_bytes());
     for x in public_inputs {
         transcript.append_field_element(x);
     }

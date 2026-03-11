@@ -27,7 +27,7 @@ mod transcript;
 pub mod verifier;
 
 pub use errors::SpartanError;
-pub use pcs::zeromorph::{TrivialCommitment, TrivialPCS, TrivialProof};
+pub use pcs::trivial::{TrivialCommitment, TrivialPCS, TrivialProof};
 pub use prover::{SpartanProof, SpartanProver};
 pub use r1cs::R1CS;
 pub use verifier::SpartanVerifier;
@@ -206,7 +206,7 @@ mod tests {
     // -------------------------------------------------------------------------
     #[test]
     fn test_trivial_pcs_round_trip() {
-        use crate::pcs::zeromorph::TrivialPCS;
+        use crate::pcs::trivial::TrivialPCS;
         use crate::pcs::IsMultilinearPCS;
         use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
 
