@@ -16,10 +16,11 @@ use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 use super::{IsMultilinearPCS, PcsError};
 
 /// Zeromorph PCS backed by KZG over an elliptic pairing.
+#[derive(Clone)]
 pub struct ZeromorphPCS<const N: usize, F, P>
 where
     F: IsPrimeField<CanonicalType = UnsignedInteger<N>>,
-    P: IsPairing,
+    P: IsPairing + Clone,
 {
     kzg: KateZaveruchaGoldberg<F, P>,
 }
@@ -51,7 +52,7 @@ where
 impl<const N: usize, F, P> ZeromorphPCS<N, F, P>
 where
     F: IsPrimeField<CanonicalType = UnsignedInteger<N>>,
-    P: IsPairing,
+    P: IsPairing + Clone,
 {
     pub fn new(kzg: KateZaveruchaGoldberg<F, P>) -> Self {
         Self { kzg }
@@ -421,7 +422,7 @@ mod tests {
             FE::from(4u64),
         ];
         let poly = DenseMultilinearPolynomial::new(evals);
-        let commitment = pcs.commit(&poly).unwrap();
+        let _commitment = pcs.commit(&poly).unwrap();
         let point = vec![FE::from(2u64), FE::from(5u64)];
         let (value, proof) = pcs.open(&poly, &point).unwrap();
 

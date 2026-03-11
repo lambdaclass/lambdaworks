@@ -444,4 +444,66 @@ mod tests {
 
         assert_eq!(sum, FE::zero(), "Outer sum should be 0 for satisfied R1CS");
     }
+
+    // -------------------------------------------------------------------------
+    // Integration test: full Spartan prove+verify with ZeromorphPCS over BLS12-381
+    // -------------------------------------------------------------------------
+    #[test]
+    fn test_spartan_prove_verify_zeromorph() {
+        use crate::pcs::zeromorph::ZeromorphPCS;
+        use lambdaworks_crypto::commitments::kzg::{
+            KateZaveruchaGoldberg, StructuredReferenceString,
+        };
+        use lambdaworks_math::cyclic_group::IsGroup;
+        use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::{
+            curve::BLS12381Curve,
+            default_types::{FrElement, FrField},
+            pairing::BLS12381AtePairing,
+            twist::BLS12381TwistCurve,
+        };
+        use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
+        use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
+        use lambdaworks_math::field::element::FieldElement;
+
+        type G1 = ShortWeierstrassJacobianPoint<BLS12381Curve>;
+        type KZG = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
+        type ZM = ZeromorphPCS<4, FrField, BLS12381AtePairing>;
+        type FE = FrElement;
+
+        // Build a simple multiplication circuit: x * y = z over BLS12-381 Fr.
+        // witness = [1, 6, 2, 3]  (constant=1, output=6, x=2, y=3)
+        // A[0] = [0, 0, 1, 0]  (picks x)
+        // B[0] = [0, 0, 0, 1]  (picks y)
+        // C[0] = [0, 1, 0, 0]  (picks output)
+        let zero = FE::zero();
+        let one = FE::one();
+        let a = vec![vec![zero.clone(), zero.clone(), one.clone(), zero.clone()]];
+        let b = vec![vec![zero.clone(), zero.clone(), zero.clone(), one.clone()]];
+        let c = vec![vec![zero.clone(), one.clone(), zero.clone(), zero.clone()]];
+        let r1cs = R1CS::new(a, b, c, 1).unwrap();
+
+        let witness: Vec<FE> = vec![
+            FieldElement::one(),
+            FE::from(6u64),
+            FE::from(2u64),
+            FE::from(3u64),
+        ];
+        let public_inputs = vec![FE::from(6u64)];
+        assert!(r1cs.is_satisfied(&witness));
+
+        // SRS needs ≥ 4 powers (witness has 4 elements, padded to 2^2 = 4)
+        let toxic = FE::from(13u64);
+        let g1 = BLS12381Curve::generator();
+        let g2 = BLS12381TwistCurve::generator();
+        let powers: Vec<G1> = (0..8)
+            .map(|i| g1.operate_with_self(toxic.pow(i as u128).canonical()))
+            .collect();
+        let g2_powers = [g2.clone(), g2.operate_with_self(toxic.canonical())];
+        let srs = StructuredReferenceString::new(&powers, &g2_powers);
+        let pcs = ZM::new(KZG::new(srs));
+
+        let proof = spartan_prove(&r1cs, &public_inputs, &witness, pcs.clone()).unwrap();
+        let ok = spartan_verify(&r1cs, &public_inputs, &proof, pcs).unwrap();
+        assert!(ok, "Spartan+Zeromorph should verify for satisfied R1CS");
+    }
 }
