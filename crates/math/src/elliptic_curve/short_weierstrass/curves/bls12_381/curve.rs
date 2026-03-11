@@ -153,7 +153,7 @@ fn glv_decompose(k: &U256) -> (bool, U256, bool, U256) {
     let (k2, _) = k.div_rem(&GLV_OMEGA_PLUS_ONE);
 
     // Compute k1 = k - k2*ω
-    let (k2_omega_lo, k2_omega_hi) = U256::mul(&k2, &GLV_OMEGA);
+    let (k2_omega_hi, k2_omega_lo) = U256::mul(&k2, &GLV_OMEGA);
 
     // Overflow check: fall back to direct computation if needed
     if k2_omega_hi != zero {
