@@ -197,7 +197,7 @@ mod brakedown {
         let (evals, poly) = make_poly(n_vars);
 
         // n_cols = 4 for 4 vars (2^(4-2) = 4)
-        let encoding = ExpanderEncoding::<F>::new(4, 0.25, 3, 1, 42);
+        let encoding = ExpanderEncoding::<F>::new(4, 0.25, 3, 1, 42, (1, 25));
         let out = commit::<F, B, _>(&evals, &encoding);
 
         let point: Vec<FE> = (1..=n_vars).map(|x| FE::from(x as u64)).collect();
@@ -232,7 +232,7 @@ mod brakedown {
         let (evals, poly) = make_poly(n_vars);
 
         // n_cols = 2^3 = 8
-        let encoding = ExpanderEncoding::<F>::new(8, 0.25, 3, 1, 42);
+        let encoding = ExpanderEncoding::<F>::new(8, 0.25, 3, 1, 42, (1, 25));
         let out = commit::<F, B, _>(&evals, &encoding);
 
         let point: Vec<FE> = (5..5 + n_vars).map(|x| FE::from(x as u64)).collect();
@@ -266,7 +266,7 @@ mod brakedown {
         let n_vars = 4;
         let (evals, _poly) = make_poly(n_vars);
 
-        let encoding = ExpanderEncoding::<F>::new(4, 0.25, 3, 1, 42);
+        let encoding = ExpanderEncoding::<F>::new(4, 0.25, 3, 1, 42, (1, 25));
         let out = commit::<F, B, _>(&evals, &encoding);
 
         let point: Vec<FE> = (1..=n_vars).map(|x| FE::from(x as u64)).collect();

@@ -7,18 +7,7 @@ use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use super::commit::tensor_vec;
 use super::data_structures::{CommitState, LinCodeCommitment, LinCodeProof, OpenedColumn};
 use super::traits::LinearCodeEncoding;
-
-/// Number of column openings needed for `sec_param` bits of security with
-/// code relative distance `delta_num / delta_den`.
-///
-/// `t = ceil(sec_param / log2(1 / (1 - delta/2)))`.
-fn calculate_t(sec_param: usize, delta_num: usize, delta_den: usize) -> usize {
-    // delta/2
-    let half_delta = (delta_num as f64) / (delta_den as f64) / 2.0;
-    // log2(1 / (1 - delta/2))
-    let log_factor = -(1.0 - half_delta).log2();
-    (sec_param as f64 / log_factor).ceil() as usize
-}
+use super::utils::calculate_t;
 
 /// Generate an evaluation proof for a committed multilinear polynomial.
 ///
@@ -70,12 +59,10 @@ where
         transcript.append_field_element(vi);
     }
 
-    // Determine number of column openings
+    // Determine number of column openings (capped at n_ext_cols)
     let (d_num, d_den) = encoding.distance();
-    let t = calculate_t(sec_param, d_num, d_den);
-
-    // Sample t column indices from transcript
     let n_ext_cols = commitment.n_ext_cols;
+    let t = calculate_t(sec_param, d_num, d_den, n_ext_cols);
     let col_indices: Vec<usize> = (0..t)
         .map(|_| transcript.sample_u64(n_ext_cols as u64) as usize)
         .collect();

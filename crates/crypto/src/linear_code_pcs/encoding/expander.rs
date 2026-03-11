@@ -39,9 +39,27 @@ impl<F: IsField> ExpanderEncoding<F> {
     /// - `nnz_per_row`: number of nonzero entries per row in the sparse matrix (the degree)
     /// - `base_len`: stop recursing when dimension drops below this
     /// - `seed`: deterministic seed for generating the sparse matrices
-    pub fn new(msg_len: usize, alpha: f64, nnz_per_row: usize, base_len: usize, seed: u64) -> Self {
+    /// - `distance`: relative minimum distance as `(numerator, denominator)`.
+    ///   For example `(1, 25)` means distance ~0.04. The caller should set this
+    ///   based on the expander analysis for the chosen `alpha` and `nnz_per_row`.
+    pub fn new(
+        msg_len: usize,
+        alpha: f64,
+        nnz_per_row: usize,
+        base_len: usize,
+        seed: u64,
+        distance: (usize, usize),
+    ) -> Self {
         assert!(alpha > 0.0 && alpha < 1.0, "alpha must be in (0, 1)");
         assert!(msg_len > 0);
+        assert!(
+            distance.0 > 0 && distance.1 > 0,
+            "distance must be positive"
+        );
+        assert!(
+            distance.0 < distance.1,
+            "distance numerator must be less than denominator"
+        );
 
         let mut matrices = Vec::new();
         let mut current_len = msg_len;
@@ -60,16 +78,11 @@ impl<F: IsField> ExpanderEncoding<F> {
             level_seed = level_seed.wrapping_add(7);
         }
 
-        // The distance is approximate; for a proper implementation the expander
-        // analysis would give exact bounds. We use a conservative estimate.
-        // With alpha ~0.2 and nnz_per_row ~8, the relative distance is roughly 0.04.
-        let dist = (1, 25); // ~0.04
-
         Self {
             msg_len,
             cw_len,
             matrices,
-            dist,
+            dist: distance,
         }
     }
 }
@@ -116,7 +129,7 @@ mod tests {
 
     #[test]
     fn encode_produces_correct_length() {
-        let enc = ExpanderEncoding::<F>::new(32, 0.25, 4, 4, 42);
+        let enc = ExpanderEncoding::<F>::new(32, 0.25, 4, 4, 42, (1, 25));
         let msg: Vec<FE> = (0..32).map(|x| FE::from(x as u64)).collect();
         let cw = enc.encode(&msg);
         assert_eq!(cw.len(), enc.codeword_len());
@@ -125,7 +138,7 @@ mod tests {
     #[test]
     fn encode_is_systematic() {
         // First msg_len elements of the codeword should be the message itself
-        let enc = ExpanderEncoding::<F>::new(16, 0.25, 4, 2, 99);
+        let enc = ExpanderEncoding::<F>::new(16, 0.25, 4, 2, 99, (1, 25));
         let msg: Vec<FE> = (0..16).map(|x| FE::from(x as u64)).collect();
         let cw = enc.encode(&msg);
         assert_eq!(&cw[..16], &msg[..]);
@@ -133,7 +146,7 @@ mod tests {
 
     #[test]
     fn encode_deterministic() {
-        let enc = ExpanderEncoding::<F>::new(16, 0.25, 4, 2, 42);
+        let enc = ExpanderEncoding::<F>::new(16, 0.25, 4, 2, 42, (1, 25));
         let msg: Vec<FE> = (0..16).map(|x| FE::from(x as u64)).collect();
         let cw1 = enc.encode(&msg);
         let cw2 = enc.encode(&msg);
@@ -142,7 +155,7 @@ mod tests {
 
     #[test]
     fn cw_longer_than_msg() {
-        let enc = ExpanderEncoding::<F>::new(64, 0.3, 6, 4, 7);
+        let enc = ExpanderEncoding::<F>::new(64, 0.3, 6, 4, 7, (1, 25));
         assert!(enc.codeword_len() > enc.message_len());
     }
 }

@@ -7,13 +7,7 @@ use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use super::commit::tensor_vec;
 use super::data_structures::{LinCodeCommitment, LinCodeProof};
 use super::traits::LinearCodeEncoding;
-
-/// Number of column openings needed (same formula as in prove.rs).
-fn calculate_t(sec_param: usize, delta_num: usize, delta_den: usize) -> usize {
-    let half_delta = (delta_num as f64) / (delta_den as f64) / 2.0;
-    let log_factor = -(1.0 - half_delta).log2();
-    (sec_param as f64 / log_factor).ceil() as usize
-}
+use super::utils::calculate_t;
 
 /// Verify an evaluation proof for the linear-code PCS.
 ///
@@ -64,9 +58,8 @@ where
     }
 
     let (d_num, d_den) = encoding.distance();
-    let t = calculate_t(sec_param, d_num, d_den);
-
     let n_ext_cols = commitment.n_ext_cols;
+    let t = calculate_t(sec_param, d_num, d_den, n_ext_cols);
     let col_indices: Vec<usize> = (0..t)
         .map(|_| transcript.sample_u64(n_ext_cols as u64) as usize)
         .collect();

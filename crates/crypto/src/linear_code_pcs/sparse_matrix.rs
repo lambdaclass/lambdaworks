@@ -66,7 +66,11 @@ impl<F: IsField> SparseMatrix<F> {
                     .wrapping_add(1442695040888963407);
                 let mut col = (state >> 33) as usize % n_cols;
                 while used.contains(&col) {
-                    col = (col + 1) % n_cols;
+                    // Re-mix PRNG state instead of linear probing to avoid clustering bias
+                    state = state
+                        .wrapping_mul(6364136223846793005)
+                        .wrapping_add(1442695040888963407);
+                    col = (state >> 33) as usize % n_cols;
                 }
                 used.insert(col);
                 row.push((col, one.clone()));
