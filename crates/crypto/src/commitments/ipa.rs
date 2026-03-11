@@ -903,7 +903,7 @@ mod tests {
         let mut proof = ipa.open(&p, &z, &mut make_transcript());
 
         // Tamper with a_final
-        proof.a_final = proof.a_final + FE::one();
+        proof.a_final += FE::one();
         assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
     }
 
