@@ -1,10 +1,11 @@
 //! Zeromorph PCS: reduces multilinear evaluation to univariate KZG opening.
 //! Reference: Kohrita & Towa, "Zeromorph" (2023), https://eprint.iacr.org/2023/917
 
-use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
-use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
-use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use crate::commitments::kzg::KateZaveruchaGoldberg;
+use crate::commitments::multilinear::{IsMultilinearPCS, PcsError};
+use crate::commitments::traits::IsCommitmentScheme;
+use crate::fiat_shamir::default_transcript::DefaultTranscript;
+use crate::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::elliptic_curve::traits::IsPairing;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{HasDefaultTranscript, IsField, IsPrimeField};
@@ -12,8 +13,6 @@ use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolyno
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::{AsBytes, ByteConversion};
 use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
-
-use super::{IsMultilinearPCS, PcsError};
 
 /// Zeromorph PCS backed by KZG over an elliptic pairing.
 #[derive(Clone)]
@@ -154,12 +153,12 @@ where
 ///
 /// Absorbs the f commitment, evaluation point, claimed value, and quotient
 /// commitments, then samples the evaluation challenge x and batching factor upsilon.
-// TODO(security): The Zeromorph internal transcript is independent of the outer
-// Spartan transcript. In a standalone Spartan, the evaluation point r_y is derived
-// from the Spartan transcript (which binds R1CS + public inputs + commitment), so
-// proof transplant attacks are hard in practice. For recursive/IVC settings, the
+// TODO(security): The Zeromorph internal transcript is independent of any outer
+// proof system transcript. In a standalone Spartan, the evaluation point r_y is
+// derived from the Spartan transcript (which binds R1CS + public inputs + commitment),
+// so proof transplant attacks are hard in practice. For recursive/IVC settings, the
 // `IsMultilinearPCS::open` and `verify` signatures should be extended to accept an
-// outer transcript binding (e.g., a hash of the current Spartan transcript state).
+// outer transcript binding (e.g., a hash of the current proof system transcript state).
 fn derive_zeromorph_challenges<F, P>(
     f_commitment: &P::G1Point,
     point: &[FieldElement<F>],
@@ -309,7 +308,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
+    use crate::commitments::kzg::StructuredReferenceString;
     use lambdaworks_math::cyclic_group::IsGroup;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::{
         curve::BLS12381Curve,
@@ -348,7 +347,6 @@ mod tests {
 
     #[test]
     fn test_zeromorph_pcs_1_var() {
-        // f̃(x_0) with evals [a, b]: f̃(0) = a, f̃(1) = b
         let pcs = new_zeromorph(1);
         let evals = vec![FE::from(3u64), FE::from(7u64)];
         let poly = DenseMultilinearPolynomial::new(evals);
@@ -361,7 +359,6 @@ mod tests {
 
     #[test]
     fn test_zeromorph_pcs_2_vars() {
-        // f̃(x_0, x_1) with evals [1, 2, 3, 4]
         let pcs = new_zeromorph(2);
         let evals = vec![
             FE::from(1u64),
@@ -379,7 +376,6 @@ mod tests {
 
     #[test]
     fn test_zeromorph_pcs_wrong_value() {
-        // Verifier should reject a tampered claimed value
         let pcs = new_zeromorph(2);
         let evals = vec![
             FE::from(1u64),
@@ -400,7 +396,6 @@ mod tests {
 
     #[test]
     fn test_zeromorph_pcs_3_vars() {
-        // f̃(x_0, x_1, x_2) with 8 evaluations
         let pcs = new_zeromorph(3);
         let evals: Vec<FE> = (1u64..=8).map(FE::from).collect();
         let poly = DenseMultilinearPolynomial::new(evals);
@@ -413,7 +408,6 @@ mod tests {
 
     #[test]
     fn test_zeromorph_pcs_tampered_commitment() {
-        // A proof generated for commitment C should not verify under a different C'.
         let pcs = new_zeromorph(2);
         let evals = vec![
             FE::from(1u64),
@@ -426,7 +420,6 @@ mod tests {
         let point = vec![FE::from(2u64), FE::from(5u64)];
         let (value, proof) = pcs.open(&poly, &point).unwrap();
 
-        // Tamper: use commitment from a different polynomial
         let other_evals = vec![
             FE::from(9u64),
             FE::from(9u64),
@@ -444,7 +437,6 @@ mod tests {
 
     #[test]
     fn test_zeromorph_pcs_constant_poly() {
-        // f̃ = constant 42: all evals are 42, so f̃(u) = 42 for any u.
         let pcs = new_zeromorph(2);
         let evals = vec![FE::from(42u64); 4];
         let poly = DenseMultilinearPolynomial::new(evals);
@@ -458,7 +450,6 @@ mod tests {
 
     #[test]
     fn test_zeromorph_pcs_4_vars() {
-        // f̃(x_0,...,x_3) with 16 evaluations
         let pcs = new_zeromorph(4);
         let evals: Vec<FE> = (1u64..=16).map(FE::from).collect();
         let poly = DenseMultilinearPolynomial::new(evals);

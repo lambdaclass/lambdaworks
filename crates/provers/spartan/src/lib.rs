@@ -461,7 +461,7 @@ mod tests {
     // -------------------------------------------------------------------------
     #[test]
     fn test_spartan_prove_verify_zeromorph() {
-        use crate::pcs::zeromorph::ZeromorphPCS;
+        use crate::pcs::ZeromorphPCS;
         use lambdaworks_crypto::commitments::kzg::{
             KateZaveruchaGoldberg, StructuredReferenceString,
         };
@@ -523,7 +523,7 @@ mod tests {
     // -------------------------------------------------------------------------
     #[test]
     fn test_spartan_soundness_zeromorph() {
-        use crate::pcs::zeromorph::ZeromorphPCS;
+        use crate::pcs::ZeromorphPCS;
         use lambdaworks_crypto::commitments::kzg::{
             KateZaveruchaGoldberg, StructuredReferenceString,
         };
