@@ -15,6 +15,7 @@ use crate::fiat_shamir::is_transcript::IsTranscript;
 ///
 /// Contains the public generators used by both prover and verifier.
 /// No trusted setup is required — generators can be derived deterministically.
+#[derive(Clone, Debug)]
 pub struct IpaSetup<G: IsGroup> {
     /// Pedersen-style generators G_0, ..., G_{n-1}
     pub generators: Vec<G>,
@@ -26,6 +27,7 @@ pub struct IpaSetup<G: IsGroup> {
 ///
 /// Contains the left/right cross-term points from each folding round
 /// and the final scalar after all rounds complete.
+#[derive(Clone, Debug)]
 pub struct IpaProof<const N: usize, F: IsPrimeField, G: IsGroup> {
     /// Left cross-term points L_1, ..., L_k (one per round)
     pub l_points: Vec<G>,
@@ -44,6 +46,7 @@ pub struct IpaProof<const N: usize, F: IsPrimeField, G: IsGroup> {
 /// - `N`: number of limbs in the field's canonical representation
 /// - `F`: scalar field (polynomial coefficients live here)
 /// - `G`: group for commitments (must implement `AsBytes` for transcript serialization)
+#[derive(Clone, Debug)]
 pub struct Ipa<const N: usize, F, G: IsGroup> {
     setup: IpaSetup<G>,
     _phantom: PhantomData<F>,
@@ -68,8 +71,15 @@ where
     /// Commit to a polynomial: C = MSM(coefficients, generators).
     ///
     /// The polynomial is padded with zeros if its degree is less than n-1.
+    ///
+    /// # Panics
+    /// Panics if the polynomial has more coefficients than generators.
     pub fn commit(&self, p: &Polynomial<FieldElement<F>>) -> G {
         let n = self.setup.generators.len();
+        assert!(
+            p.coefficients.len() <= n,
+            "polynomial degree exceeds generator count"
+        );
         let scalars = pad_coefficients::<N, F>(p, n);
         msm(&scalars, &self.setup.generators).expect("lengths match after padding")
     }
@@ -78,6 +88,9 @@ where
     ///
     /// The transcript must be in the same state as the verifier's transcript
     /// will be at the start of verification.
+    ///
+    /// # Panics
+    /// Panics if the polynomial has more coefficients than generators.
     pub fn open(
         &self,
         p: &Polynomial<FieldElement<F>>,
@@ -85,6 +98,10 @@ where
         transcript: &mut impl IsTranscript<F>,
     ) -> IpaProof<N, F, G> {
         let n = self.setup.generators.len();
+        assert!(
+            p.coefficients.len() <= n,
+            "polynomial degree exceeds generator count"
+        );
         let y = p.evaluate(z);
 
         // Compute commitment and bind it to the transcript
@@ -923,5 +940,27 @@ mod tests {
         // Remove one L point to create a length mismatch
         proof.l_points.pop();
         assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+    }
+
+    #[test]
+    #[should_panic(expected = "generator count must be a power of two")]
+    fn non_power_of_two_generators_panics() {
+        let g = PallasCurve::generator();
+        let generators: Vec<G> = (1..=5u64).map(|i| g.operate_with_self(i)).collect();
+        let u = g.operate_with_self(1337u64);
+        let setup = IpaSetup { generators, u };
+        let _ = Ipa::<4, F, G>::new(setup);
+    }
+
+    #[test]
+    #[should_panic(expected = "polynomial degree exceeds generator count")]
+    fn polynomial_too_large_panics() {
+        let setup = test_setup(4);
+        let ipa = Ipa::<4, F, G>::new(setup);
+
+        // 8 coefficients but only 4 generators
+        let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
+        let p = Polynomial::new(&coeffs);
+        let _ = ipa.commit(&p);
     }
 }
