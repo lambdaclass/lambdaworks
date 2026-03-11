@@ -397,6 +397,66 @@ mod tests {
     }
 
     // -------------------------------------------------------------------------
+    // Test HIGH-001b: witness length check
+    // -------------------------------------------------------------------------
+    #[test]
+    fn test_spartan_wrong_witness_length() {
+        let (r1cs, _) = mul_r1cs(2, 3);
+
+        // Witness is 3 elements instead of the required 4 (num_variables = 4)
+        let short_witness = vec![one(), fe(6), fe(2)];
+        let result = spartan_prove(&r1cs, &[fe(6)], &short_witness, TrivialPCS);
+        assert!(
+            result.is_err(),
+            "prove() must reject witness shorter than num_variables"
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Test HIGH-001: public input mismatch is caught at prove time
+    // -------------------------------------------------------------------------
+    #[test]
+    fn test_spartan_public_input_mismatch() {
+        let (r1cs, _) = mul_r1cs(2, 3);
+
+        // Witness says c=6 but public_inputs claims c=7
+        let witness = vec![one(), fe(6), fe(2), fe(3)];
+        let result = spartan_prove(&r1cs, &[fe(7)], &witness, TrivialPCS);
+        assert!(
+            result.is_err(),
+            "prove() must reject witness inconsistent with public inputs"
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Test HIGH-001: tampered public input proof fails verification
+    // -------------------------------------------------------------------------
+    #[test]
+    fn test_spartan_tampered_public_input_proof() {
+        let (r1cs, witness) = mul_r1cs(2, 3);
+        let public_inputs = vec![fe(6)];
+
+        let mut proof = spartan_prove(&r1cs, &public_inputs, &witness, TrivialPCS).unwrap();
+
+        // Replace the public input proof point with the wrong index (index 2 instead of 1)
+        if let Some((point, _)) = proof.public_input_proofs.first_mut() {
+            // Flip the last bit of the point to produce a wrong evaluation point
+            let last = point.last_mut().unwrap();
+            *last = if *last == FE::zero() {
+                FE::one()
+            } else {
+                FE::zero()
+            };
+        }
+
+        let ok = spartan_verify(&r1cs, &public_inputs, &proof, TrivialPCS).unwrap_or(false);
+        assert!(
+            !ok,
+            "Tampered public input proof point should fail verification"
+        );
+    }
+
+    // -------------------------------------------------------------------------
     // Integration test: full Spartan prove+verify with ZeromorphPCS over BLS12-381
     // -------------------------------------------------------------------------
     #[test]

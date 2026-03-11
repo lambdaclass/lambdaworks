@@ -201,6 +201,29 @@ where
     result
 }
 
+/// Converts a witness index `i` into its boolean evaluation point for the witness MLE.
+///
+/// `DenseMultilinearPolynomial` uses MSB-first ordering: the bit representation of `i`
+/// with `n` bits has the most significant bit as variable 0.
+/// That is, `point[k] = (i >> (n-1-k)) & 1`.
+///
+/// Used to open the witness MLE at specific positions, e.g. to verify that
+/// z̃(bits(i)) == public_inputs[i-1] for each public input index i.
+pub fn index_to_multilinear_point<F: IsField>(i: usize, n: usize) -> Vec<FieldElement<F>>
+where
+    F::BaseType: Send + Sync,
+{
+    (0..n)
+        .map(|k| {
+            if (i >> (n - 1 - k)) & 1 == 1 {
+                FieldElement::one()
+            } else {
+                FieldElement::zero()
+            }
+        })
+        .collect()
+}
+
 /// Evaluates a matrix MLE at (r_x, r_y).
 ///
 /// Computes ∑_{i,j} M[i][j] · eq(r_x, binary(i)) · eq(r_y, binary(j))

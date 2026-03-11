@@ -15,7 +15,7 @@ use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::ByteConversion;
 
 use crate::errors::SpartanError;
-use crate::mle::{eq_poly, matrix_mle_eval, next_power_of_two};
+use crate::mle::{eq_poly, index_to_multilinear_point, matrix_mle_eval, next_power_of_two};
 use crate::pcs::IsMultilinearPCS;
 use crate::prover::SpartanProof;
 use crate::r1cs::R1CS;
@@ -217,7 +217,7 @@ where
         transcript.append_field_element(&proof.witness_eval);
 
         // -----------------------------------------------------------------------
-        // Step 9: Verify PCS opening
+        // Step 9: Verify PCS opening of z̃ at r_y
         // -----------------------------------------------------------------------
         let pcs_ok = self
             .pcs
@@ -231,6 +231,41 @@ where
 
         if !pcs_ok {
             return Ok(false);
+        }
+
+        // -----------------------------------------------------------------------
+        // Step 10: Verify public input consistency.
+        //
+        // Each proof entry (point, pi_proof) asserts z̃(point) == public_inputs[i-1].
+        // Without this step a malicious prover can commit to a witness that
+        // disagrees with the claimed public inputs while all sumcheck checks pass.
+        // -----------------------------------------------------------------------
+        if proof.public_input_proofs.len() != public_inputs.len() {
+            return Ok(false);
+        }
+
+        // num_cols_padded is already computed above; derive the witness variable count.
+        let n_witness_vars = num_cols_padded.trailing_zeros() as usize;
+
+        for (i, (pi, (point, pi_proof))) in public_inputs
+            .iter()
+            .zip(proof.public_input_proofs.iter())
+            .enumerate()
+        {
+            // Verify the evaluation point matches the expected boolean point for index i+1.
+            let expected_point = index_to_multilinear_point::<F>(i + 1, n_witness_vars);
+            if *point != expected_point {
+                return Ok(false);
+            }
+
+            let pi_ok = self
+                .pcs
+                .verify(&proof.witness_commitment, point, pi, pi_proof)
+                .map_err(|e| SpartanError::PcsError(e.to_string()))?;
+
+            if !pi_ok {
+                return Ok(false);
+            }
         }
 
         Ok(true)

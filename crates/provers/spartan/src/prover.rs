@@ -22,7 +22,10 @@ use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_sumcheck::Prover as SumcheckProver;
 
 use crate::errors::SpartanError;
-use crate::mle::{encode_witness, eq_poly, matrix_vector_product_mle, mz_eval, next_power_of_two};
+use crate::mle::{
+    encode_witness, eq_poly, index_to_multilinear_point, matrix_vector_product_mle, mz_eval,
+    next_power_of_two,
+};
 use crate::pcs::IsMultilinearPCS;
 use crate::r1cs::R1CS;
 use crate::transcript::{
@@ -64,6 +67,11 @@ where
     pub witness_eval: FieldElement<F>,
     /// PCS proof for z̃(r_y)
     pub witness_proof: PCS::Proof,
+    /// Public input consistency proofs: for each i in 1..=num_public_inputs,
+    /// an opening of z̃ at the boolean point corresponding to index i,
+    /// proving z̃(bits(i)) == public_inputs[i-1].
+    /// Each entry is (evaluation_point, pcs_proof).
+    pub public_input_proofs: Vec<(Vec<FieldElement<F>>, PCS::Proof)>,
 }
 
 /// The Spartan prover.
@@ -103,6 +111,39 @@ where
         public_inputs: &[FieldElement<F>],
         witness_z: &[FieldElement<F>],
     ) -> Result<SpartanProof<F, PCS>, SpartanError> {
+        // -----------------------------------------------------------------------
+        // Guard: witness length must equal num_variables.
+        // A shorter witness would silently zero-pad via .zip(), producing a proof
+        // for a different statement (where trailing variables are treated as 0).
+        // -----------------------------------------------------------------------
+        if witness_z.len() != r1cs.num_variables {
+            return Err(SpartanError::R1CSError(format!(
+                "witness length {} != num_variables {}",
+                witness_z.len(),
+                r1cs.num_variables
+            )));
+        }
+
+        // -----------------------------------------------------------------------
+        // Guard: public inputs must match the corresponding witness entries.
+        // z = (1, public_inputs..., private_witness...) so z[i+1] == public_inputs[i].
+        // Without this check the prover could commit to a witness that disagrees
+        // with the claimed public inputs while all sumcheck/PCS checks still pass.
+        // -----------------------------------------------------------------------
+        if public_inputs.len() + 1 > r1cs.num_variables {
+            return Err(SpartanError::R1CSError(
+                "more public inputs than witness variables".to_string(),
+            ));
+        }
+        for (i, pi) in public_inputs.iter().enumerate() {
+            if &witness_z[i + 1] != pi {
+                return Err(SpartanError::R1CSError(format!(
+                    "public_inputs[{i}] does not match witness[{}]",
+                    i + 1
+                )));
+            }
+        }
+
         // -----------------------------------------------------------------------
         // Step 1: Encode witness and commit
         // -----------------------------------------------------------------------
@@ -286,6 +327,29 @@ where
         transcript.append_bytes(b"witness_eval");
         transcript.append_field_element(&witness_eval);
 
+        // -----------------------------------------------------------------------
+        // Step 8: Open z̃ at each public input position.
+        //
+        // z = (1, x_1, ..., x_l, w_1, ...) so x_i = z[i] for i in 1..=l.
+        // We open z̃ at the boolean hypercube point for index i, allowing the
+        // verifier to confirm z̃(bits(i)) == public_inputs[i-1].
+        // -----------------------------------------------------------------------
+        let n_witness_vars = z_mle.num_vars();
+        let mut public_input_proofs = Vec::with_capacity(public_inputs.len());
+        for i in 1..=public_inputs.len() {
+            let point = index_to_multilinear_point::<F>(i, n_witness_vars);
+            let (eval, proof) = self
+                .pcs
+                .open(&z_mle, &point)
+                .map_err(|e| SpartanError::PcsError(e.to_string()))?;
+            debug_assert_eq!(
+                eval,
+                public_inputs[i - 1],
+                "public input opening mismatch at index {i}"
+            );
+            public_input_proofs.push((point, proof));
+        }
+
         Ok(SpartanProof {
             witness_commitment,
             outer_sumcheck_polys,
@@ -297,6 +361,7 @@ where
             inner_challenges,
             witness_eval,
             witness_proof,
+            public_input_proofs,
         })
     }
 }
