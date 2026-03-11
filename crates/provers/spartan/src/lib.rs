@@ -457,4 +457,68 @@ mod tests {
         let ok = spartan_verify(&r1cs, &public_inputs, &proof, pcs).unwrap();
         assert!(ok, "Spartan+Zeromorph should verify for satisfied R1CS");
     }
+
+    // -------------------------------------------------------------------------
+    // Soundness test: corrupted witness should not verify with ZeromorphPCS
+    // -------------------------------------------------------------------------
+    #[test]
+    fn test_spartan_soundness_zeromorph() {
+        use crate::pcs::zeromorph::ZeromorphPCS;
+        use lambdaworks_crypto::commitments::kzg::{
+            KateZaveruchaGoldberg, StructuredReferenceString,
+        };
+        use lambdaworks_math::cyclic_group::IsGroup;
+        use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::{
+            curve::BLS12381Curve,
+            default_types::{FrElement, FrField},
+            pairing::BLS12381AtePairing,
+            twist::BLS12381TwistCurve,
+        };
+        use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
+        use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
+        use lambdaworks_math::field::element::FieldElement;
+
+        type G1 = ShortWeierstrassJacobianPoint<BLS12381Curve>;
+        type Kzg = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
+        type ZM = ZeromorphPCS<4, FrField, BLS12381AtePairing>;
+        type FE = FrElement;
+
+        // Same circuit as the happy-path test: x * y = z
+        let zero = FE::zero();
+        let one = FE::one();
+        let a = vec![vec![zero.clone(), zero.clone(), one.clone(), zero.clone()]];
+        let b = vec![vec![zero.clone(), zero.clone(), zero.clone(), one.clone()]];
+        let c = vec![vec![zero.clone(), one.clone(), zero.clone(), zero.clone()]];
+        let r1cs = R1CS::new(a, b, c, 1).unwrap();
+
+        // Corrupt the witness: claim 2*3=7 instead of 6
+        let wrong_witness: Vec<FE> = vec![
+            FieldElement::one(),
+            FE::from(7u64), // wrong output
+            FE::from(2u64),
+            FE::from(3u64),
+        ];
+        assert!(!r1cs.is_satisfied(&wrong_witness));
+
+        let toxic = FE::from(13u64);
+        let g1 = BLS12381Curve::generator();
+        let g2 = BLS12381TwistCurve::generator();
+        let powers: Vec<G1> = (0..8)
+            .map(|i| g1.operate_with_self(toxic.pow(i as u128).canonical()))
+            .collect();
+        let g2_powers = [g2.clone(), g2.operate_with_self(toxic.canonical())];
+        let srs = StructuredReferenceString::new(&powers, &g2_powers);
+        let pcs = ZM::new(Kzg::new(srs));
+
+        let result = spartan_prove(&r1cs, &[FE::from(7u64)], &wrong_witness, pcs.clone());
+        match result {
+            Ok(proof) => {
+                let ok = spartan_verify(&r1cs, &[FE::from(7u64)], &proof, pcs).unwrap_or(false);
+                assert!(!ok, "Corrupted witness should not verify with ZeromorphPCS");
+            }
+            Err(_) => {
+                // Prover refusing to produce a proof is also acceptable
+            }
+        }
+    }
 }
