@@ -4,6 +4,7 @@ use super::{
 };
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
+use crate::elliptic_curve::short_weierstrass::utils::shamir_two_scalar_mul;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
 use crate::{
@@ -134,7 +135,7 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let p1 = if k1_neg { self.neg() } else { self.clone() };
         let p2 = if k2_neg { phi_p } else { phi_p.neg() };
 
-        shamir_double_and_add(&p1, &k1, &p2, &k2)
+        shamir_two_scalar_mul(&p1, &k1, &p2, &k2)
     }
 }
 
@@ -184,49 +185,6 @@ fn glv_decompose(k: &U256) -> (bool, U256, bool, U256) {
     } else {
         (a_neg, a, false, k2)
     }
-}
-
-/// Shamir's trick: computes [k1]P1 + [k2]P2 using joint double-and-add.
-///
-/// Shares doublings between both scalar multiplications for efficiency.
-fn shamir_double_and_add(
-    p1: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
-    k1: &U256,
-    p2: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
-    k2: &U256,
-) -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
-    let p1_plus_p2 = p1.operate_with(p2);
-    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
-
-    if max_len == 0 {
-        return ShortWeierstrassJacobianPoint::neutral_element();
-    }
-
-    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
-
-    for i in (0..max_len).rev() {
-        result = result.double();
-
-        match (get_bit(k1, i), get_bit(k2, i)) {
-            (false, false) => {}
-            (true, false) => result = result.operate_with(p1),
-            (false, true) => result = result.operate_with(p2),
-            (true, true) => result = result.operate_with(&p1_plus_p2),
-        }
-    }
-
-    result
-}
-
-/// Gets bit at position `pos` from a U256 (little-endian bit indexing).
-#[inline(always)]
-fn get_bit(n: &U256, pos: usize) -> bool {
-    if pos >= 256 {
-        return false;
-    }
-    let limb_idx = 3 - pos / 64;
-    let bit_idx = pos % 64;
-    (n.limbs[limb_idx] >> bit_idx) & 1 == 1
 }
 
 impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
@@ -304,7 +262,7 @@ impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
         let p1 = if k1_neg { self.neg() } else { self.clone() };
         let p2 = if k2_neg { psi_p.neg() } else { psi_p };
 
-        shamir_double_and_add_g2(&p1, &k1, &p2, &k2)
+        shamir_two_scalar_mul(&p1, &k1, &p2, &k2)
     }
 }
 
@@ -340,36 +298,6 @@ fn gls_decompose(k: &U256) -> (bool, U256, bool, U256) {
     // So [k₁]P + [k₂]ψ(P) = [k₁ - k₂·x]P
     // We want [k₁ + k₂·x]P, so we negate k₂.
     (false, k1, true, k2)
-}
-
-/// Shamir's trick for G2: computes [k1]P1 + [k2]P2 using joint double-and-add.
-fn shamir_double_and_add_g2(
-    p1: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
-    k1: &U256,
-    p2: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
-    k2: &U256,
-) -> ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
-    let p1_plus_p2 = p1.operate_with(p2);
-    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
-
-    if max_len == 0 {
-        return ShortWeierstrassJacobianPoint::neutral_element();
-    }
-
-    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
-
-    for i in (0..max_len).rev() {
-        result = result.double();
-
-        match (get_bit(k1, i), get_bit(k2, i)) {
-            (false, false) => {}
-            (true, false) => result = result.operate_with(p1),
-            (false, true) => result = result.operate_with(p2),
-            (true, true) => result = result.operate_with(&p1_plus_p2),
-        }
-    }
-
-    result
 }
 
 #[cfg(test)]

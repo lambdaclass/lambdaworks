@@ -4,8 +4,9 @@ use super::{
     twist::BN254TwistCurve,
 };
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::point::{
-    ShortWeierstrassJacobianPoint, ShortWeierstrassProjectivePoint,
+use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
+use crate::elliptic_curve::short_weierstrass::utils::{
+    jac_to_proj, proj_to_jac, shamir_two_scalar_mul,
 };
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
@@ -106,18 +107,21 @@ impl ShortWeierstrassProjectivePoint<BN254Curve> {
         if self.is_neutral_element() {
             return self.clone();
         }
+        if *k == U256::from_u64(0) {
+            return Self::neutral_element();
+        }
 
         let (k1_neg, k1, k2_neg, k2) = glv_decompose_bn254(k);
         let phi_p = self.phi();
 
         let p1 = if k1_neg { self.neg() } else { self.clone() };
-        let p2 = if k2_neg { phi_p } else { phi_p.neg() };
+        let p2 = if k2_neg { phi_p.neg() } else { phi_p };
 
         // Use Jacobian coordinates for faster doubling (2M+5S vs 7M+5S in projective)
-        let p1_jac = proj_to_jac_g1_bn254(&p1);
-        let p2_jac = proj_to_jac_g1_bn254(&p2);
-        let result_jac = shamir_g1_bn254(&p1_jac, &k1, &p2_jac, &k2);
-        jac_to_proj_g1_bn254(result_jac)
+        let p1_jac = proj_to_jac(&p1);
+        let p2_jac = proj_to_jac(&p2);
+        let result_jac = shamir_two_scalar_mul(&p1_jac, &k1, &p2_jac, &k2);
+        jac_to_proj(result_jac)
     }
 }
 
@@ -187,10 +191,10 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
         let p2 = if k2_neg { phi_p.neg() } else { phi_p };
 
         // Use Jacobian coordinates for faster doubling (2M+5S vs 7M+5S in projective)
-        let p1_jac = proj_to_jac_g2_bn254(&p1);
-        let p2_jac = proj_to_jac_g2_bn254(&p2);
-        let result_jac = shamir_g2_bn254(&p1_jac, &k1, &p2_jac, &k2);
-        jac_to_proj_g2_bn254(result_jac)
+        let p1_jac = proj_to_jac(&p1);
+        let p2_jac = proj_to_jac(&p2);
+        let result_jac = shamir_two_scalar_mul(&p1_jac, &k1, &p2_jac, &k2);
+        jac_to_proj(result_jac)
     }
 }
 
@@ -209,27 +213,26 @@ fn glv_decompose_bn254(k: &U256) -> (bool, U256, bool, U256) {
         return (false, *k, false, zero);
     }
 
-    let (k1, k1_underflow) = if *k >= k2_omega_lo {
-        (U256::sub(k, &k2_omega_lo).0, false)
-    } else {
-        (U256::sub(&k2_omega_lo, k).0, true)
-    };
+    // k - k2*ω ≥ 0 always (since k2 = floor(k/(ω+1)) implies k2*ω ≤ k - k2 ≤ k).
+    debug_assert!(
+        *k >= k2_omega_lo,
+        "k1 underflow is mathematically impossible"
+    );
+    let k1 = U256::sub(k, &k2_omega_lo).0;
 
-    let (a, a_neg) = if k1_underflow {
-        let (sum, _) = U256::add(&k1, &k2);
-        (sum, true)
-    } else if k1 >= k2 {
+    let (a, a_neg) = if k1 >= k2 {
         (U256::sub(&k1, &k2).0, false)
     } else {
         (U256::sub(&k2, &k1).0, true)
     };
 
+    // k2_neg=true: [k]P = [a]P - [k2]φ(P), consistent with gls_mul sign convention.
     if a >= GLV_OMEGA && !a_neg {
         let (a_adj, _) = U256::sub(&a, &GLV_OMEGA);
         let (b_adj, _) = U256::add(&k2, &U256::from_u64(1));
-        (false, a_adj, false, b_adj)
+        (false, a_adj, true, b_adj)
     } else {
-        (a_neg, a, false, k2)
+        (a_neg, a, true, k2)
     }
 }
 
@@ -246,130 +249,6 @@ fn gls_decompose_bn254(k: &U256) -> (bool, U256, bool, U256) {
     let (k2, k1) = k.div_rem(&GLS_X_BN254);
     // φ(Q) = [p mod r]Q (positive), so [k]Q = [k₁]Q + [k₂]φ(Q)
     (false, k1, false, k2)
-}
-
-/// Shamir's trick for G1: computes [k1]P1 + [k2]P2 using joint double-and-add.
-/// Converts a projective G1 point to Jacobian for efficient doubling.
-/// Projective (X:Y:Z) → Jacobian (X·Z : Y·Z² : Z). Cost: 1M + 1S.
-fn proj_to_jac_g1_bn254(
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-) -> ShortWeierstrassJacobianPoint<BN254Curve> {
-    let [x, y, z] = p.coordinates();
-    if z == &FieldElement::zero() {
-        return ShortWeierstrassJacobianPoint::neutral_element();
-    }
-    let z_sq = z.square();
-    ShortWeierstrassJacobianPoint::new_unchecked([x * z, y * &z_sq, z.clone()])
-}
-
-/// Converts a Jacobian G1 result back to projective.
-/// Jacobian (X:Y:Z) → Projective (X·Z : Y : Z³). Cost: 1M + 1S.
-fn jac_to_proj_g1_bn254(
-    p: ShortWeierstrassJacobianPoint<BN254Curve>,
-) -> ShortWeierstrassProjectivePoint<BN254Curve> {
-    let [x, y, z] = p.coordinates();
-    if z == &FieldElement::zero() {
-        return ShortWeierstrassProjectivePoint::neutral_element();
-    }
-    let z_sq = z.square();
-    ShortWeierstrassProjectivePoint::new_unchecked([x * z, y.clone(), &z_sq * z])
-}
-
-/// Converts a projective G2 point to Jacobian for efficient doubling.
-fn proj_to_jac_g2_bn254(
-    p: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> ShortWeierstrassJacobianPoint<BN254TwistCurve> {
-    let [x, y, z] = p.coordinates();
-    if z == &FieldElement::zero() {
-        return ShortWeierstrassJacobianPoint::neutral_element();
-    }
-    let z_sq = z.square();
-    ShortWeierstrassJacobianPoint::new_unchecked([x * z, y * &z_sq, z.clone()])
-}
-
-/// Converts a Jacobian G2 result back to projective.
-fn jac_to_proj_g2_bn254(
-    p: ShortWeierstrassJacobianPoint<BN254TwistCurve>,
-) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
-    let [x, y, z] = p.coordinates();
-    if z == &FieldElement::zero() {
-        return ShortWeierstrassProjectivePoint::neutral_element();
-    }
-    let z_sq = z.square();
-    ShortWeierstrassProjectivePoint::new_unchecked([x * z, y.clone(), &z_sq * z])
-}
-
-/// Shamir's trick for G1: computes [k1]P1 + [k2]P2 using joint double-and-add.
-/// Uses Jacobian coordinates for efficient doubling (2M+5S vs 7M+5S in projective).
-fn shamir_g1_bn254(
-    p1: &ShortWeierstrassJacobianPoint<BN254Curve>,
-    k1: &U256,
-    p2: &ShortWeierstrassJacobianPoint<BN254Curve>,
-    k2: &U256,
-) -> ShortWeierstrassJacobianPoint<BN254Curve> {
-    let p1_plus_p2 = p1.operate_with(p2);
-    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
-
-    if max_len == 0 {
-        return ShortWeierstrassJacobianPoint::neutral_element();
-    }
-
-    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
-
-    for i in (0..max_len).rev() {
-        result = result.double();
-
-        match (get_bit_bn254(k1, i), get_bit_bn254(k2, i)) {
-            (false, false) => {}
-            (true, false) => result = result.operate_with(p1),
-            (false, true) => result = result.operate_with(p2),
-            (true, true) => result = result.operate_with(&p1_plus_p2),
-        }
-    }
-
-    result
-}
-
-/// Shamir's trick for G2: computes [k1]P1 + [k2]P2 using joint double-and-add.
-/// Uses Jacobian coordinates for efficient doubling (2M+5S vs 7M+5S in projective).
-fn shamir_g2_bn254(
-    p1: &ShortWeierstrassJacobianPoint<BN254TwistCurve>,
-    k1: &U256,
-    p2: &ShortWeierstrassJacobianPoint<BN254TwistCurve>,
-    k2: &U256,
-) -> ShortWeierstrassJacobianPoint<BN254TwistCurve> {
-    let p1_plus_p2 = p1.operate_with(p2);
-    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
-
-    if max_len == 0 {
-        return ShortWeierstrassJacobianPoint::neutral_element();
-    }
-
-    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
-
-    for i in (0..max_len).rev() {
-        result = result.double();
-
-        match (get_bit_bn254(k1, i), get_bit_bn254(k2, i)) {
-            (false, false) => {}
-            (true, false) => result = result.operate_with(p1),
-            (false, true) => result = result.operate_with(p2),
-            (true, true) => result = result.operate_with(&p1_plus_p2),
-        }
-    }
-
-    result
-}
-
-/// Gets bit at position `pos` from a U256 (little-endian bit indexing).
-#[inline(always)]
-fn get_bit_bn254(n: &U256, pos: usize) -> bool {
-    if pos >= 256 {
-        return false;
-    }
-    let limb_idx = 3 - pos / 64;
-    let bit_idx = pos % 64;
-    (n.limbs[limb_idx] >> bit_idx) & 1 == 1
 }
 
 #[cfg(test)]
@@ -624,6 +503,17 @@ mod tests {
             max_bits < k.bits_le(),
             "decomposition should reduce max bit length"
         );
+    }
+
+    #[test]
+    fn glv_mul_g1_subgroup_order_is_neutral() {
+        // [r]P = O for any point P in the subgroup
+        let g = BN254Curve::generator();
+        // SUBGROUP_ORDER is not in scope here, use the known value
+        let r = U256::from_hex_unchecked(
+            "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+        );
+        assert!(g.glv_mul(&r).is_neutral_element());
     }
 
     #[test]

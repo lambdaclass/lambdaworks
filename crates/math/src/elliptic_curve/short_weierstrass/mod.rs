@@ -4,3 +4,5 @@ pub mod curves;
 pub mod point;
 /// Common behaviour for Elliptic curves.
 pub mod traits;
+/// Shared utilities: Shamir's trick, coordinate conversions, bit access.
+pub(crate) mod utils;
