@@ -66,20 +66,34 @@ pub const MILLER_LOOP_CONSTANT: u64 = 0x8508c00000000001;
 const MILLER_LOOP_CONSTANT_SQ: u128 =
     (MILLER_LOOP_CONSTANT as u128) * (MILLER_LOOP_CONSTANT as u128);
 
-/// 𝛽 : primitive cube root of unity of 𝐹ₚ that §satisfies the minimal equation
+/// 𝛽 : primitive cube root of unity of 𝐹ₚ that satisfies the minimal equation
 /// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
 pub const CUBE_ROOT_OF_UNITY_G1: BLS12377FieldElement = FieldElement::from_hex_unchecked(
     "0x1ae3a4617c510eabc8756ba8f8c524eb8882a75cc9bc8e359064ee822fb5bffd1e945779fffffffffffffffffffffff",
 );
 
+// GLV (Gallant-Lambert-Vanstone) Scalar Multiplication Constants for G1
+//
+// The endomorphism φ(x, y) = (βx, y) satisfies φ(P) = [λ]P for all P in the r-torsion subgroup.
+// GLV decomposition splits scalar k into k₁ + k₂·λ where |k₁|, |k₂| < √r.
+
+/// The eigenvalue λ of the GLV endomorphism, satisfying λ² + λ + 1 ≡ 0 (mod r).
+pub const GLV_LAMBDA: U256 =
+    U256::from_hex_unchecked("12ab655e9a2ca55660b44d1e5c37b00114885f32400000000000000000000000");
+
+/// The small cube root of unity ω in Fr (≈ 2^126), used for scalar decomposition.
+const GLV_OMEGA: U256 = U256::from_hex_unchecked("452217cc900000010a11800000000000");
+
+/// ω + 1, used in the decomposition formula.
+const GLV_OMEGA_PLUS_ONE: U256 = U256::from_hex_unchecked("452217cc900000010a11800000000001");
+
 impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
-    /// Returns 𝜙(P) = (𝑥, 𝑦) ⇒ (𝛽𝑥, 𝑦), where 𝛽 is the Cube Root of Unity in the base prime field.
+    /// Applies the GLV endomorphism: φ(x, y) = (βx, y) where β is the cube root of unity.
+    /// Satisfies `φ(P) = [λ]P` where `λ² + λ + 1 ≡ 0 (mod r)`.
     /// See <https://eprint.iacr.org/2022/352.pdf> Section 2 Preliminaries.
-    fn phi(&self) -> Self {
+    pub fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
-        let new_x = x * CUBE_ROOT_OF_UNITY_G1;
-        // SAFETY: The value `x` is computed correctly, so the point is in the curve.
-        Self::new_unchecked([new_x, y.clone(), z.clone()])
+        Self::new_unchecked([x * CUBE_ROOT_OF_UNITY_G1, y.clone(), z.clone()])
     }
 
     /// 𝜙(P) = −𝑢²P.
@@ -90,6 +104,30 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
         }
         self.operate_with_self(MILLER_LOOP_CONSTANT_SQ).neg() == self.phi()
     }
+
+    /// GLV scalar multiplication: computes [k]P using the endomorphism for ~2x speedup.
+    ///
+    /// Decomposes k = k1 + k2*ω with small k1, k2 (~126 bits each), then uses
+    /// Shamir's trick for joint scalar multiplication.
+    ///
+    /// # Security Note
+    ///
+    /// This implementation is **not constant-time** and may be vulnerable to
+    /// timing side-channel attacks. Do not use with secret scalars in applications
+    /// requiring side-channel resistance.
+    pub fn glv_mul(&self, k: &U256) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+
+        let (k1_neg, k1, k2_neg, k2) = glv_decompose_377(k);
+        let phi_p = self.phi();
+
+        let p1 = if k1_neg { self.neg() } else { self.clone() };
+        let p2 = if k2_neg { phi_p } else { phi_p.neg() };
+
+        shamir_g1_377(&p1, &k1, &p2, &k2)
+    }
 }
 
 impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
@@ -98,12 +136,14 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
     /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.2 (7).
     /// ψ(P) = (ψ_x * conjugate(x), ψ_y * conjugate(y), conjugate(z))
     ///
+    /// Crucially: ψ(P) = [u]P where u = MILLER_LOOP_CONSTANT (curve seed).
+    ///
     /// # Safety
     ///
     /// - This function assumes `self` is a valid point on the BLS12-377 **twist** curve.
     /// - The conjugation operation preserves validity.
     /// - `unwrap()` is used because `psi()` is defined to **always return a valid point**.
-    fn psi(&self) -> Self {
+    pub fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         // SAFETY:
         // - `conjugate()` preserves the validity of the field element.
@@ -124,6 +164,174 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
     pub fn is_in_subgroup(&self) -> bool {
         self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT)
     }
+
+    /// GLS scalar multiplication: computes [k]P using the Frobenius endomorphism.
+    ///
+    /// Decomposes k = k₁ + k₂·u where u is the curve seed (64-bit), then uses
+    /// Shamir's trick: [k]P = [k₁]P + [k₂]ψ(P).
+    ///
+    /// Since u is 64 bits, k₂ ≈ 192 bits and k₁ ≤ 64 bits, giving ~25% speedup
+    /// by reducing iterations from 253 to ~192.
+    ///
+    /// # Security Note
+    ///
+    /// This implementation is **not constant-time** and may be vulnerable to
+    /// timing side-channel attacks. Do not use with secret scalars in applications
+    /// requiring side-channel resistance.
+    pub fn gls_mul(&self, k: &U256) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+
+        let zero = U256::from_u64(0);
+        if *k == zero {
+            return Self::neutral_element();
+        }
+
+        let (k1_neg, k1, k2_neg, k2) = gls_decompose_377(k);
+        let psi_p = self.psi();
+
+        // [k]P = [k₁]P + [k₂]ψ(P)
+        // Since ψ(P) = [u]P, we have [k₂]ψ(P) = [k₂·u]P (positive, no sign flip)
+        let p1 = if k1_neg { self.neg() } else { self.clone() };
+        let p2 = if k2_neg { psi_p.neg() } else { psi_p };
+
+        shamir_g2_377(&p1, &k1, &p2, &k2)
+    }
+}
+
+/// The curve seed u as U256 for GLS division.
+const GLS_X_377: U256 = U256::from_u64(MILLER_LOOP_CONSTANT);
+
+/// Decomposes scalar k into k₁ + k₂*ω (mod r) where |k₁|, |k₂| are approximately √r.
+///
+/// Returns (a_neg, |a|, b_neg, |b|) for the GLV formula: [k]P = [a]P + [b]φ(P).
+fn glv_decompose_377(k: &U256) -> (bool, U256, bool, U256) {
+    let zero = U256::from_u64(0);
+
+    if *k < GLV_OMEGA {
+        return (false, *k, false, zero);
+    }
+
+    let (k2, _) = k.div_rem(&GLV_OMEGA_PLUS_ONE);
+    let (k2_omega_lo, k2_omega_hi) = U256::mul(&k2, &GLV_OMEGA);
+
+    if k2_omega_hi != zero {
+        return (false, *k, false, zero);
+    }
+
+    let (k1, k1_underflow) = if *k >= k2_omega_lo {
+        (U256::sub(k, &k2_omega_lo).0, false)
+    } else {
+        (U256::sub(&k2_omega_lo, k).0, true)
+    };
+
+    let (a, a_neg) = if k1_underflow {
+        let (sum, _) = U256::add(&k1, &k2);
+        (sum, true)
+    } else if k1 >= k2 {
+        (U256::sub(&k1, &k2).0, false)
+    } else {
+        (U256::sub(&k2, &k1).0, true)
+    };
+
+    if a >= GLV_OMEGA && !a_neg {
+        let (a_adj, _) = U256::sub(&a, &GLV_OMEGA);
+        let (b_adj, _) = U256::add(&k2, &U256::from_u64(1));
+        (false, a_adj, false, b_adj)
+    } else {
+        (a_neg, a, false, k2)
+    }
+}
+
+/// Decomposes scalar k for GLS: k = k₁ + k₂·u (mod r)
+///
+/// BLS12-377: ψ(P) = [+u]P, so [k]P = [k₁]P + [k₂]ψ(P) directly (no sign flip).
+///
+/// Since u is 64 bits:
+/// - k₂ = k / u (approximately 192 bits)
+/// - k₁ = k mod u (at most 64 bits)
+fn gls_decompose_377(k: &U256) -> (bool, U256, bool, U256) {
+    let zero = U256::from_u64(0);
+
+    if *k < GLS_X_377 {
+        return (false, *k, false, zero);
+    }
+
+    let (k2, k1) = k.div_rem(&GLS_X_377);
+    // ψ(P) = [+u]P, so [k]P = [k₁ + k₂·u]P = [k₁]P + [k₂]ψ(P)
+    (false, k1, false, k2)
+}
+
+/// Shamir's trick for G1: computes [k1]P1 + [k2]P2 using joint double-and-add.
+fn shamir_g1_377(
+    p1: &ShortWeierstrassProjectivePoint<BLS12377Curve>,
+    k1: &U256,
+    p2: &ShortWeierstrassProjectivePoint<BLS12377Curve>,
+    k2: &U256,
+) -> ShortWeierstrassProjectivePoint<BLS12377Curve> {
+    let p1_plus_p2 = p1.operate_with(p2);
+    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
+
+    if max_len == 0 {
+        return ShortWeierstrassProjectivePoint::neutral_element();
+    }
+
+    let mut result = ShortWeierstrassProjectivePoint::neutral_element();
+
+    for i in (0..max_len).rev() {
+        result = result.double();
+
+        match (get_bit_377(k1, i), get_bit_377(k2, i)) {
+            (false, false) => {}
+            (true, false) => result = result.operate_with(p1),
+            (false, true) => result = result.operate_with(p2),
+            (true, true) => result = result.operate_with(&p1_plus_p2),
+        }
+    }
+
+    result
+}
+
+/// Shamir's trick for G2: computes [k1]P1 + [k2]P2 using joint double-and-add.
+fn shamir_g2_377(
+    p1: &ShortWeierstrassProjectivePoint<BLS12377TwistCurve>,
+    k1: &U256,
+    p2: &ShortWeierstrassProjectivePoint<BLS12377TwistCurve>,
+    k2: &U256,
+) -> ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
+    let p1_plus_p2 = p1.operate_with(p2);
+    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
+
+    if max_len == 0 {
+        return ShortWeierstrassProjectivePoint::neutral_element();
+    }
+
+    let mut result = ShortWeierstrassProjectivePoint::neutral_element();
+
+    for i in (0..max_len).rev() {
+        result = result.double();
+
+        match (get_bit_377(k1, i), get_bit_377(k2, i)) {
+            (false, false) => {}
+            (true, false) => result = result.operate_with(p1),
+            (false, true) => result = result.operate_with(p2),
+            (true, true) => result = result.operate_with(&p1_plus_p2),
+        }
+    }
+
+    result
+}
+
+/// Gets bit at position `pos` from a U256 (little-endian bit indexing).
+#[inline(always)]
+fn get_bit_377(n: &U256, pos: usize) -> bool {
+    if pos >= 256 {
+        return false;
+    }
+    let limb_idx = 3 - pos / 64;
+    let bit_idx = pos % 64;
+    (n.limbs[limb_idx] >> bit_idx) & 1 == 1
 }
 
 #[cfg(test)]
@@ -138,7 +346,7 @@ mod tests {
         field::element::FieldElement,
     };
 
-    use super::BLS12377Curve;
+    use super::{BLS12377Curve, GLV_LAMBDA, MILLER_LOOP_CONSTANT};
 
     #[allow(clippy::upper_case_acronyms)]
     type FpE = FieldElement<BLS12377PrimeField>;
@@ -274,5 +482,118 @@ mod tests {
         expected = expected.conjugate();
 
         assert_eq!(a, expected);
+    }
+
+    // GLV scalar multiplication tests for G1
+
+    #[test]
+    fn glv_mul_small_scalar() {
+        let g = BLS12377Curve::generator();
+        let k = U256::from_u64(12345);
+        let expected = g.operate_with_self(12345u64);
+        assert_eq!(g.glv_mul(&k), expected);
+    }
+
+    #[test]
+    fn glv_mul_medium_scalar() {
+        let g = BLS12377Curve::generator();
+        let k = U256::from_hex_unchecked("123456789abcdef0123456789abcdef0");
+        let expected = g.operate_with_self(k);
+        assert_eq!(g.glv_mul(&k), expected);
+    }
+
+    #[test]
+    fn glv_mul_large_scalar() {
+        let g = BLS12377Curve::generator();
+        let k = U256::from_hex_unchecked(
+            "12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000000",
+        );
+        let expected = g.operate_with_self(k);
+        assert_eq!(g.glv_mul(&k), expected);
+    }
+
+    #[test]
+    fn glv_mul_neutral_element() {
+        let neutral = ShortWeierstrassProjectivePoint::<BLS12377Curve>::neutral_element();
+        let k = U256::from_u64(12345);
+        assert!(neutral.glv_mul(&k).is_neutral_element());
+    }
+
+    #[test]
+    fn glv_mul_zero_scalar() {
+        let g = BLS12377Curve::generator();
+        let k = U256::from_u64(0);
+        assert!(g.glv_mul(&k).is_neutral_element());
+    }
+
+    #[test]
+    fn phi_endomorphism_property() {
+        // Verify φ(P) = [λ]P
+        let g = BLS12377Curve::generator();
+        let phi_g = g.phi();
+        let lambda_g = g.operate_with_self(GLV_LAMBDA);
+        assert_eq!(phi_g.to_affine().x(), lambda_g.to_affine().x());
+        assert_eq!(phi_g.to_affine().y(), lambda_g.to_affine().y());
+    }
+
+    #[test]
+    fn phi_cube_is_identity() {
+        // φ³ = identity
+        let g = BLS12377Curve::generator();
+        let phi3_g = g.phi().phi().phi();
+        assert_eq!(g.to_affine().x(), phi3_g.to_affine().x());
+        assert_eq!(g.to_affine().y(), phi3_g.to_affine().y());
+    }
+
+    // GLS scalar multiplication tests for G2
+
+    #[test]
+    fn gls_mul_small_scalar() {
+        let g = BLS12377TwistCurve::generator();
+        let k = U256::from_u64(12345);
+        let expected = g.operate_with_self(12345u64);
+        assert_eq!(g.gls_mul(&k), expected);
+    }
+
+    #[test]
+    fn gls_mul_medium_scalar() {
+        let g = BLS12377TwistCurve::generator();
+        let k = U256::from_hex_unchecked("123456789abcdef0123456789abcdef0");
+        let expected = g.operate_with_self(k);
+        assert_eq!(g.gls_mul(&k), expected);
+    }
+
+    #[test]
+    fn gls_mul_large_scalar() {
+        let g = BLS12377TwistCurve::generator();
+        let k = U256::from_hex_unchecked(
+            "12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000000",
+        );
+        let expected = g.operate_with_self(k);
+        assert_eq!(g.gls_mul(&k), expected);
+    }
+
+    #[test]
+    fn gls_mul_neutral_element() {
+        let neutral = ShortWeierstrassProjectivePoint::<BLS12377TwistCurve>::neutral_element();
+        let k = U256::from_u64(12345);
+        assert!(neutral.gls_mul(&k).is_neutral_element());
+    }
+
+    #[test]
+    fn gls_mul_zero_scalar() {
+        let g = BLS12377TwistCurve::generator();
+        let k = U256::from_u64(0);
+        assert!(g.gls_mul(&k).is_neutral_element());
+    }
+
+    #[test]
+    fn psi_endomorphism_property() {
+        // Verify ψ(P) = [u]P where u is the curve seed
+        let g = BLS12377TwistCurve::generator();
+        let psi_g = g.psi();
+        let u_g = g.operate_with_self(MILLER_LOOP_CONSTANT);
+        assert_eq!(psi_g.to_affine().x(), u_g.to_affine().x());
+        assert_eq!(psi_g.to_affine().y(), u_g.to_affine().y());
     }
 }

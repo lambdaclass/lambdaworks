@@ -6,6 +6,7 @@ use super::{
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
+use crate::unsigned_integer::element::U256;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -49,9 +50,67 @@ impl IsShortWeierstrass for BN254Curve {
     }
 }
 
+// GLV (Gallant-Lambert-Vanstone) Scalar Multiplication Constants for G1
+//
+// The endomorphism φ(x, y) = (βx, y) satisfies φ(P) = [λ]P for all P in the r-torsion.
+// β = β_large is the cube root of unity in Fp with eigenvalue λ_large in Fr.
+
+/// β: primitive cube root of unity of Fp satisfying β² + β + 1 = 0 mod p.
+/// Uses the large root β = β_small² so that φ(P) = [GLV_LAMBDA]P with large lambda.
+pub const CUBE_ROOT_OF_UNITY_G1: BN254FieldElement = FieldElement::from_hex_unchecked(
+    "30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd48",
+);
+
+/// The eigenvalue λ of the GLV endomorphism, satisfying λ² + λ + 1 ≡ 0 (mod r).
+pub const GLV_LAMBDA: U256 =
+    U256::from_hex_unchecked("30644e72e131a029048b6e193fd84104cc37a73fec2bc5e9b8ca0b2d36636f23");
+
+/// The small cube root of unity ω in Fr (≈ 2^192), used for scalar decomposition.
+const GLV_OMEGA: U256 =
+    U256::from_hex_unchecked("b3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90dd");
+
+/// ω + 1, used in the decomposition formula.
+const GLV_OMEGA_PLUS_ONE: U256 =
+    U256::from_hex_unchecked("b3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90de");
+
+/// Frobenius eigenvalue for GLS on G2: φ(Q) = [p mod r]Q.
+/// p mod r = t - 1 = 6x² where x is the BN254 seed.
+const GLS_X_BN254: U256 = U256::from_hex_unchecked("6f4d8248eeb859fbf83e9682e87cfd46");
+
 impl ShortWeierstrassProjectivePoint<BN254Curve> {
     pub fn is_in_subgroup(&self) -> bool {
         true
+    }
+
+    /// Applies the GLV endomorphism: φ(x, y) = (βx, y) where β is the cube root of unity in Fp.
+    /// Satisfies `φ(P) = [GLV_LAMBDA]P`.
+    pub fn phi(&self) -> Self {
+        let [x, y, z] = self.coordinates();
+        Self::new_unchecked([x * CUBE_ROOT_OF_UNITY_G1, y.clone(), z.clone()])
+    }
+
+    /// GLV scalar multiplication: computes [k]P using the endomorphism.
+    ///
+    /// Decomposes k = k1 + k2*ω with k2 ≈ 62 bits and k1 ≈ 192 bits, then uses
+    /// Shamir's trick. Reduces iterations from 254 to ~192 bits (~25% speedup).
+    ///
+    /// # Security Note
+    ///
+    /// This implementation is **not constant-time** and may be vulnerable to
+    /// timing side-channel attacks. Do not use with secret scalars in applications
+    /// requiring side-channel resistance.
+    pub fn glv_mul(&self, k: &U256) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+
+        let (k1_neg, k1, k2_neg, k2) = glv_decompose_bn254(k);
+        let phi_p = self.phi();
+
+        let p1 = if k1_neg { self.neg() } else { self.clone() };
+        let p2 = if k2_neg { phi_p } else { phi_p.neg() };
+
+        shamir_g1_bn254(&p1, &k1, &p2, &k2)
     }
 }
 
@@ -91,6 +150,161 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
         q_times_x_plus_1.operate_with(&phi_xq.operate_with(&phi2_xq))
             == q_times_2x.phi().phi().phi()
     }
+
+    /// GLS scalar multiplication: computes [k]P using the Frobenius endomorphism φ.
+    ///
+    /// φ(Q) = [p mod r]Q where p is the base field prime (~127 bits), giving ~50% speedup.
+    /// Decomposes k = k₁ + k₂·(p mod r), so [k]Q = [k₁]Q + [k₂]φ(Q).
+    ///
+    /// # Security Note
+    ///
+    /// This implementation is **not constant-time** and may be vulnerable to
+    /// timing side-channel attacks. Do not use with secret scalars in applications
+    /// requiring side-channel resistance.
+    pub fn gls_mul(&self, k: &U256) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+
+        let zero = U256::from_u64(0);
+        if *k == zero {
+            return Self::neutral_element();
+        }
+
+        let (k1_neg, k1, k2_neg, k2) = gls_decompose_bn254(k);
+        let phi_p = self.phi();
+
+        // φ(Q) = [p mod r]Q (positive eigenvalue)
+        let p1 = if k1_neg { self.neg() } else { self.clone() };
+        let p2 = if k2_neg { phi_p.neg() } else { phi_p };
+
+        shamir_g2_bn254(&p1, &k1, &p2, &k2)
+    }
+}
+
+/// Decomposes scalar k into k₁ + k₂*ω (mod r) for G1 GLV.
+fn glv_decompose_bn254(k: &U256) -> (bool, U256, bool, U256) {
+    let zero = U256::from_u64(0);
+
+    if *k < GLV_OMEGA {
+        return (false, *k, false, zero);
+    }
+
+    let (k2, _) = k.div_rem(&GLV_OMEGA_PLUS_ONE);
+    let (k2_omega_lo, k2_omega_hi) = U256::mul(&k2, &GLV_OMEGA);
+
+    if k2_omega_hi != zero {
+        return (false, *k, false, zero);
+    }
+
+    let (k1, k1_underflow) = if *k >= k2_omega_lo {
+        (U256::sub(k, &k2_omega_lo).0, false)
+    } else {
+        (U256::sub(&k2_omega_lo, k).0, true)
+    };
+
+    let (a, a_neg) = if k1_underflow {
+        let (sum, _) = U256::add(&k1, &k2);
+        (sum, true)
+    } else if k1 >= k2 {
+        (U256::sub(&k1, &k2).0, false)
+    } else {
+        (U256::sub(&k2, &k1).0, true)
+    };
+
+    if a >= GLV_OMEGA && !a_neg {
+        let (a_adj, _) = U256::sub(&a, &GLV_OMEGA);
+        let (b_adj, _) = U256::add(&k2, &U256::from_u64(1));
+        (false, a_adj, false, b_adj)
+    } else {
+        (a_neg, a, false, k2)
+    }
+}
+
+/// Decomposes scalar k for GLS: k = k₁ + k₂·(p mod r) (mod r).
+///
+/// φ(Q) = [p mod r]Q (positive eigenvalue, ~127 bits), giving ~50% speedup.
+fn gls_decompose_bn254(k: &U256) -> (bool, U256, bool, U256) {
+    let zero = U256::from_u64(0);
+
+    if *k < GLS_X_BN254 {
+        return (false, *k, false, zero);
+    }
+
+    let (k2, k1) = k.div_rem(&GLS_X_BN254);
+    // φ(Q) = [p mod r]Q (positive), so [k]Q = [k₁]Q + [k₂]φ(Q)
+    (false, k1, false, k2)
+}
+
+/// Shamir's trick for G1: computes [k1]P1 + [k2]P2 using joint double-and-add.
+fn shamir_g1_bn254(
+    p1: &ShortWeierstrassProjectivePoint<BN254Curve>,
+    k1: &U256,
+    p2: &ShortWeierstrassProjectivePoint<BN254Curve>,
+    k2: &U256,
+) -> ShortWeierstrassProjectivePoint<BN254Curve> {
+    let p1_plus_p2 = p1.operate_with(p2);
+    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
+
+    if max_len == 0 {
+        return ShortWeierstrassProjectivePoint::neutral_element();
+    }
+
+    let mut result = ShortWeierstrassProjectivePoint::neutral_element();
+
+    for i in (0..max_len).rev() {
+        result = result.double();
+
+        match (get_bit_bn254(k1, i), get_bit_bn254(k2, i)) {
+            (false, false) => {}
+            (true, false) => result = result.operate_with(p1),
+            (false, true) => result = result.operate_with(p2),
+            (true, true) => result = result.operate_with(&p1_plus_p2),
+        }
+    }
+
+    result
+}
+
+/// Shamir's trick for G2: computes [k1]P1 + [k2]P2 using joint double-and-add.
+fn shamir_g2_bn254(
+    p1: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    k1: &U256,
+    p2: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    k2: &U256,
+) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
+    let p1_plus_p2 = p1.operate_with(p2);
+    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
+
+    if max_len == 0 {
+        return ShortWeierstrassProjectivePoint::neutral_element();
+    }
+
+    let mut result = ShortWeierstrassProjectivePoint::neutral_element();
+
+    for i in (0..max_len).rev() {
+        result = result.double();
+
+        match (get_bit_bn254(k1, i), get_bit_bn254(k2, i)) {
+            (false, false) => {}
+            (true, false) => result = result.operate_with(p1),
+            (false, true) => result = result.operate_with(p2),
+            (true, true) => result = result.operate_with(&p1_plus_p2),
+        }
+    }
+
+    result
+}
+
+/// Gets bit at position `pos` from a U256 (little-endian bit indexing).
+#[inline(always)]
+fn get_bit_bn254(n: &U256, pos: usize) -> bool {
+    if pos >= 256 {
+        return false;
+    }
+    let limb_idx = 3 - pos / 64;
+    let bit_idx = pos % 64;
+    (n.limbs[limb_idx] >> bit_idx) & 1 == 1
 }
 
 #[cfg(test)]
@@ -323,5 +537,118 @@ mod tests {
             result = result.phi();
         }
         assert_eq!(q, result)
+    }
+
+    // GLV scalar multiplication tests for G1
+
+    #[test]
+    fn glv_mul_g1_small_scalar() {
+        let g = BN254Curve::generator();
+        let k = U256::from_u64(12345);
+        let expected = g.operate_with_self(12345u64);
+        assert_eq!(g.glv_mul(&k), expected);
+    }
+
+    #[test]
+    fn glv_mul_g1_medium_scalar() {
+        let g = BN254Curve::generator();
+        let k = U256::from_hex_unchecked("123456789abcdef0123456789abcdef0");
+        let expected = g.operate_with_self(k);
+        assert_eq!(g.glv_mul(&k), expected);
+    }
+
+    #[test]
+    fn glv_mul_g1_large_scalar() {
+        let g = BN254Curve::generator();
+        let k = U256::from_hex_unchecked(
+            "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
+        );
+        let expected = g.operate_with_self(k);
+        assert_eq!(g.glv_mul(&k), expected);
+    }
+
+    #[test]
+    fn glv_mul_g1_neutral_element() {
+        let neutral = ShortWeierstrassProjectivePoint::<BN254Curve>::neutral_element();
+        let k = U256::from_u64(12345);
+        assert!(neutral.glv_mul(&k).is_neutral_element());
+    }
+
+    #[test]
+    fn glv_mul_g1_zero_scalar() {
+        let g = BN254Curve::generator();
+        let k = U256::from_u64(0);
+        assert!(g.glv_mul(&k).is_neutral_element());
+    }
+
+    #[test]
+    fn phi_g1_endomorphism_property() {
+        // Verify φ(P) = [λ]P
+        let g = BN254Curve::generator();
+        let phi_g = g.phi();
+        let lambda_g = g.operate_with_self(GLV_LAMBDA);
+        assert_eq!(phi_g.to_affine().x(), lambda_g.to_affine().x());
+        assert_eq!(phi_g.to_affine().y(), lambda_g.to_affine().y());
+    }
+
+    #[test]
+    fn phi_g1_cube_is_identity() {
+        // φ³ = identity
+        let g = BN254Curve::generator();
+        let phi3_g = g.phi().phi().phi();
+        assert_eq!(g.to_affine().x(), phi3_g.to_affine().x());
+        assert_eq!(g.to_affine().y(), phi3_g.to_affine().y());
+    }
+
+    // GLS scalar multiplication tests for G2
+
+    #[test]
+    fn gls_mul_g2_small_scalar() {
+        let g = BN254TwistCurve::generator();
+        let k = U256::from_u64(12345);
+        let expected = g.operate_with_self(12345u64);
+        assert_eq!(g.gls_mul(&k), expected);
+    }
+
+    #[test]
+    fn gls_mul_g2_medium_scalar() {
+        let g = BN254TwistCurve::generator();
+        let k = U256::from_hex_unchecked("123456789abcdef0123456789abcdef0");
+        let expected = g.operate_with_self(k);
+        assert_eq!(g.gls_mul(&k), expected);
+    }
+
+    #[test]
+    fn gls_mul_g2_large_scalar() {
+        let g = BN254TwistCurve::generator();
+        let k = U256::from_hex_unchecked(
+            "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
+        );
+        let expected = g.operate_with_self(k);
+        assert_eq!(g.gls_mul(&k), expected);
+    }
+
+    #[test]
+    fn gls_mul_g2_neutral_element() {
+        let neutral = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::neutral_element();
+        let k = U256::from_u64(12345);
+        assert!(neutral.gls_mul(&k).is_neutral_element());
+    }
+
+    #[test]
+    fn gls_mul_g2_zero_scalar() {
+        let g = BN254TwistCurve::generator();
+        let k = U256::from_u64(0);
+        assert!(g.gls_mul(&k).is_neutral_element());
+    }
+
+    #[test]
+    fn phi_g2_frobenius_eigenvalue() {
+        // Verify φ(Q) = [p mod r]Q where p mod r = GLS_X_BN254
+        let g = BN254TwistCurve::generator();
+        let phi_g = g.phi();
+        let eigenval_g = g.operate_with_self(GLS_X_BN254);
+        assert_eq!(phi_g.to_affine().x(), eigenval_g.to_affine().x());
+        assert_eq!(phi_g.to_affine().y(), eigenval_g.to_affine().y());
     }
 }
