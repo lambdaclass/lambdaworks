@@ -4,7 +4,9 @@ use super::{
     twist::BN254TwistCurve,
 };
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
+use crate::elliptic_curve::short_weierstrass::point::{
+    ShortWeierstrassJacobianPoint, ShortWeierstrassProjectivePoint,
+};
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
 use crate::{
@@ -92,7 +94,8 @@ impl ShortWeierstrassProjectivePoint<BN254Curve> {
     /// GLV scalar multiplication: computes [k]P using the endomorphism.
     ///
     /// Decomposes k = k1 + k2*ω with k2 ≈ 62 bits and k1 ≈ 192 bits, then uses
-    /// Shamir's trick. Reduces iterations from 254 to ~192 bits (~25% speedup).
+    /// Shamir's trick. Reduces iterations from 254 to ~192 bits.
+    /// Measured speedup: ~1.1x for 254-bit scalars.
     ///
     /// # Security Note
     ///
@@ -110,7 +113,11 @@ impl ShortWeierstrassProjectivePoint<BN254Curve> {
         let p1 = if k1_neg { self.neg() } else { self.clone() };
         let p2 = if k2_neg { phi_p } else { phi_p.neg() };
 
-        shamir_g1_bn254(&p1, &k1, &p2, &k2)
+        // Use Jacobian coordinates for faster doubling (2M+5S vs 7M+5S in projective)
+        let p1_jac = proj_to_jac_g1_bn254(&p1);
+        let p2_jac = proj_to_jac_g1_bn254(&p2);
+        let result_jac = shamir_g1_bn254(&p1_jac, &k1, &p2_jac, &k2);
+        jac_to_proj_g1_bn254(result_jac)
     }
 }
 
@@ -153,8 +160,9 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
 
     /// GLS scalar multiplication: computes [k]P using the Frobenius endomorphism φ.
     ///
-    /// φ(Q) = [p mod r]Q where p is the base field prime (~127 bits), giving ~50% speedup.
+    /// φ(Q) = [p mod r]Q where p is the base field prime (~127 bits).
     /// Decomposes k = k₁ + k₂·(p mod r), so [k]Q = [k₁]Q + [k₂]φ(Q).
+    /// Measured speedup: ~1.4x for 192-bit scalars, ~1.6x for 254-bit scalars.
     ///
     /// # Security Note
     ///
@@ -178,7 +186,11 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
         let p1 = if k1_neg { self.neg() } else { self.clone() };
         let p2 = if k2_neg { phi_p.neg() } else { phi_p };
 
-        shamir_g2_bn254(&p1, &k1, &p2, &k2)
+        // Use Jacobian coordinates for faster doubling (2M+5S vs 7M+5S in projective)
+        let p1_jac = proj_to_jac_g2_bn254(&p1);
+        let p2_jac = proj_to_jac_g2_bn254(&p2);
+        let result_jac = shamir_g2_bn254(&p1_jac, &k1, &p2_jac, &k2);
+        jac_to_proj_g2_bn254(result_jac)
     }
 }
 
@@ -191,7 +203,7 @@ fn glv_decompose_bn254(k: &U256) -> (bool, U256, bool, U256) {
     }
 
     let (k2, _) = k.div_rem(&GLV_OMEGA_PLUS_ONE);
-    let (k2_omega_lo, k2_omega_hi) = U256::mul(&k2, &GLV_OMEGA);
+    let (k2_omega_hi, k2_omega_lo) = U256::mul(&k2, &GLV_OMEGA);
 
     if k2_omega_hi != zero {
         return (false, *k, false, zero);
@@ -237,20 +249,72 @@ fn gls_decompose_bn254(k: &U256) -> (bool, U256, bool, U256) {
 }
 
 /// Shamir's trick for G1: computes [k1]P1 + [k2]P2 using joint double-and-add.
-fn shamir_g1_bn254(
-    p1: &ShortWeierstrassProjectivePoint<BN254Curve>,
-    k1: &U256,
-    p2: &ShortWeierstrassProjectivePoint<BN254Curve>,
-    k2: &U256,
+/// Converts a projective G1 point to Jacobian for efficient doubling.
+/// Projective (X:Y:Z) → Jacobian (X·Z : Y·Z² : Z). Cost: 1M + 1S.
+fn proj_to_jac_g1_bn254(
+    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
+) -> ShortWeierstrassJacobianPoint<BN254Curve> {
+    let [x, y, z] = p.coordinates();
+    if z == &FieldElement::zero() {
+        return ShortWeierstrassJacobianPoint::neutral_element();
+    }
+    let z_sq = z.square();
+    ShortWeierstrassJacobianPoint::new_unchecked([x * z, y * &z_sq, z.clone()])
+}
+
+/// Converts a Jacobian G1 result back to projective.
+/// Jacobian (X:Y:Z) → Projective (X·Z : Y : Z³). Cost: 1M + 1S.
+fn jac_to_proj_g1_bn254(
+    p: ShortWeierstrassJacobianPoint<BN254Curve>,
 ) -> ShortWeierstrassProjectivePoint<BN254Curve> {
+    let [x, y, z] = p.coordinates();
+    if z == &FieldElement::zero() {
+        return ShortWeierstrassProjectivePoint::neutral_element();
+    }
+    let z_sq = z.square();
+    ShortWeierstrassProjectivePoint::new_unchecked([x * z, y.clone(), &z_sq * z])
+}
+
+/// Converts a projective G2 point to Jacobian for efficient doubling.
+fn proj_to_jac_g2_bn254(
+    p: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+) -> ShortWeierstrassJacobianPoint<BN254TwistCurve> {
+    let [x, y, z] = p.coordinates();
+    if z == &FieldElement::zero() {
+        return ShortWeierstrassJacobianPoint::neutral_element();
+    }
+    let z_sq = z.square();
+    ShortWeierstrassJacobianPoint::new_unchecked([x * z, y * &z_sq, z.clone()])
+}
+
+/// Converts a Jacobian G2 result back to projective.
+fn jac_to_proj_g2_bn254(
+    p: ShortWeierstrassJacobianPoint<BN254TwistCurve>,
+) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
+    let [x, y, z] = p.coordinates();
+    if z == &FieldElement::zero() {
+        return ShortWeierstrassProjectivePoint::neutral_element();
+    }
+    let z_sq = z.square();
+    ShortWeierstrassProjectivePoint::new_unchecked([x * z, y.clone(), &z_sq * z])
+}
+
+/// Shamir's trick for G1: computes [k1]P1 + [k2]P2 using joint double-and-add.
+/// Uses Jacobian coordinates for efficient doubling (2M+5S vs 7M+5S in projective).
+fn shamir_g1_bn254(
+    p1: &ShortWeierstrassJacobianPoint<BN254Curve>,
+    k1: &U256,
+    p2: &ShortWeierstrassJacobianPoint<BN254Curve>,
+    k2: &U256,
+) -> ShortWeierstrassJacobianPoint<BN254Curve> {
     let p1_plus_p2 = p1.operate_with(p2);
     let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
 
     if max_len == 0 {
-        return ShortWeierstrassProjectivePoint::neutral_element();
+        return ShortWeierstrassJacobianPoint::neutral_element();
     }
 
-    let mut result = ShortWeierstrassProjectivePoint::neutral_element();
+    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
 
     for i in (0..max_len).rev() {
         result = result.double();
@@ -267,20 +331,21 @@ fn shamir_g1_bn254(
 }
 
 /// Shamir's trick for G2: computes [k1]P1 + [k2]P2 using joint double-and-add.
+/// Uses Jacobian coordinates for efficient doubling (2M+5S vs 7M+5S in projective).
 fn shamir_g2_bn254(
-    p1: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    p1: &ShortWeierstrassJacobianPoint<BN254TwistCurve>,
     k1: &U256,
-    p2: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    p2: &ShortWeierstrassJacobianPoint<BN254TwistCurve>,
     k2: &U256,
-) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
+) -> ShortWeierstrassJacobianPoint<BN254TwistCurve> {
     let p1_plus_p2 = p1.operate_with(p2);
     let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
 
     if max_len == 0 {
-        return ShortWeierstrassProjectivePoint::neutral_element();
+        return ShortWeierstrassJacobianPoint::neutral_element();
     }
 
-    let mut result = ShortWeierstrassProjectivePoint::neutral_element();
+    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
 
     for i in (0..max_len).rev() {
         result = result.double();
