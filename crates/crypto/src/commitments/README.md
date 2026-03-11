@@ -2,6 +2,7 @@
 
 This folder contains lambdaworks polynomial commitment schemes (PCS). The following commitment schemes are supported:
 - [KZG10](https://www.iacr.org/archive/asiacrypt2010/6477178/6477178.pdf)
+- [IPA (Inner Product Argument)](https://eprint.iacr.org/2019/1021.pdf)
 
 ## Introduction to KZG commitment scheme
 
@@ -193,3 +194,136 @@ let deserialized_srs = StructuredReferenceString::<
 - [KZG proof verification](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/polynomial-commitments.md#verify_kzg_proof_batch)
 - [Multiproofs KZG](https://dankradfeist.de/ethereum/2021/06/18/pcs-multiproofs.html)
 - [Fast amortized KZG proofs](https://eprint.iacr.org/2023/033)
+
+---
+
+## Introduction to IPA commitment scheme
+
+The Inner Product Argument (IPA) is a transparent polynomial commitment scheme — it requires **no trusted setup**. Security relies only on the discrete logarithm assumption over any prime-order group. It produces $O(\log n)$ sized proofs with $O(n)$ verification time (dominated by a single multi-scalar multiplication).
+
+IPA is used in protocols like [Halo](https://eprint.iacr.org/2019/1021), [Halo 2](https://zcash.github.io/halo2/), and [Spartan](https://eprint.iacr.org/2019/550). It complements KZG for scenarios where transparency is preferred over the smaller proof sizes that pairings enable.
+
+### Setup
+
+The setup is public and deterministic — no secret ceremony required:
+
+- A vector of $n$ group generators $G_0, G_1, \dots, G_{n-1} \in \mathbb{G}$, where $n$ is a power of two
+- An independent generator $U \in \mathbb{G}$ used to bind the inner product
+
+These can be derived deterministically (e.g., by hashing indices to curve points).
+
+### Commitment
+
+A polynomial $p(x) = a_0 + a_1 x + \dots + a_{n-1} x^{n-1}$ is committed by a multi-scalar multiplication:
+
+$$C = \sum_{i=0}^{n-1} a_i \cdot G_i$$
+
+### Opening Protocol
+
+To prove that $p(z) = y$, the prover and verifier engage in $k = \log_2(n)$ rounds of folding:
+
+1. Define the evaluation vector $\mathbf{b} = (1, z, z^2, \dots, z^{n-1})$ so that $\langle \mathbf{a}, \mathbf{b} \rangle = p(z) = y$.
+2. The prover maintains the invariant: $P = \text{MSM}(\mathbf{a}, \mathbf{G}) + \langle \mathbf{a}, \mathbf{b} \rangle \cdot U$
+
+In each round $j$, the prover:
+- Splits vectors $\mathbf{a}$, $\mathbf{b}$, $\mathbf{G}$ into left and right halves
+- Computes cross-terms $L_j = \text{MSM}(\mathbf{a}_L, \mathbf{G}_R) + \langle \mathbf{a}_L, \mathbf{b}_R \rangle \cdot U$ and $R_j = \text{MSM}(\mathbf{a}_R, \mathbf{G}_L) + \langle \mathbf{a}_R, \mathbf{b}_L \rangle \cdot U$
+- Receives a random challenge $x_j$ (derived via Fiat-Shamir)
+- Folds: $\mathbf{a}' = x_j \mathbf{a}_L + x_j^{-1} \mathbf{a}_R$, $\mathbf{b}' = x_j^{-1} \mathbf{b}_L + x_j \mathbf{b}_R$, $\mathbf{G}' = x_j^{-1} \mathbf{G}_L + x_j \mathbf{G}_R$
+
+After $k$ rounds, the prover sends the final scalar $a_{\text{final}}$.
+
+### Verification
+
+The verifier reconstructs the folded commitment:
+
+$$P_{\text{final}} = C + y \cdot U + \sum_{j=1}^{k} \left( x_j^2 \cdot L_j + x_j^{-2} \cdot R_j \right)$$
+
+Then computes:
+- $\mathbf{s}$: the tensor product of challenges (used to derive $G_{\text{final}} = \text{MSM}(\mathbf{s}, \mathbf{G})$)
+- $b_{\text{final}} = \prod_{j=1}^{k} \left( x_j^{-1} + x_j \cdot z^{2^{k-j}} \right)$ in $O(\log n)$ time
+
+And checks: $P_{\text{final}} = a_{\text{final}} \cdot G_{\text{final}} + (a_{\text{final}} \cdot b_{\text{final}}) \cdot U$
+
+### Proof Size
+
+For a polynomial of degree $n - 1$:
+- $2 \log_2(n)$ group elements ($L_j$ and $R_j$ points)
+- 1 scalar ($a_{\text{final}}$)
+
+## IPA Implementation
+
+The implementation includes:
+
+- `IpaSetup`: Transparent setup containing generators and the inner product binding point $U$
+- `IpaProof`: Proof structure with $L/R$ points and the final scalar
+- `Ipa`: The main IPA polynomial commitment scheme, generic over any group implementing `IsGroup + AsBytes`
+
+The current implementation is **non-hiding** (binding but not hiding). Blinding can be added in the future for zero-knowledge applications.
+
+## IPA API Usage
+
+### Creating an IPA Instance
+
+```rust
+use lambdaworks_crypto::commitments::ipa::{Ipa, IpaSetup};
+use lambdaworks_math::{
+    elliptic_curve::short_weierstrass::curves::pallas::curve::PallasCurve,
+    elliptic_curve::traits::IsEllipticCurve,
+    field::element::FieldElement,
+    field::fields::vesta_field::Vesta255PrimeField,
+    polynomial::Polynomial,
+};
+
+type F = Vesta255PrimeField;
+type FE = FieldElement<F>;
+type G = <PallasCurve as IsEllipticCurve>::PointRepresentation;
+
+// Create generators deterministically
+let g = PallasCurve::generator();
+let n = 8; // must be a power of two
+let generators: Vec<G> = (1..=n as u64)
+    .map(|i| g.operate_with_self(i))
+    .collect();
+let u = g.operate_with_self(n as u64 + 1337);
+
+let setup = IpaSetup { generators, u };
+let ipa = Ipa::<4, F, G>::new(setup);
+```
+
+### Committing and Proving
+
+```rust
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+
+// Create a polynomial p(x) = 1 + 2x + 3x^2 + ... + 8x^7
+let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
+let p = Polynomial::new(&coeffs);
+
+// Commit
+let commitment = ipa.commit(&p);
+
+// Prove evaluation at z = 5
+let z = FE::from(5);
+let y = p.evaluate(&z);
+
+let mut prover_transcript = DefaultTranscript::new(b"my-protocol");
+let proof = ipa.open(&p, &z, &mut prover_transcript);
+```
+
+### Verifying
+
+```rust
+let mut verifier_transcript = DefaultTranscript::new(b"my-protocol");
+let valid = ipa.verify(&commitment, &z, &y, &proof, &mut verifier_transcript);
+assert!(valid);
+```
+
+**Important:** Prover and verifier must use transcripts initialized with the same label.
+
+## IPA References
+
+- [Bulletproofs (original IPA)](https://eprint.iacr.org/2017/1066)
+- [Halo: Recursive Proof Composition without a Trusted Setup](https://eprint.iacr.org/2019/1021)
+- [Halo 2 Book](https://zcash.github.io/halo2/)
+- [Proofs for Inner Pairing Products (BMMTV)](https://eprint.iacr.org/2019/1177)

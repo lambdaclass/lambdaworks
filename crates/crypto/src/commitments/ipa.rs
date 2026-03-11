@@ -800,4 +800,128 @@ mod tests {
             fe_from_hex("0ae6332dceed5c5a904514bed0b7a78aec097ed4e2fcc75ab2e67ba7e5ac6d1e")
         );
     }
+
+    // -----------------------------------------------------------------------
+    // Edge case tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn zero_polynomial() {
+        let setup = test_setup(4);
+        let ipa = Ipa::<4, F, G>::new(setup);
+
+        // p(x) = 0
+        let p = Polynomial::new(&[FE::zero()]);
+        let z = FE::from(42);
+        let y = p.evaluate(&z);
+        assert_eq!(y, FE::zero());
+
+        let commitment = ipa.commit(&p);
+        let proof = ipa.open(&p, &z, &mut make_transcript());
+        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+    }
+
+    #[test]
+    fn evaluate_at_zero() {
+        let setup = test_setup(8);
+        let ipa = Ipa::<4, F, G>::new(setup);
+
+        // p(x) = 3 + 5x + 7x^2, evaluated at z=0 should give 3
+        let p = Polynomial::new(&[FE::from(3), FE::from(5), FE::from(7)]);
+        let z = FE::zero();
+        let y = p.evaluate(&z);
+        assert_eq!(y, FE::from(3));
+
+        let commitment = ipa.commit(&p);
+        let proof = ipa.open(&p, &z, &mut make_transcript());
+        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+    }
+
+    #[test]
+    fn polynomial_degree_less_than_n() {
+        // Degree-2 polynomial with n=8 generators (needs padding)
+        let setup = test_setup(8);
+        let ipa = Ipa::<4, F, G>::new(setup);
+
+        let p = Polynomial::new(&[FE::from(1), FE::from(2), FE::from(3)]);
+        let z = FE::from(10);
+        let y = p.evaluate(&z); // 1 + 20 + 300 = 321
+
+        let commitment = ipa.commit(&p);
+        let proof = ipa.open(&p, &z, &mut make_transcript());
+        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+    }
+
+    #[test]
+    fn tampered_l_point_rejected() {
+        let setup = test_setup(8);
+        let ipa = Ipa::<4, F, G>::new(setup);
+
+        let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
+        let p = Polynomial::new(&coeffs);
+        let z = FE::from(3);
+        let y = p.evaluate(&z);
+
+        let commitment = ipa.commit(&p);
+        let mut proof = ipa.open(&p, &z, &mut make_transcript());
+
+        // Tamper with the first L point
+        proof.l_points[0] = PallasCurve::generator();
+        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+    }
+
+    #[test]
+    fn tampered_r_point_rejected() {
+        let setup = test_setup(8);
+        let ipa = Ipa::<4, F, G>::new(setup);
+
+        let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
+        let p = Polynomial::new(&coeffs);
+        let z = FE::from(3);
+        let y = p.evaluate(&z);
+
+        let commitment = ipa.commit(&p);
+        let mut proof = ipa.open(&p, &z, &mut make_transcript());
+
+        // Tamper with the last R point
+        let last = proof.r_points.len() - 1;
+        proof.r_points[last] = PallasCurve::generator();
+        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+    }
+
+    #[test]
+    fn tampered_a_final_rejected() {
+        let setup = test_setup(8);
+        let ipa = Ipa::<4, F, G>::new(setup);
+
+        let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
+        let p = Polynomial::new(&coeffs);
+        let z = FE::from(3);
+        let y = p.evaluate(&z);
+
+        let commitment = ipa.commit(&p);
+        let mut proof = ipa.open(&p, &z, &mut make_transcript());
+
+        // Tamper with a_final
+        proof.a_final = proof.a_final + FE::one();
+        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+    }
+
+    #[test]
+    fn wrong_proof_length_rejected() {
+        let setup = test_setup(8);
+        let ipa = Ipa::<4, F, G>::new(setup);
+
+        let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
+        let p = Polynomial::new(&coeffs);
+        let z = FE::from(3);
+        let y = p.evaluate(&z);
+
+        let commitment = ipa.commit(&p);
+        let mut proof = ipa.open(&p, &z, &mut make_transcript());
+
+        // Remove one L point to create a length mismatch
+        proof.l_points.pop();
+        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+    }
 }
