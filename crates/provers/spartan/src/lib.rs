@@ -156,20 +156,20 @@ mod tests {
 
         let a = fe(3);
         let b = fe(5);
-        let tau = vec![a.clone(), b.clone()];
+        let tau = vec![a, b];
         let eq = eq_poly(&tau);
 
         let evals = eq.evals();
         let one = FE::one();
 
         // (0,0) -> (1-a)(1-b)
-        assert_eq!(evals[0], (&one - &a) * (&one - &b));
+        assert_eq!(evals[0], (one - a) * (one - b));
         // (0,1) -> (1-a)*b
-        assert_eq!(evals[1], (&one - &a) * &b);
+        assert_eq!(evals[1], (one - a) * b);
         // (1,0) -> a*(1-b)
-        assert_eq!(evals[2], &a * (&one - &b));
+        assert_eq!(evals[2], a * (one - b));
         // (1,1) -> a*b
-        assert_eq!(evals[3], &a * &b);
+        assert_eq!(evals[3], a * b);
     }
 
     // -------------------------------------------------------------------------
@@ -180,7 +180,7 @@ mod tests {
         use crate::mle::matrix_vector_product_mle;
 
         let two = fe(2);
-        let a = vec![vec![one(), zero()], vec![zero(), two.clone()]];
+        let a = vec![vec![one(), zero()], vec![zero(), two]];
 
         // r_x = [0] -> selects row 0 weighted by eq([0], i)
         let r_x = vec![FE::zero()];
@@ -296,71 +296,22 @@ mod tests {
 
         // 6 variables: [1, c, e, a, b, d]
         let a_mat = vec![
-            vec![
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                one.clone(),
-                zero.clone(),
-                zero.clone(),
-            ],
-            vec![
-                zero.clone(),
-                one.clone(),
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-            ],
+            vec![zero, zero, zero, one, zero, zero],
+            vec![zero, one, zero, zero, zero, zero],
         ];
         let b_mat = vec![
-            vec![
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                one.clone(),
-                zero.clone(),
-            ],
-            vec![
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                one.clone(),
-            ],
+            vec![zero, zero, zero, zero, one, zero],
+            vec![zero, zero, zero, zero, zero, one],
         ];
         let c_mat = vec![
-            vec![
-                zero.clone(),
-                one.clone(),
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-            ],
-            vec![
-                zero.clone(),
-                zero.clone(),
-                one.clone(),
-                zero.clone(),
-                zero.clone(),
-                zero.clone(),
-            ],
+            vec![zero, one, zero, zero, zero, zero],
+            vec![zero, zero, one, zero, zero, zero],
         ];
 
         let r1cs = R1CS::new(a_mat, b_mat, c_mat, 2).unwrap();
 
         // witness = [1, c, e, a, b, d]
-        let witness = vec![
-            one.clone(),
-            fe(c_val),
-            fe(e_val),
-            fe(a_val),
-            fe(b_val),
-            fe(d_val),
-        ];
+        let witness = vec![one, fe(c_val), fe(e_val), fe(a_val), fe(b_val), fe(d_val)];
 
         assert!(
             r1cs.is_satisfied(&witness),
@@ -439,7 +390,7 @@ mod tests {
                 .map(|(c, z)| c * z)
                 .fold(FE::zero(), |acc, x| acc + x);
 
-            sum = sum + &eq_ev.evals()[i] * &(az_i * bz_i - cz_i);
+            sum += eq_ev.evals()[i] * (az_i * bz_i - cz_i);
         }
 
         assert_eq!(sum, FE::zero(), "Outer sum should be 0 for satisfied R1CS");
@@ -466,7 +417,7 @@ mod tests {
         use lambdaworks_math::field::element::FieldElement;
 
         type G1 = ShortWeierstrassJacobianPoint<BLS12381Curve>;
-        type KZG = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
+        type Kzg = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
         type ZM = ZeromorphPCS<4, FrField, BLS12381AtePairing>;
         type FE = FrElement;
 
@@ -500,7 +451,7 @@ mod tests {
             .collect();
         let g2_powers = [g2.clone(), g2.operate_with_self(toxic.canonical())];
         let srs = StructuredReferenceString::new(&powers, &g2_powers);
-        let pcs = ZM::new(KZG::new(srs));
+        let pcs = ZM::new(Kzg::new(srs));
 
         let proof = spartan_prove(&r1cs, &public_inputs, &witness, pcs.clone()).unwrap();
         let ok = spartan_verify(&r1cs, &public_inputs, &proof, pcs).unwrap();

@@ -321,7 +321,7 @@ mod tests {
     use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
 
     type G1 = ShortWeierstrassJacobianPoint<BLS12381Curve>;
-    type KZG = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
+    type Kzg = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
     type Zeromorph = ZeromorphPCS<4, FrField, BLS12381AtePairing>;
     type FE = FrElement;
 
@@ -343,7 +343,7 @@ mod tests {
 
     fn new_zeromorph(num_vars: usize) -> Zeromorph {
         let srs = create_srs(1 << num_vars);
-        ZeromorphPCS::new(KZG::new(srs))
+        ZeromorphPCS::new(Kzg::new(srs))
     }
 
     #[test]

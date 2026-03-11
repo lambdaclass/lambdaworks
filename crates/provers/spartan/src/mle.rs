@@ -289,20 +289,20 @@ mod tests {
         // (1,1) -> a*b
         let a = FE::from(3);
         let b = FE::from(5);
-        let tau = vec![a.clone(), b.clone()];
+        let tau = vec![a, b];
         let eq = eq_poly(&tau);
 
         assert_eq!(eq.num_vars(), 2);
         let evals = eq.evals();
 
         let one = FE::one();
-        let one_minus_a = &one - &a;
-        let one_minus_b = &one - &b;
+        let one_minus_a = one - a;
+        let one_minus_b = one - b;
 
-        assert_eq!(evals[0], &one_minus_a * &one_minus_b); // (0,0)
-        assert_eq!(evals[1], &one_minus_a * &b); // (0,1)
-        assert_eq!(evals[2], &a * &one_minus_b); // (1,0)
-        assert_eq!(evals[3], &a * &b); // (1,1)
+        assert_eq!(evals[0], one_minus_a * one_minus_b); // (0,0)
+        assert_eq!(evals[1], one_minus_a * b); // (0,1)
+        assert_eq!(evals[2], a * one_minus_b); // (1,0)
+        assert_eq!(evals[3], a * b); // (1,1)
     }
 
     #[test]
@@ -329,10 +329,7 @@ mod tests {
         let one = FE::one();
         let two = FE::from(2u64);
 
-        let a = vec![
-            vec![one.clone(), zero.clone()],
-            vec![zero.clone(), two.clone()],
-        ];
+        let a = vec![vec![one, zero], vec![zero, two]];
 
         // r_x = [0] selects row 0
         let r_x = vec![FE::zero()];
@@ -363,10 +360,7 @@ mod tests {
         let one = FE::one();
         let two = FE::from(2u64);
 
-        let a = vec![
-            vec![one.clone(), zero.clone()],
-            vec![zero.clone(), two.clone()],
-        ];
+        let a = vec![vec![one, zero], vec![zero, two]];
         let z = vec![FE::from(3u64), FE::from(5u64)];
 
         let r_x = vec![FE::zero()];

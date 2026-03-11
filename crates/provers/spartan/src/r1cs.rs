@@ -162,9 +162,9 @@ mod tests {
         let zero = FE::zero();
         let one = FE::one();
 
-        let a = vec![vec![zero.clone(), zero.clone(), one.clone(), zero.clone()]];
-        let b = vec![vec![zero.clone(), zero.clone(), zero.clone(), one.clone()]];
-        let c = vec![vec![zero.clone(), one.clone(), zero.clone(), zero.clone()]];
+        let a = vec![vec![zero, zero, one, zero]];
+        let b = vec![vec![zero, zero, zero, one]];
+        let c = vec![vec![zero, one, zero, zero]];
 
         let r1cs = R1CS::new(a, b, c, 1).unwrap();
 
@@ -200,9 +200,9 @@ mod tests {
         let zero = FE::zero();
         let one = FE::one();
 
-        let a = vec![vec![zero.clone(), one.clone()]];
-        let b = vec![vec![zero.clone()]]; // wrong column count
-        let c = vec![vec![zero.clone(), one.clone()]];
+        let a = vec![vec![zero, one]];
+        let b = vec![vec![zero]]; // wrong column count
+        let c = vec![vec![zero, one]];
 
         // This should fail because row 0 of b has wrong length
         let result = R1CS::new(a, b, c, 0);

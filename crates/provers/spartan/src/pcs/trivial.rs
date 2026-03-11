@@ -128,7 +128,7 @@ mod tests {
         let commitment = pcs.commit(&poly).unwrap();
         let point = vec![FE::from(5), FE::from(7)];
         let (value, proof) = pcs.open(&poly, &point).unwrap();
-        let wrong_value = value.clone() + FE::one();
+        let wrong_value = value + FE::one();
         let ok = pcs
             .verify(&commitment, &point, &wrong_value, &proof)
             .unwrap();
