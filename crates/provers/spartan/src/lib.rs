@@ -247,9 +247,9 @@ mod tests {
         let wrong_witness = vec![one(), fe(7), fe(2), fe(3)];
         assert!(!r1cs.is_satisfied(&wrong_witness));
 
-        // The prover will produce a proof with an incorrect claimed sum for the outer sumcheck
-        // (claimed_sum != 0 because R1CS is not satisfied).
-        // The verifier should reject it.
+        // The prover rejects early because public_inputs[0]=6 ≠ witness[1]=7.
+        // Corrupted proofs with consistent (but wrong) public inputs are tested
+        // in test_spartan_soundness_zeromorph.
         let result = spartan_prove(&r1cs, &[fe(6)], &wrong_witness, TrivialPCS);
 
         match result {
