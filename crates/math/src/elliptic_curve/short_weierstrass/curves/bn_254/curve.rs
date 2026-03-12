@@ -6,7 +6,7 @@ use super::{
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::short_weierstrass::utils::{
-    jac_to_proj, proj_to_jac, shamir_two_scalar_mul,
+    glv_decompose_babai, jac_to_proj, proj_to_jac, shamir_two_scalar_mul, GlvDecompConstants,
 };
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
@@ -68,13 +68,33 @@ pub const CUBE_ROOT_OF_UNITY_G1: BN254FieldElement = FieldElement::from_hex_unch
 pub const GLV_LAMBDA: U256 =
     U256::from_hex_unchecked("30644e72e131a029048b6e193fd84104cc37a73fec2bc5e9b8ca0b2d36636f23");
 
-/// The small cube root of unity ω in Fr (≈ 2^192), used for scalar decomposition.
-const GLV_OMEGA: U256 =
-    U256::from_hex_unchecked("b3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90dd");
+/// BN254 subgroup order r.
+const BN254_SUBGROUP_ORDER: U256 =
+    U256::from_hex_unchecked("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
 
-/// ω + 1, used in the decomposition formula.
-const GLV_OMEGA_PLUS_ONE: U256 =
-    U256::from_hex_unchecked("b3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90de");
+/// Babai-rounding GLV decomposition constants for BN254.
+///
+/// Lattice basis (from LLL on the GLV lattice {(a,b) : a + b·λ ≡ 0 mod r}):
+///   v1 = (+0x6f4d8248eeb859fc8211bbeb7d4f1128, -0x89d3256894d213e3)
+///   v2 = (+0x89d3256894d213e3, +0x6f4d8248eeb859fd0be4e1541221250b)
+///
+/// Rounding constants:
+///   q1 = round(2^256 · v2[1] / r) = +0x24ccef014a773d2d25398fd0300ff6565
+///   q2 = round(2^256 · (-v1[1]) / r) = +0x2d91d232ec7e0b3d7
+const BN254_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
+    q1: U256::from_hex_unchecked("24ccef014a773d2d25398fd0300ff6565"),
+    q2: U256::from_hex_unchecked("2d91d232ec7e0b3d7"),
+    b1_0: U256::from_hex_unchecked("6f4d8248eeb859fc8211bbeb7d4f1128"),
+    b1_1: U256::from_hex_unchecked("89d3256894d213e3"),
+    b2_0: U256::from_hex_unchecked("89d3256894d213e3"),
+    b2_1: U256::from_hex_unchecked("6f4d8248eeb859fd0be4e1541221250b"),
+    v1_0_is_neg: false,
+    v1_1_is_neg: true,
+    v2_0_is_neg: false,
+    v2_1_is_neg: false,
+    q1_is_neg: false,
+    q2_is_neg: false,
+};
 
 /// Frobenius eigenvalue for GLS on G2: φ(Q) = [p mod r]Q.
 /// p mod r = t - 1 = 6x² where x is the BN254 seed.
@@ -94,9 +114,8 @@ impl ShortWeierstrassProjectivePoint<BN254Curve> {
 
     /// GLV scalar multiplication: computes [k]P using the endomorphism.
     ///
-    /// Decomposes k = k1 + k2*ω with k2 ≈ 62 bits and k1 ≈ 192 bits, then uses
-    /// Shamir's trick. Reduces iterations from 254 to ~192 bits.
-    /// Measured speedup: ~1.1x for 254-bit scalars.
+    /// Uses Babai nearest-plane decomposition: k = k1 + k2·λ (mod r) with |k1|, |k2| ~ √r
+    /// (~128 bits), then Shamir's trick. Reduces iterations from 254 to ~128 bits.
     ///
     /// # Security Note
     ///
@@ -111,7 +130,15 @@ impl ShortWeierstrassProjectivePoint<BN254Curve> {
             return Self::neutral_element();
         }
 
-        let (k1_neg, k1, k2_neg, k2) = glv_decompose_bn254(k);
+        // Reduce k mod r to ensure correct decomposition
+        let k_reduced = if *k >= BN254_SUBGROUP_ORDER {
+            let (_, rem) = k.div_rem(&BN254_SUBGROUP_ORDER);
+            rem
+        } else {
+            *k
+        };
+
+        let (k1_neg, k1, k2_neg, k2) = glv_decompose_babai(&k_reduced, &BN254_GLV_CONSTANTS);
         let phi_p = self.phi();
 
         let p1 = if k1_neg { self.neg() } else { self.clone() };
@@ -130,23 +157,13 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     /// We also use phi at the last lines of the Miller Loop of the pairing.
     /// phi(q) = (x^p, y^p, z^p), where (x, y, z) are the projective coordinates of q.
     /// See <https://hackmd.io/@Wimet/ry7z1Xj-2#Subgroup-Checks>.
-    ///
-    /// # Safety
-    ///
-    /// - The function assumes `self` is a valid point on the BN254 twist curve.
-    /// - The transformation follows a known isomorphism and preserves validity.
     pub fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
-        // SAFETY:
-        // - `conjugate()` preserves the validity of the field element.
-        // - `unwrap()` is safe because the transformation follows
-        //   **a known valid isomorphism** between the twist and E.
-        let point = Self::new([
+        Self::new_unchecked([
             x.conjugate() * GAMMA_12,
             y.conjugate() * GAMMA_13,
             z.conjugate(),
-        ]);
-        point.unwrap()
+        ])
     }
 
     // Checks if a G2 point is in the subgroup of the twisted curve.
@@ -196,38 +213,6 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
         let result_jac = shamir_two_scalar_mul(&p1_jac, &k1, &p2_jac, &k2);
         jac_to_proj(result_jac)
     }
-}
-
-/// Decomposes scalar k into k₁ + k₂*ω (mod r) for G1 GLV.
-fn glv_decompose_bn254(k: &U256) -> (bool, U256, bool, U256) {
-    let zero = U256::from_u64(0);
-
-    if *k < GLV_OMEGA {
-        return (false, *k, false, zero);
-    }
-
-    let (k2, _) = k.div_rem(&GLV_OMEGA_PLUS_ONE);
-    let (k2_omega_hi, k2_omega_lo) = U256::mul(&k2, &GLV_OMEGA);
-
-    if k2_omega_hi != zero {
-        return (false, *k, false, zero);
-    }
-
-    // k - k2*ω ≥ 0 always (since k2 = floor(k/(ω+1)) implies k2*ω ≤ k - k2 ≤ k).
-    debug_assert!(
-        *k >= k2_omega_lo,
-        "k1 underflow is mathematically impossible"
-    );
-    let k1 = U256::sub(k, &k2_omega_lo).0;
-
-    let (a, a_neg) = if k1 >= k2 {
-        (U256::sub(&k1, &k2).0, false)
-    } else {
-        (U256::sub(&k2, &k1).0, true)
-    };
-
-    // k2_neg=true: [k]P = [a]P - [k2]φ(P), consistent with gls_mul sign convention.
-    (a_neg, a, true, k2)
 }
 
 /// Decomposes scalar k for GLS: k = k₁ + k₂·(p mod r) (mod r).
@@ -480,14 +465,12 @@ mod tests {
     // GLV scalar multiplication tests for G1
 
     #[test]
-    fn glv_decompose_splits_large_scalar() {
-        // For a scalar k > ω, the decomposition must produce non-zero k2 and
-        // reduce the max bit length below k. This catches the U256::mul (hi,lo) swap bug
-        // which caused k2 to always be zero.
+    fn glv_decompose_babai_splits_large_scalar() {
+        use crate::elliptic_curve::short_weierstrass::utils::glv_decompose_babai;
         let k = U256::from_hex_unchecked(
             "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
         );
-        let (_, k1, _, k2) = glv_decompose_bn254(&k);
+        let (_, k1, _, k2) = glv_decompose_babai(&k, &BN254_GLV_CONSTANTS);
         assert!(
             k2 > U256::from_u64(0),
             "k2 should be non-zero for a large scalar"
@@ -496,6 +479,17 @@ mod tests {
         assert!(
             max_bits < k.bits_le(),
             "decomposition should reduce max bit length"
+        );
+        // Babai guarantees ~128-bit half-scalars (was ~192 bits with old approach!)
+        assert!(
+            k1.bits_le() <= 129,
+            "k1 should be ~128 bits, got {}",
+            k1.bits_le()
+        );
+        assert!(
+            k2.bits_le() <= 129,
+            "k2 should be ~128 bits, got {}",
+            k2.bits_le()
         );
     }
 
@@ -508,14 +502,6 @@ mod tests {
             "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
         );
         assert!(g.glv_mul(&r).is_neutral_element());
-    }
-
-    #[test]
-    fn glv_mul_g1_omega_scalar() {
-        // Triggers the refinement branch (k mod (ω+1) == ω); must equal operate_with_self
-        let g = BN254Curve::generator();
-        let expected = g.operate_with_self(GLV_OMEGA);
-        assert_eq!(g.glv_mul(&GLV_OMEGA), expected);
     }
 
     #[test]

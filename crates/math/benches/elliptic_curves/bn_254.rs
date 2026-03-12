@@ -358,8 +358,8 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     batch_group.finish();
 
     // GLV scalar multiplication comparison benchmarks (G1)
-    // GLV decomposes k = k1 + k2*ω (ω ≈ 2^192), giving k2 ≈ 62 bits, k1 ≈ 192 bits.
-    // Shamir's trick reduces iterations from 254 to ~192 bits; measured speedup: +10% (254-bit).
+    // GLV uses Babai-rounding lattice decomposition: k = k1 + k2·λ with |k1|, |k2| ~ 128 bits.
+    // Shamir's trick reduces iterations from 254 to ~128 bits.
     let mut glv_group = c.benchmark_group("BN254 G1 Scalar Multiplication");
     glv_group.significance_level(0.1).sample_size(10000);
 

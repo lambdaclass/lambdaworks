@@ -4,7 +4,9 @@ use super::{
 };
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
-use crate::elliptic_curve::short_weierstrass::utils::shamir_two_scalar_mul;
+use crate::elliptic_curve::short_weierstrass::utils::{
+    glv_decompose_babai, shamir_two_scalar_mul, GlvDecompConstants,
+};
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
 use crate::{
@@ -79,13 +81,29 @@ pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_u
 pub const GLV_LAMBDA: U256 =
     U256::from_hex_unchecked("73eda753299d7d483339d80809a1d804a7780001fffcb7fcfffffffe00000001");
 
-/// The small cube root of unity ω in Fr (≈ 2^127), used for scalar decomposition.
-const GLV_OMEGA: U256 =
-    U256::from_hex_unchecked("00000000000000000000000000000000ac45a4010001a40200000000ffffffff");
-
-/// ω + 1, used in the decomposition formula.
-const GLV_OMEGA_PLUS_ONE: U256 =
-    U256::from_hex_unchecked("00000000000000000000000000000000ac45a4010001a4020000000100000000");
+/// Babai-rounding GLV decomposition constants for BLS12-381.
+///
+/// Lattice basis (from LLL on the GLV lattice {(a,b) : a + b·λ ≡ 0 mod r}):
+///   v1 = (+0xac45a4010001a4020000000100000000, +1)
+///   v2 = (-1, +0xac45a4010001a40200000000ffffffff)
+///
+/// Rounding constants:
+///   q1 = round(2^256 · v2[1] / r) = +0x17c6becf1e01faadd63f6e522f6cfee2e
+///   q2 = round(2^256 · (-v1[1]) / r) = -2  (stored as |q2|=2, q2_is_neg=true)
+const BLS12_381_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
+    q1: U256::from_hex_unchecked("17c6becf1e01faadd63f6e522f6cfee2e"),
+    q2: U256::from_hex_unchecked("2"),
+    b1_0: U256::from_hex_unchecked("ac45a4010001a4020000000100000000"),
+    b1_1: U256::from_hex_unchecked("1"),
+    b2_0: U256::from_hex_unchecked("1"),
+    b2_1: U256::from_hex_unchecked("ac45a4010001a40200000000ffffffff"),
+    v1_0_is_neg: false,
+    v1_1_is_neg: false,
+    v2_0_is_neg: true,
+    v2_1_is_neg: false,
+    q1_is_neg: false,
+    q2_is_neg: true,
+};
 
 /// x-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
 pub const ENDO_U: BLS12381TwistCurveFieldElement =
@@ -122,8 +140,8 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
 
     /// GLV scalar multiplication: computes [k]P using the endomorphism for ~2x speedup.
     ///
-    /// Decomposes k = k1 + k2*ω with small k1, k2 (~128 bits each), then uses
-    /// Shamir's trick for joint scalar multiplication.
+    /// Uses Babai nearest-plane decomposition: k = k1 + k2·λ (mod r) with |k1|, |k2| ~ √r
+    /// (~128 bits), then Shamir's trick for joint scalar multiplication.
     pub fn glv_mul(&self, k: &U256) -> Self {
         if self.is_neutral_element() {
             return self.clone();
@@ -132,7 +150,15 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
             return Self::neutral_element();
         }
 
-        let (k1_neg, k1, k2_neg, k2) = glv_decompose(k);
+        // Reduce k mod r to ensure correct decomposition
+        let k_reduced = if *k >= SUBGROUP_ORDER {
+            let (_, rem) = k.div_rem(&SUBGROUP_ORDER);
+            rem
+        } else {
+            *k
+        };
+
+        let (k1_neg, k1, k2_neg, k2) = glv_decompose_babai(&k_reduced, &BLS12_381_GLV_CONSTANTS);
         let phi_p = self.phi();
 
         let p1 = if k1_neg { self.neg() } else { self.clone() };
@@ -140,47 +166,6 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
 
         shamir_two_scalar_mul(&p1, &k1, &p2, &k2)
     }
-}
-
-/// Decomposes scalar k into k₁ + k₂*ω (mod r) where |k₁|, |k₂| are approximately √r.
-///
-/// Returns (a_neg, |a|, b_neg, |b|) for the GLV formula: [k]P = [a]P + [b]φ(P).
-fn glv_decompose(k: &U256) -> (bool, U256, bool, U256) {
-    let zero = U256::from_u64(0);
-
-    // Small scalars need no decomposition
-    if *k < GLV_OMEGA {
-        return (false, *k, false, zero);
-    }
-
-    // Compute k2 = k / (ω + 1)
-    let (k2, _) = k.div_rem(&GLV_OMEGA_PLUS_ONE);
-
-    // Compute k1 = k - k2*ω
-    let (k2_omega_hi, k2_omega_lo) = U256::mul(&k2, &GLV_OMEGA);
-
-    // Overflow check: fall back to direct computation if needed
-    if k2_omega_hi != zero {
-        return (false, *k, false, zero);
-    }
-
-    let (k1, k1_underflow) = if *k >= k2_omega_lo {
-        (U256::sub(k, &k2_omega_lo).0, false)
-    } else {
-        (U256::sub(&k2_omega_lo, k).0, true)
-    };
-
-    // Compute a = k1 - k2
-    let (a, a_neg) = if k1_underflow {
-        let (sum, _) = U256::add(&k1, &k2);
-        (sum, true)
-    } else if k1 >= k2 {
-        (U256::sub(&k1, &k2).0, false)
-    } else {
-        (U256::sub(&k2, &k1).0, true)
-    };
-
-    (a_neg, a, true, k2)
 }
 
 impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
@@ -492,14 +477,12 @@ mod tests {
     // GLV scalar multiplication tests
 
     #[test]
-    fn glv_decompose_splits_large_scalar() {
-        // For a scalar k > ω, the decomposition must produce non-zero k2 and
-        // reduce the max bit length below k. This catches the U256::mul (hi,lo) swap bug
-        // which caused k2 to always be zero.
+    fn glv_decompose_babai_splits_large_scalar() {
+        use crate::elliptic_curve::short_weierstrass::utils::glv_decompose_babai;
         let k = U256::from_hex_unchecked(
             "73eda753299d7d483339d80809a1d80553bda402fffe5bfefffffffe00000000",
         );
-        let (_, k1, _, k2) = glv_decompose(&k);
+        let (_, k1, _, k2) = glv_decompose_babai(&k, &BLS12_381_GLV_CONSTANTS);
         assert!(
             k2 > U256::from_u64(0),
             "k2 should be non-zero for a large scalar"
@@ -509,14 +492,24 @@ mod tests {
             max_bits < k.bits_le(),
             "decomposition should reduce max bit length"
         );
+        // Babai guarantees ~128-bit half-scalars
+        assert!(
+            k1.bits_le() <= 129,
+            "k1 should be ~128 bits, got {}",
+            k1.bits_le()
+        );
+        assert!(
+            k2.bits_le() <= 129,
+            "k2 should be ~128 bits, got {}",
+            k2.bits_le()
+        );
     }
 
     #[test]
-    fn glv_mul_omega_scalar() {
-        // Triggers the refinement branch (k mod (ω+1) == ω); must equal operate_with_self
+    fn glv_mul_subgroup_order_is_neutral() {
+        // [r]P = O for any point P in the subgroup
         let g = BLS12381Curve::generator();
-        let expected = g.operate_with_self(GLV_OMEGA);
-        assert_eq!(g.glv_mul(&GLV_OMEGA), expected);
+        assert!(g.glv_mul(&SUBGROUP_ORDER).is_neutral_element());
     }
 
     #[test]
