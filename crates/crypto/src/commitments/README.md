@@ -308,7 +308,7 @@ let z = FE::from(5);
 let y = p.evaluate(&z);
 
 let mut prover_transcript = DefaultTranscript::new(b"my-protocol");
-let proof = ipa.open(&p, &z, &mut prover_transcript);
+let proof = ipa.open(&commitment, &p, &z, &mut prover_transcript);
 ```
 
 ### Verifying

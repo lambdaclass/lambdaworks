@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use core::fmt;
 use core::marker::PhantomData;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
@@ -10,6 +11,32 @@ use lambdaworks_math::{
 };
 
 use crate::fiat_shamir::is_transcript::IsTranscript;
+
+/// Errors that can occur during IPA operations.
+#[derive(Debug)]
+pub enum IpaError {
+    /// The polynomial has more coefficients than generators in the setup.
+    PolynomialTooLarge,
+    /// An MSM operation failed due to mismatched lengths.
+    MsmError,
+    /// A Fiat-Shamir challenge was zero (cryptographically negligible).
+    ZeroChallenge,
+}
+
+impl fmt::Display for IpaError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            IpaError::PolynomialTooLarge => {
+                write!(f, "polynomial degree exceeds generator count")
+            }
+            IpaError::MsmError => write!(f, "MSM length mismatch"),
+            IpaError::ZeroChallenge => write!(f, "Fiat-Shamir challenge was zero"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for IpaError {}
 
 /// Transparent setup parameters for IPA.
 ///
@@ -28,7 +55,7 @@ pub struct IpaSetup<G: IsGroup> {
 /// Contains the left/right cross-term points from each folding round
 /// and the final scalar after all rounds complete.
 #[derive(Clone, Debug)]
-pub struct IpaProof<const N: usize, F: IsPrimeField, G: IsGroup> {
+pub struct IpaProof<F: IsPrimeField, G: IsGroup> {
     /// Left cross-term points L_1, ..., L_k (one per round)
     pub l_points: Vec<G>,
     /// Right cross-term points R_1, ..., R_k (one per round)
@@ -71,42 +98,33 @@ where
     /// Commit to a polynomial: C = MSM(coefficients, generators).
     ///
     /// The polynomial is padded with zeros if its degree is less than n-1.
-    ///
-    /// # Panics
-    /// Panics if the polynomial has more coefficients than generators.
-    pub fn commit(&self, p: &Polynomial<FieldElement<F>>) -> G {
+    pub fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Result<G, IpaError> {
         let n = self.setup.generators.len();
-        assert!(
-            p.coefficients.len() <= n,
-            "polynomial degree exceeds generator count"
-        );
+        if p.coefficients.len() > n {
+            return Err(IpaError::PolynomialTooLarge);
+        }
         let scalars = pad_coefficients::<N, F>(p, n);
-        msm(&scalars, &self.setup.generators).expect("lengths match after padding")
+        msm(&scalars, &self.setup.generators).map_err(|_| IpaError::MsmError)
     }
 
     /// Create an evaluation proof that p(z) = y.
     ///
-    /// The transcript must be in the same state as the verifier's transcript
-    /// will be at the start of verification.
-    ///
-    /// # Panics
-    /// Panics if the polynomial has more coefficients than generators.
+    /// The `commitment` must be the result of `self.commit(p)`. Passing it
+    /// explicitly avoids recomputing the MSM.
     pub fn open(
         &self,
+        commitment: &G,
         p: &Polynomial<FieldElement<F>>,
         z: &FieldElement<F>,
         transcript: &mut impl IsTranscript<F>,
-    ) -> IpaProof<N, F, G> {
+    ) -> Result<IpaProof<F, G>, IpaError> {
         let n = self.setup.generators.len();
-        assert!(
-            p.coefficients.len() <= n,
-            "polynomial degree exceeds generator count"
-        );
+        if p.coefficients.len() > n {
+            return Err(IpaError::PolynomialTooLarge);
+        }
         let y = p.evaluate(z);
 
-        // Compute commitment and bind it to the transcript
-        let commitment = self.commit(p);
-        seed_transcript(transcript, &commitment, z, &y);
+        seed_transcript(transcript, commitment, z, &y);
 
         let mut a = pad_coefficients_fe::<F>(p, n);
         let mut b = compute_b_vector(z, n);
@@ -123,12 +141,12 @@ where
             let (g_l, g_r) = g.split_at(half);
 
             // L_j = MSM(a_L, G_R) + <a_L, b_R> * U
-            let l_msm = msm(&to_canonical(a_l), g_r).expect("lengths match");
+            let l_msm = msm(&to_canonical(a_l), g_r).map_err(|_| IpaError::MsmError)?;
             let l_ip = inner_product(a_l, b_r);
             let l_j = l_msm.operate_with(&self.setup.u.operate_with_self(l_ip.canonical()));
 
             // R_j = MSM(a_R, G_L) + <a_R, b_L> * U
-            let r_msm = msm(&to_canonical(a_r), g_l).expect("lengths match");
+            let r_msm = msm(&to_canonical(a_r), g_l).map_err(|_| IpaError::MsmError)?;
             let r_ip = inner_product(a_r, b_l);
             let r_j = r_msm.operate_with(&self.setup.u.operate_with_self(r_ip.canonical()));
 
@@ -136,7 +154,7 @@ where
             transcript.append_bytes(&l_j.as_bytes());
             transcript.append_bytes(&r_j.as_bytes());
             let x: FieldElement<F> = transcript.sample_field_element();
-            let x_inv = x.inv().expect("challenge is non-zero");
+            let x_inv = x.inv().map_err(|_| IpaError::ZeroChallenge)?;
 
             l_points.push(l_j);
             r_points.push(r_j);
@@ -161,13 +179,11 @@ where
             g = g_new;
         }
 
-        debug_assert_eq!(a.len(), 1);
-
-        IpaProof {
+        Ok(IpaProof {
             l_points,
             r_points,
-            a_final: a.into_iter().next().unwrap(),
-        }
+            a_final: a.pop().ok_or(IpaError::MsmError)?,
+        })
     }
 
     /// Verify an evaluation proof.
@@ -179,14 +195,14 @@ where
         commitment: &G,
         z: &FieldElement<F>,
         y: &FieldElement<F>,
-        proof: &IpaProof<N, F, G>,
+        proof: &IpaProof<F, G>,
         transcript: &mut impl IsTranscript<F>,
-    ) -> bool {
+    ) -> Result<bool, IpaError> {
         let n = self.setup.generators.len();
         let k = n.trailing_zeros() as usize;
 
         if proof.l_points.len() != k || proof.r_points.len() != k {
-            return false;
+            return Ok(false);
         }
 
         // Reconstruct transcript state
@@ -208,7 +224,7 @@ where
         let mut p_final = commitment.operate_with(&self.setup.u.operate_with_self(y.canonical()));
         for (j, x) in challenges.iter().enumerate() {
             let x_sq = x * x;
-            let x_inv = x.inv().expect("challenge is non-zero");
+            let x_inv = x.inv().map_err(|_| IpaError::ZeroChallenge)?;
             let x_inv_sq = &x_inv * &x_inv;
             p_final = p_final
                 .operate_with(&proof.l_points[j].operate_with_self(x_sq.canonical()))
@@ -216,14 +232,14 @@ where
         }
 
         // Compute s vector (tensor product of challenges)
-        let s = compute_s_vector(&challenges);
+        let s = compute_s_vector(&challenges)?;
 
         // G_final = MSM(s, G)
         let s_canonical: Vec<_> = s.iter().map(|si| si.canonical()).collect();
-        let g_final = msm(&s_canonical, &self.setup.generators).expect("lengths match");
+        let g_final = msm(&s_canonical, &self.setup.generators).map_err(|_| IpaError::MsmError)?;
 
         // b_final via O(log n) computation
-        let b_final = compute_b_final(z, &challenges);
+        let b_final = compute_b_final(z, &challenges)?;
 
         // Check: P_final == a_final * G_final + (a_final * b_final) * U
         let expected = g_final
@@ -235,7 +251,7 @@ where
                     .operate_with_self((&proof.a_final * &b_final).canonical()),
             );
 
-        p_final == expected
+        Ok(p_final == expected)
     }
 }
 
@@ -268,7 +284,9 @@ fn compute_b_vector<F: IsPrimeField>(z: &FieldElement<F>, n: usize) -> Vec<Field
 /// s_i = Π_{j=1}^{k} (if bit j of i is 1 then x_j else x_j^{-1})
 ///
 /// This gives the coefficients for reconstructing G_final = MSM(s, G).
-fn compute_s_vector<F: IsPrimeField>(challenges: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+fn compute_s_vector<F: IsPrimeField>(
+    challenges: &[FieldElement<F>],
+) -> Result<Vec<FieldElement<F>>, IpaError> {
     let k = challenges.len();
     let n = 1 << k;
     let mut s = Vec::with_capacity(n);
@@ -278,7 +296,7 @@ fn compute_s_vector<F: IsPrimeField>(challenges: &[FieldElement<F>]) -> Vec<Fiel
     // challenges[0] (first round) corresponds to the most significant bit position.
     // This matches the folding convention: G' = x^{-1}*G_L + x*G_R where L = first half.
     for x in challenges.iter().rev() {
-        let x_inv = x.inv().expect("challenge is non-zero");
+        let x_inv = x.inv().map_err(|_| IpaError::ZeroChallenge)?;
         let current_len = s.len();
         // Extend with x * existing entries
         for i in 0..current_len {
@@ -290,7 +308,7 @@ fn compute_s_vector<F: IsPrimeField>(challenges: &[FieldElement<F>]) -> Vec<Fiel
         }
     }
 
-    s
+    Ok(s)
 }
 
 /// Compute b_final = <s, b> in O(log n) time.
@@ -299,7 +317,7 @@ fn compute_s_vector<F: IsPrimeField>(challenges: &[FieldElement<F>]) -> Vec<Fiel
 fn compute_b_final<F: IsPrimeField>(
     z: &FieldElement<F>,
     challenges: &[FieldElement<F>],
-) -> FieldElement<F> {
+) -> Result<FieldElement<F>, IpaError> {
     let k = challenges.len();
     let mut result = FieldElement::one();
 
@@ -312,13 +330,13 @@ fn compute_b_final<F: IsPrimeField>(
     }
 
     for j in 0..k {
-        let x_inv = challenges[j].inv().expect("challenge is non-zero");
+        let x_inv = challenges[j].inv().map_err(|_| IpaError::ZeroChallenge)?;
         // z^{2^{k-1-j}} — index into z_powers reversed
         let z_pow = &z_powers[k - 1 - j];
         result = &result * &(&x_inv + &(&challenges[j] * z_pow));
     }
 
-    result
+    Ok(result)
 }
 
 /// Pad polynomial coefficients to length `n`, returning canonical representations.
@@ -380,7 +398,14 @@ mod tests {
     type FE = FieldElement<F>;
     type G = <PallasCurve as IsEllipticCurve>::PointRepresentation;
 
-    /// Generate deterministic generators from the curve generator.
+    /// Generate deterministic generators for testing.
+    ///
+    /// # Warning
+    /// Generators are consecutive scalar multiples of the same base point
+    /// and are therefore **cryptographically insecure**: the discrete-log
+    /// relationships between them are trivially known. Use only in tests.
+    /// Production generators must be derived via hash-to-curve from
+    /// distinct seeds.
     fn test_setup(n: usize) -> IpaSetup<G> {
         let g = PallasCurve::generator();
         let generators: Vec<G> = (1..=n as u64).map(|i| g.operate_with_self(i)).collect();
@@ -418,9 +443,9 @@ mod tests {
         let y = p.evaluate(&z);
         assert_eq!(y, FE::from(42));
 
-        let commitment = ipa.commit(&p);
-        let proof = ipa.open(&p, &z, &mut make_transcript());
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        let commitment = ipa.commit(&p).unwrap();
+        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -433,9 +458,9 @@ mod tests {
         let z = FE::from(7);
         let y = p.evaluate(&z); // 3 + 35 = 38
 
-        let commitment = ipa.commit(&p);
-        let proof = ipa.open(&p, &z, &mut make_transcript());
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        let commitment = ipa.commit(&p).unwrap();
+        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -448,14 +473,14 @@ mod tests {
         let z = FE::from(3);
         let y = p.evaluate(&z);
 
-        let commitment = ipa.commit(&p);
-        let proof = ipa.open(&p, &z, &mut make_transcript());
+        let commitment = ipa.commit(&p).unwrap();
+        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
 
         // 3 rounds for n=8
         assert_eq!(proof.l_points.len(), 3);
         assert_eq!(proof.r_points.len(), 3);
 
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -468,14 +493,14 @@ mod tests {
         let z = FE::from(5);
         let y = p.evaluate(&z);
 
-        let commitment = ipa.commit(&p);
-        let proof = ipa.open(&p, &z, &mut make_transcript());
+        let commitment = ipa.commit(&p).unwrap();
+        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
 
         // 4 rounds for n=16
         assert_eq!(proof.l_points.len(), 4);
         assert_eq!(proof.r_points.len(), 4);
 
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -487,12 +512,12 @@ mod tests {
         let p = Polynomial::new(&coeffs);
         let z = FE::from(3);
 
-        let commitment = ipa.commit(&p);
-        let proof = ipa.open(&p, &z, &mut make_transcript());
+        let commitment = ipa.commit(&p).unwrap();
+        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
 
         // Claim wrong y
         let wrong_y = FE::from(9999);
-        assert!(!ipa.verify(&commitment, &z, &wrong_y, &proof, &mut make_transcript()));
+        assert!(!ipa.verify(&commitment, &z, &wrong_y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -505,11 +530,12 @@ mod tests {
         let z = FE::from(3);
         let y = p.evaluate(&z);
 
-        let proof = ipa.open(&p, &z, &mut make_transcript());
+        let commitment = ipa.commit(&p).unwrap();
+        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
 
         // Tamper with commitment
         let fake_commitment = PallasCurve::generator();
-        assert!(!ipa.verify(&fake_commitment, &z, &y, &proof, &mut make_transcript()));
+        assert!(!ipa.verify(&fake_commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -522,12 +548,12 @@ mod tests {
         let z = FE::from(3);
         let y = p.evaluate(&z);
 
-        let commitment = ipa.commit(&p);
-        let proof = ipa.open(&p, &z, &mut make_transcript());
+        let commitment = ipa.commit(&p).unwrap();
+        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
 
         // Verify at a different point
         let wrong_z = FE::from(4);
-        assert!(!ipa.verify(&commitment, &wrong_z, &y, &proof, &mut make_transcript()));
+        assert!(!ipa.verify(&commitment, &wrong_z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -539,7 +565,7 @@ mod tests {
         let x1_inv = x1.inv().unwrap();
         let x2_inv = x2.inv().unwrap();
 
-        let s = compute_s_vector(&[x1.clone(), x2.clone()]);
+        let s = compute_s_vector(&[x1.clone(), x2.clone()]).unwrap();
         assert_eq!(s.len(), 4);
         assert_eq!(s[0], &x1_inv * &x2_inv);
         assert_eq!(s[1], &x1_inv * &x2);
@@ -555,10 +581,10 @@ mod tests {
 
         let n = 1 << challenges.len(); // 8
         let b = compute_b_vector(&z, n);
-        let s = compute_s_vector(&challenges);
+        let s = compute_s_vector(&challenges).unwrap();
         let ip = inner_product(&s, &b);
 
-        let b_final = compute_b_final(&z, &challenges);
+        let b_final = compute_b_final(&z, &challenges).unwrap();
         assert_eq!(ip, b_final);
     }
 
@@ -615,7 +641,7 @@ mod tests {
         // Python: challenges = [11, 13, 17], s[7] = 2431
         // s[7] = x1 * x2 * x3 = 11 * 13 * 17 = 2431
         let challenges = [FE::from(11), FE::from(13), FE::from(17)];
-        let s = compute_s_vector(&challenges);
+        let s = compute_s_vector(&challenges).unwrap();
         assert_eq!(s.len(), 8);
 
         // s[7] = x1 * x2 * x3 (all "R" branches)
@@ -662,7 +688,7 @@ mod tests {
         // 0x127b3563ef927b3563ef927b3563ef92851b3b3c75c2e2bb2f5a4c1cb24910f2
         let z = FE::from(3);
         let challenges = [FE::from(11), FE::from(13), FE::from(17)];
-        let b_final = compute_b_final(&z, &challenges);
+        let b_final = compute_b_final(&z, &challenges).unwrap();
 
         assert_eq!(
             b_final,
@@ -671,7 +697,7 @@ mod tests {
 
         // Also verify it matches <s, b>
         let b = compute_b_vector(&z, 8);
-        let s = compute_s_vector(&challenges);
+        let s = compute_s_vector(&challenges).unwrap();
         assert_eq!(b_final, inner_product(&s, &b));
     }
 
@@ -738,7 +764,7 @@ mod tests {
         let mut g = original_generators.clone();
 
         // Initial invariant: P = MSM(a, G) + <a,b>*U = commitment + y*U
-        let commitment = ipa.commit(&p);
+        let commitment = ipa.commit(&p).unwrap();
         let p_point = commitment.operate_with(&u.operate_with_self(y.canonical()));
 
         // Verify initial invariant
@@ -833,9 +859,9 @@ mod tests {
         let y = p.evaluate(&z);
         assert_eq!(y, FE::zero());
 
-        let commitment = ipa.commit(&p);
-        let proof = ipa.open(&p, &z, &mut make_transcript());
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        let commitment = ipa.commit(&p).unwrap();
+        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -849,9 +875,9 @@ mod tests {
         let y = p.evaluate(&z);
         assert_eq!(y, FE::from(3));
 
-        let commitment = ipa.commit(&p);
-        let proof = ipa.open(&p, &z, &mut make_transcript());
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        let commitment = ipa.commit(&p).unwrap();
+        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -864,9 +890,9 @@ mod tests {
         let z = FE::from(10);
         let y = p.evaluate(&z); // 1 + 20 + 300 = 321
 
-        let commitment = ipa.commit(&p);
-        let proof = ipa.open(&p, &z, &mut make_transcript());
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        let commitment = ipa.commit(&p).unwrap();
+        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -879,12 +905,12 @@ mod tests {
         let z = FE::from(3);
         let y = p.evaluate(&z);
 
-        let commitment = ipa.commit(&p);
-        let mut proof = ipa.open(&p, &z, &mut make_transcript());
+        let commitment = ipa.commit(&p).unwrap();
+        let mut proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
 
         // Tamper with the first L point
         proof.l_points[0] = PallasCurve::generator();
-        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -897,13 +923,13 @@ mod tests {
         let z = FE::from(3);
         let y = p.evaluate(&z);
 
-        let commitment = ipa.commit(&p);
-        let mut proof = ipa.open(&p, &z, &mut make_transcript());
+        let commitment = ipa.commit(&p).unwrap();
+        let mut proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
 
         // Tamper with the last R point
         let last = proof.r_points.len() - 1;
         proof.r_points[last] = PallasCurve::generator();
-        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -916,12 +942,12 @@ mod tests {
         let z = FE::from(3);
         let y = p.evaluate(&z);
 
-        let commitment = ipa.commit(&p);
-        let mut proof = ipa.open(&p, &z, &mut make_transcript());
+        let commitment = ipa.commit(&p).unwrap();
+        let mut proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
 
         // Tamper with a_final
         proof.a_final += FE::one();
-        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -934,12 +960,12 @@ mod tests {
         let z = FE::from(3);
         let y = p.evaluate(&z);
 
-        let commitment = ipa.commit(&p);
-        let mut proof = ipa.open(&p, &z, &mut make_transcript());
+        let commitment = ipa.commit(&p).unwrap();
+        let mut proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
 
         // Remove one L point to create a length mismatch
         proof.l_points.pop();
-        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()));
+        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
     }
 
     #[test]
@@ -953,14 +979,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "polynomial degree exceeds generator count")]
-    fn polynomial_too_large_panics() {
+    fn polynomial_too_large_returns_error() {
         let setup = test_setup(4);
         let ipa = Ipa::<4, F, G>::new(setup);
 
         // 8 coefficients but only 4 generators
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
-        let _ = ipa.commit(&p);
+        assert!(ipa.commit(&p).is_err());
     }
 }
