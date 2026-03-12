@@ -133,7 +133,7 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let phi_p = self.phi();
 
         let p1 = if k1_neg { self.neg() } else { self.clone() };
-        let p2 = if k2_neg { phi_p } else { phi_p.neg() };
+        let p2 = if k2_neg { phi_p.neg() } else { phi_p };
 
         shamir_two_scalar_mul(&p1, &k1, &p2, &k2)
     }
@@ -177,7 +177,7 @@ fn glv_decompose(k: &U256) -> (bool, U256, bool, U256) {
         (U256::sub(&k2, &k1).0, true)
     };
 
-    (a_neg, a, false, k2)
+    (a_neg, a, true, k2)
 }
 
 impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
