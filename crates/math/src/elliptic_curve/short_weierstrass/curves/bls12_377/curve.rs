@@ -520,6 +520,13 @@ mod tests {
     // GLS scalar multiplication tests for G2
 
     #[test]
+    fn gls_mul_subgroup_order_is_neutral() {
+        // [r]P = O for any point P in the subgroup
+        let g = BLS12377TwistCurve::generator();
+        assert!(g.gls_mul(&SUBGROUP_ORDER).is_neutral_element());
+    }
+
+    #[test]
     fn gls_mul_small_scalar() {
         let g = BLS12377TwistCurve::generator();
         let k = U256::from_u64(12345);

@@ -50,7 +50,7 @@ pub(crate) fn shamir_two_scalar_mul<C: IsShortWeierstrass>(
 
 /// Converts a projective G1/G2 point to Jacobian for efficient doubling.
 /// Projective (X:Y:Z) where affine=(X/Z, Y/Z) → Jacobian (X·Z : Y·Z² : Z).
-/// Cost: 1M + 1S.
+/// Cost: 2M + 1S.
 pub(crate) fn proj_to_jac<C: IsShortWeierstrass>(
     p: &ShortWeierstrassProjectivePoint<C>,
 ) -> ShortWeierstrassJacobianPoint<C> {
@@ -64,7 +64,7 @@ pub(crate) fn proj_to_jac<C: IsShortWeierstrass>(
 
 /// Converts a Jacobian result back to projective.
 /// Jacobian (X:Y:Z) where affine=(X/Z², Y/Z³) → Projective (X·Z : Y : Z³).
-/// Cost: 1M + 1S.
+/// Cost: 2M + 1S.
 pub(crate) fn jac_to_proj<C: IsShortWeierstrass>(
     p: ShortWeierstrassJacobianPoint<C>,
 ) -> ShortWeierstrassProjectivePoint<C> {

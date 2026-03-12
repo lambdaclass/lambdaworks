@@ -580,6 +580,16 @@ mod tests {
     // GLS scalar multiplication tests for G2
 
     #[test]
+    fn gls_mul_g2_subgroup_order_is_neutral() {
+        // [r]P = O for any point P in the subgroup
+        let g = BN254TwistCurve::generator();
+        let r = U256::from_hex_unchecked(
+            "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+        );
+        assert!(g.gls_mul(&r).is_neutral_element());
+    }
+
+    #[test]
     fn gls_mul_g2_small_scalar() {
         let g = BN254TwistCurve::generator();
         let k = U256::from_u64(12345);
