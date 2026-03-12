@@ -444,8 +444,12 @@ mod tests {
         assert_eq!(y, FE::from(42));
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        let proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
+        assert!(ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -459,8 +463,12 @@ mod tests {
         let y = p.evaluate(&z); // 3 + 35 = 38
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        let proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
+        assert!(ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -474,13 +482,17 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        let proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
 
         // 3 rounds for n=8
         assert_eq!(proof.l_points.len(), 3);
         assert_eq!(proof.r_points.len(), 3);
 
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        assert!(ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -494,13 +506,17 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        let proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
 
         // 4 rounds for n=16
         assert_eq!(proof.l_points.len(), 4);
         assert_eq!(proof.r_points.len(), 4);
 
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        assert!(ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -513,11 +529,15 @@ mod tests {
         let z = FE::from(3);
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        let proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
 
         // Claim wrong y
         let wrong_y = FE::from(9999);
-        assert!(!ipa.verify(&commitment, &z, &wrong_y, &proof, &mut make_transcript()).unwrap());
+        assert!(!ipa
+            .verify(&commitment, &z, &wrong_y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -531,11 +551,15 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        let proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
 
         // Tamper with commitment
         let fake_commitment = PallasCurve::generator();
-        assert!(!ipa.verify(&fake_commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        assert!(!ipa
+            .verify(&fake_commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -549,11 +573,15 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        let proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
 
         // Verify at a different point
         let wrong_z = FE::from(4);
-        assert!(!ipa.verify(&commitment, &wrong_z, &y, &proof, &mut make_transcript()).unwrap());
+        assert!(!ipa
+            .verify(&commitment, &wrong_z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -860,8 +888,12 @@ mod tests {
         assert_eq!(y, FE::zero());
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        let proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
+        assert!(ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -876,8 +908,12 @@ mod tests {
         assert_eq!(y, FE::from(3));
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        let proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
+        assert!(ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -891,8 +927,12 @@ mod tests {
         let y = p.evaluate(&z); // 1 + 20 + 300 = 321
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
-        assert!(ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        let proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
+        assert!(ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -906,11 +946,15 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let mut proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        let mut proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
 
         // Tamper with the first L point
         proof.l_points[0] = PallasCurve::generator();
-        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        assert!(!ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -924,12 +968,16 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let mut proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        let mut proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
 
         // Tamper with the last R point
         let last = proof.r_points.len() - 1;
         proof.r_points[last] = PallasCurve::generator();
-        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        assert!(!ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -943,11 +991,15 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let mut proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        let mut proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
 
         // Tamper with a_final
         proof.a_final += FE::one();
-        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        assert!(!ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
@@ -961,11 +1013,15 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let mut proof = ipa.open(&commitment, &p, &z, &mut make_transcript()).unwrap();
+        let mut proof = ipa
+            .open(&commitment, &p, &z, &mut make_transcript())
+            .unwrap();
 
         // Remove one L point to create a length mismatch
         proof.l_points.pop();
-        assert!(!ipa.verify(&commitment, &z, &y, &proof, &mut make_transcript()).unwrap());
+        assert!(!ipa
+            .verify(&commitment, &z, &y, &proof, &mut make_transcript())
+            .unwrap());
     }
 
     #[test]
