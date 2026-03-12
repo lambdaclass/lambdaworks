@@ -128,6 +128,9 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
         if self.is_neutral_element() {
             return self.clone();
         }
+        if *k == U256::from_u64(0) {
+            return Self::neutral_element();
+        }
 
         let (k1_neg, k1, k2_neg, k2) = glv_decompose(k);
         let phi_p = self.phi();
