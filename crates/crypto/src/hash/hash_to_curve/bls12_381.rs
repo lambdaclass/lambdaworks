@@ -36,9 +36,17 @@ type G1Point = ShortWeierstrassJacobianPoint<BLS12381Curve>;
 type G2Point = ShortWeierstrassJacobianPoint<BLS12381TwistCurve>;
 
 /// Default DST for BLS12-381 G1 hash-to-curve.
+///
+/// This value comes from the IETF BLS Signature draft (ciphersuite
+/// `BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_`), not from RFC 9380 test vectors.
+/// Callers implementing other protocols should supply their own DST.
 pub const DEFAULT_DST_G1: &[u8] = b"BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_";
 
 /// Default DST for BLS12-381 G2 hash-to-curve.
+///
+/// This value comes from the IETF BLS Signature draft (ciphersuite
+/// `BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_`), not from RFC 9380 test vectors.
+/// Callers implementing other protocols should supply their own DST.
 pub const DEFAULT_DST_G2: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
 
 // 2^384 mod p — used for efficient os2ip_mod_p reduction.

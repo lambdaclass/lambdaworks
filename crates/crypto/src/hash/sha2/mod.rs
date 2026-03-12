@@ -7,6 +7,8 @@ use sha2::{Digest, Sha256};
 pub enum Sha2Error {
     /// Message expansion length too large
     ExpansionLengthTooLarge(u64),
+    /// DST longer than 255 bytes (RFC 9380 §5.3.1)
+    DstTooLong(usize),
 }
 
 impl fmt::Display for Sha2Error {
@@ -17,6 +19,13 @@ impl fmt::Display for Sha2Error {
                     f,
                     "Message expansion length too large: ell value {} exceeds maximum of 255",
                     ell
+                )
+            }
+            Sha2Error::DstTooLong(len) => {
+                write!(
+                    f,
+                    "DST length {} exceeds maximum of 255 bytes (RFC 9380 §5.3.1)",
+                    len
                 )
             }
         }
@@ -37,6 +46,9 @@ impl Sha2Hasher {
         let ell = len_in_bytes.div_ceil(b_in_bytes);
         if ell > 255 {
             return Err(Sha2Error::ExpansionLengthTooLarge(ell));
+        }
+        if dst.len() > 255 {
+            return Err(Sha2Error::DstTooLong(dst.len()));
         }
 
         let dst_prime: Vec<u8> = [dst, &i2osp(dst.len() as u64, 1)].concat();
@@ -62,6 +74,10 @@ impl Sha2Hasher {
 }
 
 fn i2osp(x: u64, length: u64) -> Vec<u8> {
+    debug_assert!(
+        length >= 8 || x < (1u64 << (8 * length)),
+        "i2osp: value {x} does not fit in {length} byte(s)"
+    );
     let bytes = x.to_be_bytes();
     let len = length as usize;
     if len >= 8 {
