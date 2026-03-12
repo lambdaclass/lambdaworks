@@ -227,13 +227,7 @@ fn glv_decompose_bn254(k: &U256) -> (bool, U256, bool, U256) {
     };
 
     // k2_neg=true: [k]P = [a]P - [k2]φ(P), consistent with gls_mul sign convention.
-    if a >= GLV_OMEGA && !a_neg {
-        let (a_adj, _) = U256::sub(&a, &GLV_OMEGA);
-        let (b_adj, _) = U256::add(&k2, &U256::from_u64(1));
-        (false, a_adj, true, b_adj)
-    } else {
-        (a_neg, a, true, k2)
-    }
+    (a_neg, a, true, k2)
 }
 
 /// Decomposes scalar k for GLS: k = k₁ + k₂·(p mod r) (mod r).
@@ -514,6 +508,14 @@ mod tests {
             "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
         );
         assert!(g.glv_mul(&r).is_neutral_element());
+    }
+
+    #[test]
+    fn glv_mul_g1_omega_scalar() {
+        // Triggers the refinement branch (k mod (ω+1) == ω); must equal operate_with_self
+        let g = BN254Curve::generator();
+        let expected = g.operate_with_self(GLV_OMEGA);
+        assert_eq!(g.glv_mul(&GLV_OMEGA), expected);
     }
 
     #[test]

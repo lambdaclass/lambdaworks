@@ -177,14 +177,7 @@ fn glv_decompose(k: &U256) -> (bool, U256, bool, U256) {
         (U256::sub(&k2, &k1).0, true)
     };
 
-    // Refine if a is still too large
-    if a >= GLV_OMEGA && !a_neg {
-        let (a_adj, _) = U256::sub(&a, &GLV_OMEGA);
-        let (b_adj, _) = U256::add(&k2, &U256::from_u64(1));
-        (false, a_adj, false, b_adj)
-    } else {
-        (a_neg, a, false, k2)
-    }
+    (a_neg, a, false, k2)
 }
 
 impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
@@ -513,6 +506,14 @@ mod tests {
             max_bits < k.bits_le(),
             "decomposition should reduce max bit length"
         );
+    }
+
+    #[test]
+    fn glv_mul_omega_scalar() {
+        // Triggers the refinement branch (k mod (ω+1) == ω); must equal operate_with_self
+        let g = BLS12381Curve::generator();
+        let expected = g.operate_with_self(GLV_OMEGA);
+        assert_eq!(g.glv_mul(&GLV_OMEGA), expected);
     }
 
     #[test]

@@ -249,13 +249,7 @@ fn glv_decompose_377(k: &U256) -> (bool, U256, bool, U256) {
     };
 
     // k2_neg=true: [k]P = [a]P - [k2]φ(P), consistent with gls_mul sign convention.
-    if a >= GLV_OMEGA && !a_neg {
-        let (a_adj, _) = U256::sub(&a, &GLV_OMEGA);
-        let (b_adj, _) = U256::add(&k2, &U256::from_u64(1));
-        (false, a_adj, true, b_adj)
-    } else {
-        (a_neg, a, true, k2)
-    }
+    (a_neg, a, true, k2)
 }
 
 /// Decomposes scalar k for GLS: k = k₁ + k₂·u (mod r)
@@ -454,6 +448,14 @@ mod tests {
         // [r]P = O for any point P in the subgroup
         let g = BLS12377Curve::generator();
         assert!(g.glv_mul(&SUBGROUP_ORDER).is_neutral_element());
+    }
+
+    #[test]
+    fn glv_mul_omega_scalar() {
+        // Triggers the refinement branch (k mod (ω+1) == ω); must equal operate_with_self
+        let g = BLS12377Curve::generator();
+        let expected = g.operate_with_self(GLV_OMEGA);
+        assert_eq!(g.glv_mul(&GLV_OMEGA), expected);
     }
 
     #[test]
