@@ -205,6 +205,13 @@ where
         &self,
         poly: &DenseMultilinearPolynomial<F>,
     ) -> Result<Self::Commitment, Self::Error> {
+        let n_evals = poly.evals().len();
+        if n_evals > self.kzg.srs_size() {
+            return Err(PcsError(format!(
+                "polynomial has {n_evals} evaluations but SRS only supports {}",
+                self.kzg.srs_size()
+            )));
+        }
         let f_hat = Polynomial::new(poly.evals());
         let g1 = self.kzg.commit(&f_hat);
         Ok(ZeromorphCommitment { g1 })
@@ -221,6 +228,13 @@ where
                 "point length {} != num_vars {}",
                 point.len(),
                 n
+            )));
+        }
+        let n_evals = poly.evals().len();
+        if n_evals > self.kzg.srs_size() {
+            return Err(PcsError(format!(
+                "polynomial has {n_evals} evaluations but SRS only supports {}",
+                self.kzg.srs_size()
             )));
         }
 
@@ -343,6 +357,19 @@ mod tests {
     fn new_zeromorph(num_vars: usize) -> Zeromorph {
         let srs = create_srs(1 << num_vars);
         ZeromorphPCS::new(Kzg::new(srs))
+    }
+
+    #[test]
+    fn test_zeromorph_undersized_srs_returns_error() {
+        // 2-variable polynomial needs SRS of size >= 4, but we only give 2.
+        let srs = create_srs(2); // undersized: only 2 powers
+        let pcs = ZeromorphPCS::new(Kzg::new(srs));
+        let evals = vec![FE::from(1u64), FE::from(2u64), FE::from(3u64), FE::from(4u64)];
+        let poly = DenseMultilinearPolynomial::new(evals);
+        let result = pcs.commit(&poly);
+        assert!(result.is_err(), "commit with undersized SRS should return Err");
+        let msg = result.err().unwrap().to_string();
+        assert!(msg.contains("4") && msg.contains("2"), "error should mention sizes: {msg}");
     }
 
     #[test]
