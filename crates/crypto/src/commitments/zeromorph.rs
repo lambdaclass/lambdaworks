@@ -364,12 +364,23 @@ mod tests {
         // 2-variable polynomial needs SRS of size >= 4, but we only give 2.
         let srs = create_srs(2); // undersized: only 2 powers
         let pcs = ZeromorphPCS::new(Kzg::new(srs));
-        let evals = vec![FE::from(1u64), FE::from(2u64), FE::from(3u64), FE::from(4u64)];
+        let evals = vec![
+            FE::from(1u64),
+            FE::from(2u64),
+            FE::from(3u64),
+            FE::from(4u64),
+        ];
         let poly = DenseMultilinearPolynomial::new(evals);
         let result = pcs.commit(&poly);
-        assert!(result.is_err(), "commit with undersized SRS should return Err");
+        assert!(
+            result.is_err(),
+            "commit with undersized SRS should return Err"
+        );
         let msg = result.err().unwrap().to_string();
-        assert!(msg.contains("4") && msg.contains("2"), "error should mention sizes: {msg}");
+        assert!(
+            msg.contains("4") && msg.contains("2"),
+            "error should mention sizes: {msg}"
+        );
     }
 
     #[test]
