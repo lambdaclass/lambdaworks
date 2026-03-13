@@ -67,7 +67,11 @@ const MILLER_LOOP_CONSTANT_SQ: u128 =
     (MILLER_LOOP_CONSTANT as u128) * (MILLER_LOOP_CONSTANT as u128);
 
 /// 𝛽 : primitive cube root of unity of 𝐹ₚ that satisfies the minimal equation
-/// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
+/// 𝛽² + 𝛽 + 1 = 0 mod 𝑝.
+///
+/// Verified against Constantine `constantine/named/constants/bls12_381_endomorphisms.nim`.
+/// Can be recomputed with: `sage sage/derive_endomorphisms.sage BLS12_381`
+/// <https://github.com/mratsim/constantine/blob/master/constantine/named/constants/bls12_381_endomorphisms.nim>
 pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_unchecked(
     "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
 );
@@ -76,6 +80,10 @@ pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_u
 //
 // The endomorphism φ(x, y) = (βx, y) satisfies φ(P) = [λ]P for all P in the r-torsion subgroup.
 // GLV decomposition splits scalar k into k₁ + k₂·λ where |k₁|, |k₂| < √r.
+//
+// All constants verified against Constantine `bls12_381_endomorphisms.nim`.
+// Generation script: `sage sage/derive_endomorphisms.sage BLS12_381`
+// https://github.com/mratsim/constantine/blob/master/sage/derive_endomorphisms.sage
 
 /// The eigenvalue λ of the GLV endomorphism, satisfying λ² + λ + 1 ≡ 0 (mod r).
 pub const GLV_LAMBDA: U256 =
@@ -90,6 +98,9 @@ pub const GLV_LAMBDA: U256 =
 /// Rounding constants:
 ///   q1 = round(2^256 · v2[1] / r) = +0x17c6becf1e01faadd63f6e522f6cfee2e
 ///   q2 = round(2^256 · (-v1[1]) / r) = -2  (stored as |q2|=2, q2_is_neg=true)
+///
+/// Source: Constantine `constantine/named/constants/bls12_381_endomorphisms.nim`
+/// <https://github.com/mratsim/constantine/blob/master/constantine/named/constants/bls12_381_endomorphisms.nim>
 const BLS12_381_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
     q1: U256::from_hex_unchecked("17c6becf1e01faadd63f6e522f6cfee2e"),
     q2: U256::from_hex_unchecked("2"),
@@ -105,14 +116,18 @@ const BLS12_381_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
     q2_is_neg: true,
 };
 
-/// x-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
+/// x-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E.
+///
+/// These are the Frobenius constants for the "untwist-Frobenius-twist" endomorphism ψ on G2.
+/// See Constantine `constantine/math/endomorphisms/frobenius.nim` and
+/// <https://eprint.iacr.org/2022/352.pdf> Section 4.2.
 pub const ENDO_U: BLS12381TwistCurveFieldElement =
 BLS12381TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("0"),
     FieldElement::from_hex_unchecked("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad")
 ]);
 
-/// y-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
+/// y-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E.
 pub const ENDO_V: BLS12381TwistCurveFieldElement =
 BLS12381TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2"),
@@ -247,10 +262,12 @@ impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
     }
 }
 
-/// The curve seed x as U256 for division operations.
+/// The curve seed x as U256 for GLS division operations.
 const GLS_X: U256 = U256::from_u64(MILLER_LOOP_CONSTANT);
 
 /// Decomposes scalar k for GLS: k = k₁ - k₂·x (mod r)
+///
+/// See Galbraith-Lin-Scott (GLS), <https://eprint.iacr.org/2008/194>.
 ///
 /// Since x is 64 bits:
 /// - k₂ = k / x (approximately 192 bits)

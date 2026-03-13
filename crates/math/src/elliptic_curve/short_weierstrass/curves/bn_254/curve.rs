@@ -57,9 +57,16 @@ impl IsShortWeierstrass for BN254Curve {
 //
 // The endomorphism φ(x, y) = (βx, y) satisfies φ(P) = [λ]P for all P in the r-torsion.
 // β = β_large is the cube root of unity in Fp with eigenvalue λ_large in Fr.
+//
+// All constants verified against Constantine `bn254_snarks_endomorphisms.nim`.
+// Generation script: `sage sage/derive_endomorphisms.sage BN254_Snarks`
+// https://github.com/mratsim/constantine/blob/master/sage/derive_endomorphisms.sage
 
 /// β: primitive cube root of unity of Fp satisfying β² + β + 1 = 0 mod p.
 /// Uses the large root β = β_small² so that φ(P) = [GLV_LAMBDA]P with large lambda.
+///
+/// Verified against Constantine `constantine/named/constants/bn254_snarks_endomorphisms.nim`.
+/// <https://github.com/mratsim/constantine/blob/master/constantine/named/constants/bn254_snarks_endomorphisms.nim>
 pub const CUBE_ROOT_OF_UNITY_G1: BN254FieldElement = FieldElement::from_hex_unchecked(
     "30644e72e131a0295e6dd9e7e0acccb0c28f069fbb966e3de4bd44e5607cfd48",
 );
@@ -81,6 +88,9 @@ const BN254_SUBGROUP_ORDER: U256 =
 /// Rounding constants:
 ///   q1 = round(2^256 · v2[1] / r) = +0x24ccef014a773d2d25398fd0300ff6565
 ///   q2 = round(2^256 · (-v1[1]) / r) = +0x2d91d232ec7e0b3d7
+///
+/// Source: Constantine `constantine/named/constants/bn254_snarks_endomorphisms.nim`
+/// <https://github.com/mratsim/constantine/blob/master/constantine/named/constants/bn254_snarks_endomorphisms.nim>
 const BN254_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
     q1: U256::from_hex_unchecked("24ccef014a773d2d25398fd0300ff6565"),
     q2: U256::from_hex_unchecked("2d91d232ec7e0b3d7"),
@@ -98,6 +108,8 @@ const BN254_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
 
 /// Frobenius eigenvalue for GLS on G2: φ(Q) = [p mod r]Q.
 /// p mod r = t - 1 = 6x² where x is the BN254 seed.
+///
+/// See Galbraith-Lin-Scott (GLS), <https://eprint.iacr.org/2008/194>.
 const GLS_X_BN254: U256 = U256::from_hex_unchecked("6f4d8248eeb859fbf83e9682e87cfd46");
 
 impl ShortWeierstrassProjectivePoint<BN254Curve> {

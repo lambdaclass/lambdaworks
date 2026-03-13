@@ -70,7 +70,11 @@ const MILLER_LOOP_CONSTANT_SQ: u128 =
     (MILLER_LOOP_CONSTANT as u128) * (MILLER_LOOP_CONSTANT as u128);
 
 /// 𝛽 : primitive cube root of unity of 𝐹ₚ that satisfies the minimal equation
-/// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
+/// 𝛽² + 𝛽 + 1 = 0 mod 𝑝.
+///
+/// Verified against Constantine `constantine/named/constants/bls12_377_endomorphisms.nim`.
+/// Can be recomputed with: `sage sage/derive_endomorphisms.sage BLS12_377`
+/// <https://github.com/mratsim/constantine/blob/master/constantine/named/constants/bls12_377_endomorphisms.nim>
 pub const CUBE_ROOT_OF_UNITY_G1: BLS12377FieldElement = FieldElement::from_hex_unchecked(
     "0x1ae3a4617c510eabc8756ba8f8c524eb8882a75cc9bc8e359064ee822fb5bffd1e945779fffffffffffffffffffffff",
 );
@@ -79,6 +83,10 @@ pub const CUBE_ROOT_OF_UNITY_G1: BLS12377FieldElement = FieldElement::from_hex_u
 //
 // The endomorphism φ(x, y) = (βx, y) satisfies φ(P) = [λ]P for all P in the r-torsion subgroup.
 // GLV decomposition splits scalar k into k₁ + k₂·λ where |k₁|, |k₂| < √r.
+//
+// All constants verified against Constantine `bls12_377_endomorphisms.nim`.
+// Generation script: `sage sage/derive_endomorphisms.sage BLS12_377`
+// https://github.com/mratsim/constantine/blob/master/sage/derive_endomorphisms.sage
 
 /// The eigenvalue λ of the GLV endomorphism, satisfying λ² + λ + 1 ≡ 0 (mod r).
 pub const GLV_LAMBDA: U256 =
@@ -86,13 +94,16 @@ pub const GLV_LAMBDA: U256 =
 
 /// Babai-rounding GLV decomposition constants for BLS12-377.
 ///
-/// Lattice basis (from LLL):
+/// Lattice basis (from LLL on the GLV lattice {(a,b) : a + b·λ ≡ 0 mod r}):
 ///   v1 = (+0x452217cc900000010a11800000000001, +1)
 ///   v2 = (-1, +0x452217cc900000010a11800000000000)
 ///
 /// Rounding constants:
 ///   q1 = round(2^256 · v2[1] / r) = +0x3b3f7aa969fd371607f72ed32af90181e
 ///   q2 = round(2^256 · (-v1[1]) / r) = -14  (stored as |q2|=0xe, q2_is_neg=true)
+///
+/// Source: Constantine `constantine/named/constants/bls12_377_endomorphisms.nim`
+/// <https://github.com/mratsim/constantine/blob/master/constantine/named/constants/bls12_377_endomorphisms.nim>
 const BLS12_377_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
     q1: U256::from_hex_unchecked("3b3f7aa969fd371607f72ed32af90181e"),
     q2: U256::from_hex_unchecked("e"),
@@ -240,12 +251,14 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
     }
 }
 
-/// The curve seed u as U256 for GLS division.
+/// The curve seed u as U256 for GLS division operations.
 const GLS_X_377: U256 = U256::from_u64(MILLER_LOOP_CONSTANT);
 
 /// Decomposes scalar k for GLS: k = k₁ + k₂·u (mod r)
 ///
 /// BLS12-377: ψ(P) = [+u]P, so [k]P = [k₁]P + [k₂]ψ(P) directly (no sign flip).
+///
+/// See Galbraith-Lin-Scott (GLS), <https://eprint.iacr.org/2008/194>.
 ///
 /// Since u is 64 bits:
 /// - k₂ = k / u (approximately 192 bits)

@@ -14,6 +14,14 @@ use crate::unsigned_integer::element::U256;
 ///
 /// Rounding constants: q1 = round(2^256 · v2_1 / r), q2 = round(2^256 · (−v1_1) / r).
 /// We store absolute values and sign flags for all components.
+///
+/// References:
+/// - GLV method: Gallant, Lambert, Vanstone. "Faster Point Multiplication on Elliptic
+///   Curves with Efficient Endomorphisms". CRYPTO 2001. <https://doi.org/10.1007/3-540-44647-8_11>
+/// - GLS extension: Galbraith, Lin, Scott. "Endomorphisms for Faster Elliptic Curve
+///   Cryptography on a Large Class of Curves". EUROCRYPT 2009. <https://eprint.iacr.org/2008/194>
+/// - Babai rounding: see Constantine `constantine/math/endomorphisms/split_scalars.nim`
+///   <https://github.com/mratsim/constantine/blob/master/constantine/math/endomorphisms/split_scalars.nim>
 pub(crate) struct GlvDecompConstants {
     /// Babai rounding constant |q1| = |round(2^256 · v2[1] / r)|
     pub q1: U256,
@@ -71,7 +79,8 @@ fn signed_add(acc_neg: bool, acc: U256, term_neg: bool, term: U256) -> (bool, U2
 /// 3. k1 = k − (sign(q1)·c1)·v1[0] − (sign(q2)·c2)·v2[0]
 /// 4. k2 = −(sign(q1)·c1)·v1[1] − (sign(q2)·c2)·v2[1]
 ///
-/// Reference: kilic/bls12-381, gnark-crypto, Constantine.
+/// References: kilic/bls12-381, gnark-crypto, Constantine
+/// (`constantine/math/endomorphisms/split_scalars.nim`).
 pub(crate) fn glv_decompose_babai(k: &U256, c: &GlvDecompConstants) -> (bool, U256, bool, U256) {
     // c1 = hi(k * |q1|), sign inherited from q1
     let (c1, _) = U256::mul(k, &c.q1);
