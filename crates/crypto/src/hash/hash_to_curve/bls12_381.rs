@@ -588,11 +588,17 @@ fn fp2_sqrt(a: &Fp2Element) -> Option<Fp2Element> {
         let two_delta = &delta + &delta;
         // delta = 0 implies gamma = 0 implies a0 = -sqrt_alpha implies a1² = 0,
         // which contradicts the a1 ≠ 0 guard above.
-        debug_assert!(two_delta != FpElement::zero(), "fp2_sqrt: delta cannot be zero when a1 != 0");
+        debug_assert!(
+            two_delta != FpElement::zero(),
+            "fp2_sqrt: delta cannot be zero when a1 != 0"
+        );
         if two_delta != FpElement::zero() {
             let y1 = a1 * two_delta.inv().ok()?;
             let result = Fp2Element::new([delta.clone(), y1]);
-            debug_assert!(&result * &result == *a, "fp2_sqrt: result² != a (should be unreachable)");
+            debug_assert!(
+                &result * &result == *a,
+                "fp2_sqrt: result² != a (should be unreachable)"
+            );
             if &result * &result == *a {
                 return Some(result);
             }
@@ -602,11 +608,17 @@ fn fp2_sqrt(a: &Fp2Element) -> Option<Fp2Element> {
     let gamma2 = (a0 - &sqrt_alpha) * &two_inv;
     if let Some(delta2) = fp_sqrt(&gamma2) {
         let two_delta2 = &delta2 + &delta2;
-        debug_assert!(two_delta2 != FpElement::zero(), "fp2_sqrt: delta2 cannot be zero when a1 != 0");
+        debug_assert!(
+            two_delta2 != FpElement::zero(),
+            "fp2_sqrt: delta2 cannot be zero when a1 != 0"
+        );
         if two_delta2 != FpElement::zero() {
             let y1 = a1 * two_delta2.inv().ok()?;
             let result = Fp2Element::new([delta2, y1]);
-            debug_assert!(&result * &result == *a, "fp2_sqrt: result² != a (should be unreachable)");
+            debug_assert!(
+                &result * &result == *a,
+                "fp2_sqrt: result² != a (should be unreachable)"
+            );
             if &result * &result == *a {
                 return Some(result);
             }
