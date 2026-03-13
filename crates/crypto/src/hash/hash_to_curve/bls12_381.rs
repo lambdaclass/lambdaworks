@@ -10,6 +10,7 @@
 //! - G1: `BLS12381G1_XMD:SHA-256_SSWU_RO_`
 //! - G2: `BLS12381G2_XMD:SHA-256_SSWU_RO_`
 
+use core::fmt;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -23,17 +24,41 @@ use lambdaworks_math::{
         },
         traits::IsEllipticCurve,
     },
-    field::element::FieldElement,
+    field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
     unsigned_integer::element::U384,
 };
 
-use crate::hash::sha2::Sha2Hasher;
+use crate::hash::sha2::{Sha2Error, Sha2Hasher};
 
 type FpElement = FieldElement<BLS12381PrimeField>;
 type Fp2Element = FieldElement<Degree2ExtensionField>;
 type G1Point = ShortWeierstrassJacobianPoint<BLS12381Curve>;
 type G2Point = ShortWeierstrassJacobianPoint<BLS12381TwistCurve>;
+
+/// Error type for hash-to-curve operations.
+#[derive(Debug)]
+pub enum HashToCurveError {
+    /// Error from SHA-256 message expansion
+    Sha2(Sha2Error),
+}
+
+impl fmt::Display for HashToCurveError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HashToCurveError::Sha2(e) => write!(f, "hash-to-curve: {}", e),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for HashToCurveError {}
+
+impl From<Sha2Error> for HashToCurveError {
+    fn from(e: Sha2Error) -> Self {
+        HashToCurveError::Sha2(e)
+    }
+}
 
 /// Default DST for BLS12-381 G1 hash-to-curve.
 ///
@@ -163,6 +188,14 @@ const ISO_G1_YDEN: [FpElement; 16] = [
     FpElement::from_hex_unchecked("1"), // monic
 ];
 
+// ψ² endomorphism x-coordinate coefficient.
+const PSI2_COEFF_X: Fp2Element = Fp2Element::const_from_raw([
+    FpElement::from_hex_unchecked(
+        "1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac",
+    ),
+    FpElement::from_hex_unchecked("0"),
+]);
+
 // ============================================================================
 // 3-isogeny coefficients for G2 (RFC 9380 Section 8.8.2)
 // ============================================================================
@@ -248,8 +281,8 @@ const ISO_G2_YDEN: [Fp2Element; 4] = [
 ///
 /// Uses the full hash-to-curve pipeline: hash_to_field → SSWU → 11-isogeny → cofactor clearing.
 /// The result is always a valid point in the prime-order G1 subgroup.
-pub fn hash_to_g1(msg: &[u8], dst: &[u8]) -> G1Point {
-    let (u0, u1) = hash_to_fp(msg, dst);
+pub fn hash_to_g1(msg: &[u8], dst: &[u8]) -> Result<G1Point, HashToCurveError> {
+    let (u0, u1) = hash_to_fp(msg, dst)?;
     let (q0x, q0y) = map_to_curve_sswu_g1(&u0);
     let (q1x, q1y) = map_to_curve_sswu_g1(&u1);
     let (r0x, r0y) = iso_map_g1(&q0x, &q0y);
@@ -258,11 +291,11 @@ pub fn hash_to_g1(msg: &[u8], dst: &[u8]) -> G1Point {
         .expect("iso_map output should be on curve");
     let r1 = BLS12381Curve::create_point_from_affine(r1x, r1y)
         .expect("iso_map output should be on curve");
-    clear_cofactor_g1(&r0.operate_with(&r1))
+    Ok(clear_cofactor_g1(&r0.operate_with(&r1)))
 }
 
 /// Hash a message to G1 with the default DST.
-pub fn hash_to_g1_default(msg: &[u8]) -> G1Point {
+pub fn hash_to_g1_default(msg: &[u8]) -> Result<G1Point, HashToCurveError> {
     hash_to_g1(msg, DEFAULT_DST_G1)
 }
 
@@ -270,8 +303,8 @@ pub fn hash_to_g1_default(msg: &[u8]) -> G1Point {
 ///
 /// Uses the full hash-to-curve pipeline: hash_to_field → SSWU → 3-isogeny → cofactor clearing.
 /// The result is always a valid point in the prime-order G2 subgroup.
-pub fn hash_to_g2(msg: &[u8], dst: &[u8]) -> G2Point {
-    let (u0, u1) = hash_to_fp2(msg, dst);
+pub fn hash_to_g2(msg: &[u8], dst: &[u8]) -> Result<G2Point, HashToCurveError> {
+    let (u0, u1) = hash_to_fp2(msg, dst)?;
     let (q0x, q0y) = map_to_curve_sswu_g2(&u0);
     let (q1x, q1y) = map_to_curve_sswu_g2(&u1);
     let (r0x, r0y) = iso_map_g2(&q0x, &q0y);
@@ -280,11 +313,11 @@ pub fn hash_to_g2(msg: &[u8], dst: &[u8]) -> G2Point {
         .expect("iso_map output should be on curve");
     let r1 = BLS12381TwistCurve::create_point_from_affine(r1x, r1y)
         .expect("iso_map output should be on curve");
-    clear_cofactor_g2(&r0.operate_with(&r1))
+    Ok(clear_cofactor_g2(&r0.operate_with(&r1)))
 }
 
 /// Hash a message to G2 with the default DST.
-pub fn hash_to_g2_default(msg: &[u8]) -> G2Point {
+pub fn hash_to_g2_default(msg: &[u8]) -> Result<G2Point, HashToCurveError> {
     hash_to_g2(msg, DEFAULT_DST_G2)
 }
 
@@ -293,26 +326,24 @@ pub fn hash_to_g2_default(msg: &[u8]) -> G2Point {
 // ============================================================================
 
 /// Expand message and produce two Fp elements for G1.
-fn hash_to_fp(msg: &[u8], dst: &[u8]) -> (FpElement, FpElement) {
+fn hash_to_fp(msg: &[u8], dst: &[u8]) -> Result<(FpElement, FpElement), HashToCurveError> {
     const L: usize = 64;
-    let expanded = Sha2Hasher::expand_message(msg, dst, (2 * L) as u64)
-        .expect("expand_message should not fail with valid DST and length");
-    (
+    let expanded = Sha2Hasher::expand_message(msg, dst, (2 * L) as u64)?;
+    Ok((
         os2ip_mod_p(&expanded[0..L]),
         os2ip_mod_p(&expanded[L..2 * L]),
-    )
+    ))
 }
 
 /// Expand message and produce two Fp2 elements for G2.
-fn hash_to_fp2(msg: &[u8], dst: &[u8]) -> (Fp2Element, Fp2Element) {
+fn hash_to_fp2(msg: &[u8], dst: &[u8]) -> Result<(Fp2Element, Fp2Element), HashToCurveError> {
     const L: usize = 64;
-    let expanded = Sha2Hasher::expand_message(msg, dst, (4 * L) as u64)
-        .expect("expand_message should not fail with valid DST and length");
+    let expanded = Sha2Hasher::expand_message(msg, dst, (4 * L) as u64)?;
     let e0 = os2ip_mod_p(&expanded[0..L]);
     let e1 = os2ip_mod_p(&expanded[L..2 * L]);
     let e2 = os2ip_mod_p(&expanded[2 * L..3 * L]);
     let e3 = os2ip_mod_p(&expanded[3 * L..4 * L]);
-    (Fp2Element::new([e0, e1]), Fp2Element::new([e2, e3]))
+    Ok((Fp2Element::new([e0, e1]), Fp2Element::new([e2, e3])))
 }
 
 /// Convert 64 bytes (big-endian) to a field element mod p.
@@ -422,16 +453,8 @@ fn map_to_curve_sswu_g2(u: &Fp2Element) -> (Fp2Element, Fp2Element) {
 
 /// Evaluate a polynomial at x using Horner's method.
 /// Coefficients are [c0, c1, ..., cn] representing c0 + c1*x + ... + cn*x^n.
-fn eval_poly_fp<const N: usize>(x: &FpElement, coeffs: &[FpElement; N]) -> FpElement {
-    let mut result = coeffs[N - 1].clone();
-    for c in coeffs.iter().rev().skip(1) {
-        result = &result * x + c;
-    }
-    result
-}
-
-fn eval_poly_fp2<const N: usize>(x: &Fp2Element, coeffs: &[Fp2Element; N]) -> Fp2Element {
-    let mut result = coeffs[N - 1].clone();
+fn eval_poly<F: IsField>(x: &FieldElement<F>, coeffs: &[FieldElement<F>]) -> FieldElement<F> {
+    let mut result = coeffs.last().expect("coeffs must be non-empty").clone();
     for c in coeffs.iter().rev().skip(1) {
         result = &result * x + c;
     }
@@ -440,10 +463,10 @@ fn eval_poly_fp2<const N: usize>(x: &Fp2Element, coeffs: &[Fp2Element; N]) -> Fp
 
 /// 11-isogeny from E1' to E1 (RFC 9380 Section 8.8.1).
 fn iso_map_g1(x: &FpElement, y: &FpElement) -> (FpElement, FpElement) {
-    let x_num = eval_poly_fp(x, &ISO_G1_XNUM);
-    let x_den = eval_poly_fp(x, &ISO_G1_XDEN);
-    let y_num = eval_poly_fp(x, &ISO_G1_YNUM);
-    let y_den = eval_poly_fp(x, &ISO_G1_YDEN);
+    let x_num = eval_poly(x, &ISO_G1_XNUM);
+    let x_den = eval_poly(x, &ISO_G1_XDEN);
+    let y_num = eval_poly(x, &ISO_G1_YNUM);
+    let y_den = eval_poly(x, &ISO_G1_YDEN);
     let x_out = &x_num * x_den.inv().expect("x_den nonzero");
     let y_out = y * &y_num * y_den.inv().expect("y_den nonzero");
     (x_out, y_out)
@@ -451,10 +474,10 @@ fn iso_map_g1(x: &FpElement, y: &FpElement) -> (FpElement, FpElement) {
 
 /// 3-isogeny from E2' to E2 (RFC 9380 Section 8.8.2).
 fn iso_map_g2(x: &Fp2Element, y: &Fp2Element) -> (Fp2Element, Fp2Element) {
-    let x_num = eval_poly_fp2(x, &ISO_G2_XNUM);
-    let x_den = eval_poly_fp2(x, &ISO_G2_XDEN);
-    let y_num = eval_poly_fp2(x, &ISO_G2_YNUM);
-    let y_den = eval_poly_fp2(x, &ISO_G2_YDEN);
+    let x_num = eval_poly(x, &ISO_G2_XNUM);
+    let x_den = eval_poly(x, &ISO_G2_XDEN);
+    let y_num = eval_poly(x, &ISO_G2_YNUM);
+    let y_den = eval_poly(x, &ISO_G2_YDEN);
     let x_out = &x_num * x_den.inv().expect("x_den nonzero");
     let y_out = y * &y_num * y_den.inv().expect("y_den nonzero");
     (x_out, y_out)
@@ -495,13 +518,7 @@ fn psi_square(p: &G2Point) -> G2Point {
         return p.clone();
     }
     let [x, y, z] = p.coordinates();
-    let psi2_coeff_x = Fp2Element::const_from_raw([
-        FpElement::from_hex_unchecked(
-            "1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac",
-        ),
-        FpElement::from_hex_unchecked("0"),
-    ]);
-    ShortWeierstrassJacobianPoint::new([x * &psi2_coeff_x, -y, z.clone()])
+    ShortWeierstrassJacobianPoint::new([x * &PSI2_COEFF_X, -y, z.clone()])
         .expect("psi_square preserves curve validity")
 }
 
@@ -614,7 +631,7 @@ mod tests {
 
     #[test]
     fn test_rfc9380_g1_empty_message() {
-        let p = hash_to_g1(b"", RFC_DST_G1).to_affine();
+        let p = hash_to_g1(b"", RFC_DST_G1).unwrap().to_affine();
         let [px, py, _] = p.coordinates();
 
         let expected_x = FpElement::new(U384::from_hex_unchecked(
@@ -630,7 +647,7 @@ mod tests {
 
     #[test]
     fn test_rfc9380_g1_abc() {
-        let p = hash_to_g1(b"abc", RFC_DST_G1).to_affine();
+        let p = hash_to_g1(b"abc", RFC_DST_G1).unwrap().to_affine();
         let [px, py, _] = p.coordinates();
 
         let expected_x = FpElement::new(U384::from_hex_unchecked(
@@ -646,7 +663,7 @@ mod tests {
 
     #[test]
     fn test_rfc9380_g2_empty_message() {
-        let p = hash_to_g2(b"", RFC_DST_G2).to_affine();
+        let p = hash_to_g2(b"", RFC_DST_G2).unwrap().to_affine();
         let [px, py, _] = p.coordinates();
         let [px0, px1] = px.value();
         let [py0, py1] = py.value();
@@ -672,7 +689,7 @@ mod tests {
 
     #[test]
     fn test_rfc9380_g2_abc() {
-        let p = hash_to_g2(b"abc", RFC_DST_G2).to_affine();
+        let p = hash_to_g2(b"abc", RFC_DST_G2).unwrap().to_affine();
         let [px, py, _] = p.coordinates();
         let [px0, px1] = px.value();
         let [py0, py1] = py.value();
@@ -702,61 +719,61 @@ mod tests {
 
     #[test]
     fn test_hash_to_g1_deterministic() {
-        let p1 = hash_to_g1(b"test message", DEFAULT_DST_G1);
-        let p2 = hash_to_g1(b"test message", DEFAULT_DST_G1);
+        let p1 = hash_to_g1(b"test message", DEFAULT_DST_G1).unwrap();
+        let p2 = hash_to_g1(b"test message", DEFAULT_DST_G1).unwrap();
         assert_eq!(p1, p2);
     }
 
     #[test]
     fn test_hash_to_g1_different_messages() {
-        let p1 = hash_to_g1(b"message 1", DEFAULT_DST_G1);
-        let p2 = hash_to_g1(b"message 2", DEFAULT_DST_G1);
+        let p1 = hash_to_g1(b"message 1", DEFAULT_DST_G1).unwrap();
+        let p2 = hash_to_g1(b"message 2", DEFAULT_DST_G1).unwrap();
         assert_ne!(p1, p2);
     }
 
     #[test]
     fn test_hash_to_g1_not_identity() {
-        let p = hash_to_g1(b"test", DEFAULT_DST_G1);
+        let p = hash_to_g1(b"test", DEFAULT_DST_G1).unwrap();
         assert!(!p.is_neutral_element());
     }
 
     #[test]
     fn test_hash_to_g1_in_subgroup() {
-        let p = hash_to_g1(b"subgroup test", DEFAULT_DST_G1);
+        let p = hash_to_g1(b"subgroup test", DEFAULT_DST_G1).unwrap();
         assert!(p.is_in_subgroup());
     }
 
     #[test]
     fn test_hash_to_g2_deterministic() {
-        let p1 = hash_to_g2(b"test message", DEFAULT_DST_G2);
-        let p2 = hash_to_g2(b"test message", DEFAULT_DST_G2);
+        let p1 = hash_to_g2(b"test message", DEFAULT_DST_G2).unwrap();
+        let p2 = hash_to_g2(b"test message", DEFAULT_DST_G2).unwrap();
         assert_eq!(p1, p2);
     }
 
     #[test]
     fn test_hash_to_g2_different_messages() {
-        let p1 = hash_to_g2(b"message 1", DEFAULT_DST_G2);
-        let p2 = hash_to_g2(b"message 2", DEFAULT_DST_G2);
+        let p1 = hash_to_g2(b"message 1", DEFAULT_DST_G2).unwrap();
+        let p2 = hash_to_g2(b"message 2", DEFAULT_DST_G2).unwrap();
         assert_ne!(p1, p2);
     }
 
     #[test]
     fn test_hash_to_g2_not_identity() {
-        let p = hash_to_g2(b"test", DEFAULT_DST_G2);
+        let p = hash_to_g2(b"test", DEFAULT_DST_G2).unwrap();
         assert!(!p.is_neutral_element());
     }
 
     #[test]
     fn test_hash_to_g2_in_subgroup() {
-        let p = hash_to_g2(b"subgroup test", DEFAULT_DST_G2);
+        let p = hash_to_g2(b"subgroup test", DEFAULT_DST_G2).unwrap();
         assert!(p.is_in_subgroup());
     }
 
     #[test]
     fn test_different_dst_produces_different_points() {
         let msg = b"same message";
-        let p1 = hash_to_g2(msg, b"DST_ONE");
-        let p2 = hash_to_g2(msg, b"DST_TWO");
+        let p1 = hash_to_g2(msg, b"DST_ONE").unwrap();
+        let p2 = hash_to_g2(msg, b"DST_TWO").unwrap();
         assert_ne!(p1, p2);
     }
 
@@ -818,7 +835,7 @@ mod tests {
     fn test_multiple_hashes_g1_all_in_subgroup() {
         for i in 0u64..5 {
             let msg = alloc::format!("test message {}", i);
-            let p = hash_to_g1(msg.as_bytes(), DEFAULT_DST_G1);
+            let p = hash_to_g1(msg.as_bytes(), DEFAULT_DST_G1).unwrap();
             assert!(p.is_in_subgroup());
         }
     }
@@ -827,7 +844,7 @@ mod tests {
     fn test_multiple_hashes_g2_all_in_subgroup() {
         for i in 0u64..5 {
             let msg = alloc::format!("test message {}", i);
-            let p = hash_to_g2(msg.as_bytes(), DEFAULT_DST_G2);
+            let p = hash_to_g2(msg.as_bytes(), DEFAULT_DST_G2).unwrap();
             assert!(p.is_in_subgroup());
         }
     }

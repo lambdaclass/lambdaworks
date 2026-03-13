@@ -40,10 +40,10 @@ pub struct Sha2Hasher;
 
 impl Sha2Hasher {
     /// expand_message_xmd using SHA-256 (RFC 9380 Section 5.3.1).
+    ///
+    /// Uses incremental hashing to avoid intermediate allocations.
     pub fn expand_message(msg: &[u8], dst: &[u8], len_in_bytes: u64) -> Result<Vec<u8>, Sha2Error> {
-        let b_in_bytes = <Sha256 as Digest>::output_size() as u64; // 32
-
-        let ell = len_in_bytes.div_ceil(b_in_bytes);
+        let ell = len_in_bytes.div_ceil(32);
         if ell > 255 {
             return Err(Sha2Error::ExpansionLengthTooLarge(ell));
         }
@@ -51,45 +51,46 @@ impl Sha2Hasher {
             return Err(Sha2Error::DstTooLong(dst.len()));
         }
 
-        let dst_prime: Vec<u8> = [dst, &i2osp(dst.len() as u64, 1)].concat();
-        let z_pad = i2osp(0, 64);
-        let l_i_b_str = i2osp(len_in_bytes, 2);
-        let msg_prime = [&z_pad[..], msg, &l_i_b_str, &i2osp(0, 1), &dst_prime].concat();
-        let b_0: Vec<u8> = Sha256::digest(&msg_prime).to_vec();
-        let b_1 = Sha256::digest([&b_0[..], &i2osp(1, 1), &dst_prime].concat()).to_vec();
+        let dst_len_byte = [dst.len() as u8];
+        let lib_str = (len_in_bytes as u16).to_be_bytes();
 
-        let mut b_vals = Vec::<Vec<u8>>::with_capacity(ell as usize);
-        b_vals.push(b_1);
+        // b_0 = H(Z_pad || msg || l_i_b_str || I2OSP(0,1) || DST_prime)
+        let mut h = Sha256::new();
+        h.update([0u8; 64]);
+        h.update(msg);
+        h.update(lib_str);
+        h.update([0u8]);
+        h.update(dst);
+        h.update(dst_len_byte);
+        let b_0: [u8; 32] = h.finalize().into();
+
+        // b_1 = H(b_0 || I2OSP(1,1) || DST_prime)
+        let mut h = Sha256::new();
+        h.update(b_0);
+        h.update([1u8]);
+        h.update(dst);
+        h.update(dst_len_byte);
+        let mut prev: [u8; 32] = h.finalize().into();
+
+        let mut result = Vec::with_capacity(len_in_bytes as usize);
+        result.extend_from_slice(&prev);
+
         for idx in 1..ell {
-            let aux = strxor(&b_0, &b_vals[idx as usize - 1]);
-            let b_i = [&aux[..], &i2osp(idx + 1, 1), &dst_prime].concat();
-            b_vals.push(Sha256::digest(&b_i).to_vec());
+            // b_i = H(strxor(b_0, b_{i-1}) || I2OSP(i+1,1) || DST_prime)
+            let mut xored = [0u8; 32];
+            for j in 0..32 {
+                xored[j] = b_0[j] ^ prev[j];
+            }
+            let mut h = Sha256::new();
+            h.update(xored);
+            h.update([(idx + 1) as u8]);
+            h.update(dst);
+            h.update(dst_len_byte);
+            prev = h.finalize().into();
+            result.extend_from_slice(&prev);
         }
 
-        let mut result = b_vals.concat();
         result.truncate(len_in_bytes as usize);
-
         Ok(result)
     }
-}
-
-fn i2osp(x: u64, length: u64) -> Vec<u8> {
-    debug_assert!(
-        length >= 8 || x < (1u64 << (8 * length)),
-        "i2osp: value {x} does not fit in {length} byte(s)"
-    );
-    let bytes = x.to_be_bytes();
-    let len = length as usize;
-    if len >= 8 {
-        let mut result = vec![0u8; len - 8];
-        result.extend_from_slice(&bytes);
-        result
-    } else {
-        bytes[8 - len..].to_vec()
-    }
-}
-
-fn strxor(a: &[u8], b: &[u8]) -> Vec<u8> {
-    debug_assert_eq!(a.len(), b.len(), "strxor: inputs must have equal length");
-    a.iter().zip(b).map(|(a, b)| a ^ b).collect()
 }
