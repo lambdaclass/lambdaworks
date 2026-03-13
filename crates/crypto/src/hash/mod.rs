@@ -1,7 +1,9 @@
+pub mod hash_to_curve;
 pub mod hash_to_field;
 pub mod monolith;
 pub mod pedersen;
 pub mod poseidon;
 pub mod poseidon2;
 pub mod rescue;
+pub mod sha2;
 pub mod sha3;
