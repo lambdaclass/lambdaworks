@@ -90,5 +90,6 @@ fn i2osp(x: u64, length: u64) -> Vec<u8> {
 }
 
 fn strxor(a: &[u8], b: &[u8]) -> Vec<u8> {
+    debug_assert_eq!(a.len(), b.len(), "strxor: inputs must have equal length");
     a.iter().zip(b).map(|(a, b)| a ^ b).collect()
 }
