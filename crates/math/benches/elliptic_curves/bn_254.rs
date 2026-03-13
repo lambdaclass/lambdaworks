@@ -114,6 +114,16 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         bencher.iter(|| black_box(a_g2.is_in_subgroup()));
     });
 
+    // GLV scalar multiplication G1 (optimized)
+    group.bench_function("GLV_mul_G1", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g1).glv_mul(black_box(&b_val.into()))));
+    });
+
+    // GLS scalar multiplication G2 (optimized)
+    group.bench_function("GLS_mul_G2", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g2).gls_mul(black_box(&b_val.into()))));
+    });
+
     // Ate Pairing
     group.bench_function("Ate Pairing", |bencher| {
         bencher.iter(|| {
@@ -346,4 +356,65 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     }
 
     batch_group.finish();
+
+    // GLV scalar multiplication comparison benchmarks (G1)
+    // GLV uses Babai-rounding lattice decomposition: k = k1 + k2·λ with |k1|, |k2| ~ 128 bits.
+    // Shamir's trick reduces iterations from 254 to ~128 bits.
+    let mut glv_group = c.benchmark_group("BN254 G1 Scalar Multiplication");
+    glv_group.significance_level(0.1).sample_size(10000);
+
+    let g1 = BN254Curve::generator();
+    let scalar_128 = U256::from_hex_unchecked("123456789ABCDEF0123456789ABCDEF0");
+    let scalar_192 = U256::from_hex_unchecked("123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0");
+    let scalar_254 = U256::from_hex_unchecked(
+        "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
+    );
+
+    glv_group.bench_function("Baseline 128-bit", |bencher| {
+        bencher.iter(|| black_box(g1.operate_with_self(black_box(scalar_128))));
+    });
+    glv_group.bench_function("Baseline 192-bit", |bencher| {
+        bencher.iter(|| black_box(g1.operate_with_self(black_box(scalar_192))));
+    });
+    glv_group.bench_function("Baseline 254-bit", |bencher| {
+        bencher.iter(|| black_box(g1.operate_with_self(black_box(scalar_254))));
+    });
+    glv_group.bench_function("GLV 128-bit", |bencher| {
+        bencher.iter(|| black_box(g1.glv_mul(black_box(&scalar_128))));
+    });
+    glv_group.bench_function("GLV 192-bit", |bencher| {
+        bencher.iter(|| black_box(g1.glv_mul(black_box(&scalar_192))));
+    });
+    glv_group.bench_function("GLV 254-bit", |bencher| {
+        bencher.iter(|| black_box(g1.glv_mul(black_box(&scalar_254))));
+    });
+    glv_group.finish();
+
+    // GLS scalar multiplication comparison benchmarks (G2)
+    // GLS uses the Frobenius endomorphism φ(Q) = [p mod r]Q (eigenvalue ≈ 127 bits),
+    // Measured speedup: +30% (192-bit), +37% (254-bit).
+    let mut gls_group = c.benchmark_group("BN254 G2 Scalar Multiplication");
+    gls_group.significance_level(0.1).sample_size(10000);
+
+    let g2 = BN254TwistCurve::generator();
+
+    gls_group.bench_function("Baseline 128-bit", |bencher| {
+        bencher.iter(|| black_box(g2.operate_with_self(black_box(scalar_128))));
+    });
+    gls_group.bench_function("Baseline 192-bit", |bencher| {
+        bencher.iter(|| black_box(g2.operate_with_self(black_box(scalar_192))));
+    });
+    gls_group.bench_function("Baseline 254-bit", |bencher| {
+        bencher.iter(|| black_box(g2.operate_with_self(black_box(scalar_254))));
+    });
+    gls_group.bench_function("GLS 128-bit", |bencher| {
+        bencher.iter(|| black_box(g2.gls_mul(black_box(&scalar_128))));
+    });
+    gls_group.bench_function("GLS 192-bit", |bencher| {
+        bencher.iter(|| black_box(g2.gls_mul(black_box(&scalar_192))));
+    });
+    gls_group.bench_function("GLS 254-bit", |bencher| {
+        bencher.iter(|| black_box(g2.gls_mul(black_box(&scalar_254))));
+    });
+    gls_group.finish();
 }

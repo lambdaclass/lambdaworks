@@ -4,6 +4,9 @@ use super::{
 };
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
+use crate::elliptic_curve::short_weierstrass::utils::{
+    glv_decompose_babai, shamir_two_scalar_mul, GlvDecompConstants,
+};
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
 use crate::{
@@ -64,7 +67,11 @@ const MILLER_LOOP_CONSTANT_SQ: u128 =
     (MILLER_LOOP_CONSTANT as u128) * (MILLER_LOOP_CONSTANT as u128);
 
 /// 𝛽 : primitive cube root of unity of 𝐹ₚ that satisfies the minimal equation
-/// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
+/// 𝛽² + 𝛽 + 1 = 0 mod 𝑝.
+///
+/// Verified against Constantine `constantine/named/constants/bls12_381_endomorphisms.nim`.
+/// Can be recomputed with: `sage sage/derive_endomorphisms.sage BLS12_381`
+/// <https://github.com/mratsim/constantine/blob/master/constantine/named/constants/bls12_381_endomorphisms.nim>
 pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_unchecked(
     "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
 );
@@ -73,27 +80,54 @@ pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_u
 //
 // The endomorphism φ(x, y) = (βx, y) satisfies φ(P) = [λ]P for all P in the r-torsion subgroup.
 // GLV decomposition splits scalar k into k₁ + k₂·λ where |k₁|, |k₂| < √r.
+//
+// All constants verified against Constantine `bls12_381_endomorphisms.nim`.
+// Generation script: `sage sage/derive_endomorphisms.sage BLS12_381`
+// https://github.com/mratsim/constantine/blob/master/sage/derive_endomorphisms.sage
 
 /// The eigenvalue λ of the GLV endomorphism, satisfying λ² + λ + 1 ≡ 0 (mod r).
 pub const GLV_LAMBDA: U256 =
     U256::from_hex_unchecked("73eda753299d7d483339d80809a1d804a7780001fffcb7fcfffffffe00000001");
 
-/// The small cube root of unity ω in Fr (≈ 2^127), used for scalar decomposition.
-const GLV_OMEGA: U256 =
-    U256::from_hex_unchecked("00000000000000000000000000000000ac45a4010001a40200000000ffffffff");
+/// Babai-rounding GLV decomposition constants for BLS12-381.
+///
+/// Lattice basis (from LLL on the GLV lattice {(a,b) : a + b·λ ≡ 0 mod r}):
+///   v1 = (+0xac45a4010001a4020000000100000000, +1)
+///   v2 = (-1, +0xac45a4010001a40200000000ffffffff)
+///
+/// Rounding constants:
+///   q1 = round(2^256 · v2[1] / r) = +0x17c6becf1e01faadd63f6e522f6cfee2e
+///   q2 = round(2^256 · (-v1[1]) / r) = -2  (stored as |q2|=2, q2_is_neg=true)
+///
+/// Source: Constantine `constantine/named/constants/bls12_381_endomorphisms.nim`
+/// <https://github.com/mratsim/constantine/blob/master/constantine/named/constants/bls12_381_endomorphisms.nim>
+const BLS12_381_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
+    q1: U256::from_hex_unchecked("17c6becf1e01faadd63f6e522f6cfee2e"),
+    q2: U256::from_hex_unchecked("2"),
+    b1_0: U256::from_hex_unchecked("ac45a4010001a4020000000100000000"),
+    b1_1: U256::from_hex_unchecked("1"),
+    b2_0: U256::from_hex_unchecked("1"),
+    b2_1: U256::from_hex_unchecked("ac45a4010001a40200000000ffffffff"),
+    v1_0_is_neg: false,
+    v1_1_is_neg: false,
+    v2_0_is_neg: true,
+    v2_1_is_neg: false,
+    q1_is_neg: false,
+    q2_is_neg: true,
+};
 
-/// ω + 1, used in the decomposition formula.
-const GLV_OMEGA_PLUS_ONE: U256 =
-    U256::from_hex_unchecked("00000000000000000000000000000000ac45a4010001a4020000000100000000");
-
-/// x-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
+/// x-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E.
+///
+/// These are the Frobenius constants for the "untwist-Frobenius-twist" endomorphism ψ on G2.
+/// See Constantine `constantine/math/endomorphisms/frobenius.nim` and
+/// <https://eprint.iacr.org/2022/352.pdf> Section 4.2.
 pub const ENDO_U: BLS12381TwistCurveFieldElement =
 BLS12381TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("0"),
     FieldElement::from_hex_unchecked("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad")
 ]);
 
-/// y-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
+/// y-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E.
 pub const ENDO_V: BLS12381TwistCurveFieldElement =
 BLS12381TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("135203e60180a68ee2e9c448d77a2cd91c3dedd930b1cf60ef396489f61eb45e304466cf3e67fa0af1ee7b04121bdea2"),
@@ -121,112 +155,32 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
 
     /// GLV scalar multiplication: computes [k]P using the endomorphism for ~2x speedup.
     ///
-    /// Decomposes k = k1 + k2*ω with small k1, k2 (~128 bits each), then uses
-    /// Shamir's trick for joint scalar multiplication.
+    /// Uses Babai nearest-plane decomposition: k = k1 + k2·λ (mod r) with |k1|, |k2| ~ √r
+    /// (~128 bits), then Shamir's trick for joint scalar multiplication.
     pub fn glv_mul(&self, k: &U256) -> Self {
         if self.is_neutral_element() {
             return self.clone();
         }
+        if *k == U256::from_u64(0) {
+            return Self::neutral_element();
+        }
 
-        let (k1_neg, k1, k2_neg, k2) = glv_decompose(k);
+        // Reduce k mod r to ensure correct decomposition
+        let k_reduced = if *k >= SUBGROUP_ORDER {
+            let (_, rem) = k.div_rem(&SUBGROUP_ORDER);
+            rem
+        } else {
+            *k
+        };
+
+        let (k1_neg, k1, k2_neg, k2) = glv_decompose_babai(&k_reduced, &BLS12_381_GLV_CONSTANTS);
         let phi_p = self.phi();
 
         let p1 = if k1_neg { self.neg() } else { self.clone() };
-        let p2 = if k2_neg { phi_p } else { phi_p.neg() };
+        let p2 = if k2_neg { phi_p.neg() } else { phi_p };
 
-        shamir_double_and_add(&p1, &k1, &p2, &k2)
+        shamir_two_scalar_mul(&p1, &k1, &p2, &k2)
     }
-}
-
-/// Decomposes scalar k into k₁ + k₂*ω (mod r) where |k₁|, |k₂| are approximately √r.
-///
-/// Returns (a_neg, |a|, b_neg, |b|) for the GLV formula: [k]P = [a]P + [b]φ(P).
-fn glv_decompose(k: &U256) -> (bool, U256, bool, U256) {
-    let zero = U256::from_u64(0);
-
-    // Small scalars need no decomposition
-    if *k < GLV_OMEGA {
-        return (false, *k, false, zero);
-    }
-
-    // Compute k2 = k / (ω + 1)
-    let (k2, _) = k.div_rem(&GLV_OMEGA_PLUS_ONE);
-
-    // Compute k1 = k - k2*ω
-    let (k2_omega_lo, k2_omega_hi) = U256::mul(&k2, &GLV_OMEGA);
-
-    // Overflow check: fall back to direct computation if needed
-    if k2_omega_hi != zero {
-        return (false, *k, false, zero);
-    }
-
-    let (k1, k1_underflow) = if *k >= k2_omega_lo {
-        (U256::sub(k, &k2_omega_lo).0, false)
-    } else {
-        (U256::sub(&k2_omega_lo, k).0, true)
-    };
-
-    // Compute a = k1 - k2
-    let (a, a_neg) = if k1_underflow {
-        let (sum, _) = U256::add(&k1, &k2);
-        (sum, true)
-    } else if k1 >= k2 {
-        (U256::sub(&k1, &k2).0, false)
-    } else {
-        (U256::sub(&k2, &k1).0, true)
-    };
-
-    // Refine if a is still too large
-    if a >= GLV_OMEGA && !a_neg {
-        let (a_adj, _) = U256::sub(&a, &GLV_OMEGA);
-        let (b_adj, _) = U256::add(&k2, &U256::from_u64(1));
-        (false, a_adj, false, b_adj)
-    } else {
-        (a_neg, a, false, k2)
-    }
-}
-
-/// Shamir's trick: computes [k1]P1 + [k2]P2 using joint double-and-add.
-///
-/// Shares doublings between both scalar multiplications for efficiency.
-fn shamir_double_and_add(
-    p1: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
-    k1: &U256,
-    p2: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
-    k2: &U256,
-) -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
-    let p1_plus_p2 = p1.operate_with(p2);
-    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
-
-    if max_len == 0 {
-        return ShortWeierstrassJacobianPoint::neutral_element();
-    }
-
-    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
-
-    for i in (0..max_len).rev() {
-        result = result.double();
-
-        match (get_bit(k1, i), get_bit(k2, i)) {
-            (false, false) => {}
-            (true, false) => result = result.operate_with(p1),
-            (false, true) => result = result.operate_with(p2),
-            (true, true) => result = result.operate_with(&p1_plus_p2),
-        }
-    }
-
-    result
-}
-
-/// Gets bit at position `pos` from a U256 (little-endian bit indexing).
-#[inline(always)]
-fn get_bit(n: &U256, pos: usize) -> bool {
-    if pos >= 256 {
-        return false;
-    }
-    let limb_idx = 3 - pos / 64;
-    let bit_idx = pos % 64;
-    (n.limbs[limb_idx] >> bit_idx) & 1 == 1
 }
 
 impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
@@ -304,14 +258,16 @@ impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
         let p1 = if k1_neg { self.neg() } else { self.clone() };
         let p2 = if k2_neg { psi_p.neg() } else { psi_p };
 
-        shamir_double_and_add_g2(&p1, &k1, &p2, &k2)
+        shamir_two_scalar_mul(&p1, &k1, &p2, &k2)
     }
 }
 
-/// The curve seed x as U256 for division operations.
+/// The curve seed x as U256 for GLS division operations.
 const GLS_X: U256 = U256::from_u64(MILLER_LOOP_CONSTANT);
 
 /// Decomposes scalar k for GLS: k = k₁ - k₂·x (mod r)
+///
+/// See Galbraith-Lin-Scott (GLS), <https://eprint.iacr.org/2008/194>.
 ///
 /// Since x is 64 bits:
 /// - k₂ = k / x (approximately 192 bits)
@@ -340,36 +296,6 @@ fn gls_decompose(k: &U256) -> (bool, U256, bool, U256) {
     // So [k₁]P + [k₂]ψ(P) = [k₁ - k₂·x]P
     // We want [k₁ + k₂·x]P, so we negate k₂.
     (false, k1, true, k2)
-}
-
-/// Shamir's trick for G2: computes [k1]P1 + [k2]P2 using joint double-and-add.
-fn shamir_double_and_add_g2(
-    p1: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
-    k1: &U256,
-    p2: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
-    k2: &U256,
-) -> ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
-    let p1_plus_p2 = p1.operate_with(p2);
-    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
-
-    if max_len == 0 {
-        return ShortWeierstrassJacobianPoint::neutral_element();
-    }
-
-    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
-
-    for i in (0..max_len).rev() {
-        result = result.double();
-
-        match (get_bit(k1, i), get_bit(k2, i)) {
-            (false, false) => {}
-            (true, false) => result = result.operate_with(p1),
-            (false, true) => result = result.operate_with(p2),
-            (true, true) => result = result.operate_with(&p1_plus_p2),
-        }
-    }
-
-    result
 }
 
 #[cfg(test)]
@@ -566,6 +492,42 @@ mod tests {
     }
 
     // GLV scalar multiplication tests
+
+    #[test]
+    fn glv_decompose_babai_splits_large_scalar() {
+        use crate::elliptic_curve::short_weierstrass::utils::glv_decompose_babai;
+        let k = U256::from_hex_unchecked(
+            "73eda753299d7d483339d80809a1d80553bda402fffe5bfefffffffe00000000",
+        );
+        let (_, k1, _, k2) = glv_decompose_babai(&k, &BLS12_381_GLV_CONSTANTS);
+        assert!(
+            k2 > U256::from_u64(0),
+            "k2 should be non-zero for a large scalar"
+        );
+        let max_bits = core::cmp::max(k1.bits_le(), k2.bits_le());
+        assert!(
+            max_bits < k.bits_le(),
+            "decomposition should reduce max bit length"
+        );
+        // Babai guarantees ~128-bit half-scalars
+        assert!(
+            k1.bits_le() <= 129,
+            "k1 should be ~128 bits, got {}",
+            k1.bits_le()
+        );
+        assert!(
+            k2.bits_le() <= 129,
+            "k2 should be ~128 bits, got {}",
+            k2.bits_le()
+        );
+    }
+
+    #[test]
+    fn glv_mul_subgroup_order_is_neutral() {
+        // [r]P = O for any point P in the subgroup
+        let g = BLS12381Curve::generator();
+        assert!(g.glv_mul(&SUBGROUP_ORDER).is_neutral_element());
+    }
 
     #[test]
     fn glv_mul_small_scalar() {
