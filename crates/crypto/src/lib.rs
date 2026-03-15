@@ -9,4 +9,5 @@ pub mod commitments;
 pub mod errors;
 pub mod fiat_shamir;
 pub mod hash;
+pub mod linear_code_pcs;
 pub mod merkle_tree;
