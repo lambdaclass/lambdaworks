@@ -57,13 +57,13 @@ impl<P: PermutationParameters> Poseidon for P {
     }
 
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F> {
-        let mut state: Vec<FE<Self::F>> = vec![x.clone(), y.clone(), FE::from(2)];
+        let mut state = [x.clone(), y.clone(), FE::from(2)];
         Self::hades_permutation(&mut state);
         state[0].clone()
     }
 
     fn hash_single(x: &FE<Self::F>) -> FE<Self::F> {
-        let mut state: Vec<FE<Self::F>> = vec![x.clone(), FE::zero(), FE::from(1)];
+        let mut state = [x.clone(), FE::zero(), FE::from(1)];
         Self::hades_permutation(&mut state);
         state[0].clone()
     }
@@ -82,12 +82,10 @@ impl<P: PermutationParameters> Poseidon for P {
 
         // Process each block
         for block in values.chunks(r) {
-            let mut block_state: Vec<FE<Self::F>> =
-                state[0..r].iter().zip(block).map(|(s, b)| s + b).collect();
-            block_state.extend_from_slice(&state[r..]);
-
-            Self::hades_permutation(&mut block_state);
-            state = block_state;
+            for (s, b) in state[..r].iter_mut().zip(block.iter()) {
+                *s = &*s + b;
+            }
+            Self::hades_permutation(&mut state);
         }
 
         state[0].clone()
