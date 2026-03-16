@@ -96,6 +96,27 @@ Each form and coordinate model has to implement the `IsGroup` trait, which will 
 - `fn neg`, which gives the inverse of the element.
 It also provides the method `fn operate_with_self`, which is used to indicate that repeteadly add one element against itself $n$ times. Here, $n$ should implement the `IsUnsignedInteger` trait. In the case of elliptic curves, this provides the scalar multiplication, $n P$, based on the double and add algorithm (square and multiply).
 
+For pairing-friendly curves, optimized scalar multiplication methods are available via endomorphisms:
+
+- **GLV (Gallant-Lambert-Vanstone)** on G1: decomposes the scalar $k = k_1 + k_2 \lambda$ using the curve endomorphism $\varphi(x, y) = (\beta x, y)$, then computes $[k]P = [k_1]P + [k_2]\varphi(P)$ using Shamir's trick. Both $k_1$ and $k_2$ are approximately $\sqrt{r}$ bits, halving the number of doublings.
+- **GLS (Galbraith-Lin-Scott)** on G2: decomposes the scalar using the Frobenius endomorphism $\psi(P) = [u]P$ (where $u$ is the curve seed), then computes $[k]P = [k_1]P + [k_2]\psi(P)$ using Shamir's trick.
+
+These are available for BLS12-381, BLS12-377, and BN254:
+```rust
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_377::curve::BLS12377Curve;
+use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
+use lambdaworks_math::unsigned_integer::element::U256;
+
+let g = BLS12377Curve::generator();
+let k = U256::from_hex_unchecked("12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000000");
+
+// Standard scalar multiplication
+let result = g.operate_with_self(k);
+
+// GLV-optimized scalar multiplication (~1.4–2.5x faster for large scalars)
+let result_glv = g.glv_mul(&k);
+```
+
 Operating is done in the following way:
 ```rust
 // We get a point
@@ -177,3 +198,6 @@ Pairings and elliptic curve point compression and decompression are needed for [
 - [Exploring elliptic curve pairings by Vitalik](https://medium.com/@VitalikButerin/exploring-elliptic-curve-pairings-c73c1864e627)
 - [A survey of elliptic curves for proof systems](https://eprint.iacr.org/2022/586.pdf)
 - [Taxonomy of pairing-friendly elliptic curves](https://eprint.iacr.org/2006/372.pdf)
+- [Faster Point Multiplication on Elliptic Curves with Efficient Endomorphisms (GLV)](https://www.iacr.org/archive/crypto2001/21390189.pdf)
+- [Endomorphisms for Faster Elliptic Curve Cryptography on Binary Curves (GLS)](https://eprint.iacr.org/2008/194.pdf)
+- [Fast and simple constant-time hashing to the BLS12-381 elliptic curve (GLV/GLS implementation reference)](https://eprint.iacr.org/2022/352.pdf)

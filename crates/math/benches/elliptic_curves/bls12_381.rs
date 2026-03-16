@@ -116,6 +116,40 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     group.finish();
 
+    // GLV scalar multiplication comparison benchmarks (G1)
+    // Compares baseline (standard double-and-add) vs GLV-optimized scalar multiplication.
+    // GLV uses the curve endomorphism φ(P) = λ·P to decompose scalars via Babai rounding,
+    // achieving ~2x speedup for 255-bit scalars via Shamir's trick.
+    let mut glv_group = c.benchmark_group("BLS12-381 G1 Scalar Multiplication");
+    glv_group.significance_level(0.1).sample_size(10000);
+
+    let g1 = BLS12381Curve::generator();
+    let scalar_128 = U256::from_hex_unchecked("123456789ABCDEF0123456789ABCDEF0");
+    let scalar_192 = U256::from_hex_unchecked("123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0");
+    let scalar_255 = U256::from_hex_unchecked(
+        "73eda753299d7d483339d80809a1d80553bda402fffe5bfefffffffe00000000",
+    );
+
+    glv_group.bench_function("Baseline 128-bit", |bencher| {
+        bencher.iter(|| black_box(g1.operate_with_self(black_box(scalar_128))));
+    });
+    glv_group.bench_function("Baseline 192-bit", |bencher| {
+        bencher.iter(|| black_box(g1.operate_with_self(black_box(scalar_192))));
+    });
+    glv_group.bench_function("Baseline 255-bit", |bencher| {
+        bencher.iter(|| black_box(g1.operate_with_self(black_box(scalar_255))));
+    });
+    glv_group.bench_function("GLV 128-bit", |bencher| {
+        bencher.iter(|| black_box(g1.glv_mul(black_box(&scalar_128))));
+    });
+    glv_group.bench_function("GLV 192-bit", |bencher| {
+        bencher.iter(|| black_box(g1.glv_mul(black_box(&scalar_192))));
+    });
+    glv_group.bench_function("GLV 255-bit", |bencher| {
+        bencher.iter(|| black_box(g1.glv_mul(black_box(&scalar_255))));
+    });
+    glv_group.finish();
+
     // GLS scalar multiplication comparison benchmarks
     // Compares baseline (standard double-and-add) vs GLS-optimized (endomorphism-based)
     // scalar multiplication for G2 points across different scalar sizes.
