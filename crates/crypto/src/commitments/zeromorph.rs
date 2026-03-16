@@ -152,13 +152,26 @@ where
 /// Derive internal Fiat-Shamir challenges for Zeromorph.
 ///
 /// Absorbs the f commitment, evaluation point, claimed value, and quotient
-/// commitments, then samples the evaluation challenge x and batching factor upsilon.
-// TODO(security): The Zeromorph internal transcript is independent of any outer
-// proof system transcript. In a standalone Spartan, the evaluation point r_y is
-// derived from the Spartan transcript (which binds R1CS + public inputs + commitment),
-// so proof transplant attacks are hard in practice. For recursive/IVC settings, the
-// `IsMultilinearPCS::open` and `verify` signatures should be extended to accept an
-// outer transcript binding (e.g., a hash of the current proof system transcript state).
+/// commitments, then samples the evaluation challenge x and batching factor υ.
+///
+/// # Known limitation: independent transcript
+///
+/// This function creates a **fresh, standalone** `DefaultTranscript` that is NOT
+/// bound to any outer proof system transcript. Concretely:
+///
+/// - **Standalone Spartan (safe):** The evaluation point `r_y` passed to this
+///   function is derived from the Spartan Fiat-Shamir transcript, which already
+///   binds the R1CS instance, public inputs, and witness commitment. A different
+///   Spartan proof session produces a different `r_y`, making proof-transplant
+///   attacks computationally infeasible.
+///
+/// - **Recursive / IVC settings (unsafe):** If multiple Zeromorph openings share
+///   a context (e.g., recursive proof composition), the independent transcript
+///   enables transplanting a sub-proof from one context to another. To fix this,
+///   `IsMultilinearPCS::open` and `verify` should be extended to accept an outer
+///   transcript binding (e.g., a hash of the current proof system state).
+///
+/// Reference: Zeromorph paper (Kohrita & Towa, ePrint 2023/917), Section 4.
 fn derive_zeromorph_challenges<F, P>(
     f_commitment: &P::G1Point,
     point: &[FieldElement<F>],

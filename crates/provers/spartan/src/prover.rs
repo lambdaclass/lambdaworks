@@ -72,6 +72,9 @@ where
     /// proving z̃(bits(i)) == public_inputs[i-1].
     /// Each entry is (evaluation_point, pcs_proof).
     pub public_input_proofs: Vec<(Vec<FieldElement<F>>, PCS::Proof)>,
+    /// PCS proof that z̃(0,...,0) = 1, confirming the R1CS constant term.
+    /// Without this, a malicious prover could set z[0] ≠ 1.
+    pub constant_proof: PCS::Proof,
 }
 
 /// The Spartan prover.
@@ -323,9 +326,9 @@ where
             .open(&z_mle, r_y)
             .map_err(|e| SpartanError::PcsError(e.to_string()))?;
 
-        // Absorb witness_eval into transcript for composability.
-        transcript.append_bytes(b"witness_eval");
-        transcript.append_field_element(&witness_eval);
+        // Note: witness_eval is NOT absorbed into the transcript because no further
+        // Fiat-Shamir challenges are drawn after this point. The PCS opening proof
+        // binds witness_eval cryptographically.
 
         // -----------------------------------------------------------------------
         // Step 8: Open z̃ at each public input position.
@@ -350,6 +353,23 @@ where
             public_input_proofs.push((point, proof));
         }
 
+        // -----------------------------------------------------------------------
+        // Step 9: Open z̃ at the all-zeros boolean point to prove z[0] = 1.
+        //
+        // The R1CS convention requires z = (1, x, w), so z[0] = 1 always.
+        // Without this opening, a malicious prover could commit z[0] ≠ 1.
+        // -----------------------------------------------------------------------
+        let zero_point = vec![FieldElement::<F>::zero(); n_witness_vars];
+        let (constant_eval, constant_proof) = self
+            .pcs
+            .open(&z_mle, &zero_point)
+            .map_err(|e| SpartanError::PcsError(e.to_string()))?;
+        debug_assert_eq!(
+            constant_eval,
+            FieldElement::one(),
+            "z̃(0) must equal 1 (R1CS constant term)"
+        );
+
         Ok(SpartanProof {
             witness_commitment,
             outer_sumcheck_polys,
@@ -362,6 +382,7 @@ where
             witness_eval,
             witness_proof,
             public_input_proofs,
+            constant_proof,
         })
     }
 }
@@ -412,7 +433,7 @@ where
     // Append the initial sum to transcript (same as GKR)
     transcript.append_bytes(b"initial_sum");
     transcript.append_field_element(&FieldElement::from(num_vars as u64));
-    transcript.append_field_element(&FieldElement::from(1u64));
+    transcript.append_field_element(&FieldElement::from(2u64)); // two-term product sumcheck
     transcript.append_field_element(&claimed_sum);
 
     let mut round_polys = Vec::with_capacity(num_vars);
@@ -476,7 +497,7 @@ where
     // so that inner sumcheck challenges depend on the declared sum value.
     transcript.append_bytes(b"initial_sum");
     transcript.append_field_element(&FieldElement::from(num_vars as u64));
-    transcript.append_field_element(&FieldElement::from(1u64));
+    transcript.append_field_element(&FieldElement::from(2u64)); // quadratic (2-factor) sumcheck
     transcript.append_field_element(&claimed_sum);
 
     let mut round_polys = Vec::with_capacity(num_vars);

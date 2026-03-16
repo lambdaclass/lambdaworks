@@ -212,9 +212,9 @@ where
             return Ok(false);
         }
 
-        // Absorb witness_eval into transcript for composability (mirrors prover).
-        transcript.append_bytes(b"witness_eval");
-        transcript.append_field_element(&proof.witness_eval);
+        // Note: witness_eval is NOT absorbed into the transcript because no further
+        // Fiat-Shamir challenges are drawn after this point. The PCS opening proof
+        // binds witness_eval cryptographically.
 
         // -----------------------------------------------------------------------
         // Step 9: Verify PCS opening of z̃ at r_y
@@ -268,6 +268,27 @@ where
             }
         }
 
+        // -----------------------------------------------------------------------
+        // Step 11: Verify z̃(0,...,0) = 1 (R1CS constant term).
+        //
+        // The R1CS convention requires z[0] = 1. Without this check, a malicious
+        // prover could set z[0] to any value.
+        // -----------------------------------------------------------------------
+        let zero_point = vec![FieldElement::<F>::zero(); n_witness_vars];
+        let constant_ok = self
+            .pcs
+            .verify(
+                &proof.witness_commitment,
+                &zero_point,
+                &FieldElement::one(),
+                &proof.constant_proof,
+            )
+            .map_err(|e| SpartanError::PcsError(e.to_string()))?;
+
+        if !constant_ok {
+            return Ok(false);
+        }
+
         Ok(true)
     }
 }
@@ -291,7 +312,7 @@ where
     // Append initial sum to transcript (same as prover)
     transcript.append_bytes(b"initial_sum");
     transcript.append_field_element(&FieldElement::from(num_vars as u64));
-    transcript.append_field_element(&FieldElement::from(1u64));
+    transcript.append_field_element(&FieldElement::from(2u64)); // two-term product sumcheck
     transcript.append_field_element(&claimed_sum);
 
     let mut current_claim = claimed_sum;
@@ -355,7 +376,7 @@ where
     // Bind the claimed sum to the transcript before rounds (mirrors prover).
     transcript.append_bytes(b"initial_sum");
     transcript.append_field_element(&FieldElement::from(num_vars as u64));
-    transcript.append_field_element(&FieldElement::from(1u64));
+    transcript.append_field_element(&FieldElement::from(2u64)); // quadratic (2-factor) sumcheck
     transcript.append_field_element(&claimed_sum);
 
     for (round, g_j) in round_polys.iter().enumerate() {
