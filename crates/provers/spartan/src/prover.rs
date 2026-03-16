@@ -67,14 +67,12 @@ where
     pub witness_eval: FieldElement<F>,
     /// PCS proof for z̃(r_y)
     pub witness_proof: PCS::Proof,
-    /// Public input consistency proofs: for each i in 1..=num_public_inputs,
-    /// an opening of z̃ at the boolean point corresponding to index i,
-    /// proving z̃(bits(i)) == public_inputs[i-1].
+    /// Public input consistency proofs including the constant term z[0] = 1.
+    ///
+    /// Entry 0 proves z̃(bits(0)) = 1 (the R1CS constant).
+    /// Entries 1..=num_public_inputs prove z̃(bits(i)) = public_inputs[i-1].
     /// Each entry is (evaluation_point, pcs_proof).
     pub public_input_proofs: Vec<(Vec<FieldElement<F>>, PCS::Proof)>,
-    /// PCS proof that z̃(0,...,0) = 1, confirming the R1CS constant term.
-    /// Without this, a malicious prover could set z[0] ≠ 1.
-    pub constant_proof: PCS::Proof,
 }
 
 /// The Spartan prover.
@@ -334,41 +332,30 @@ where
         // Step 8: Open z̃ at each public input position.
         //
         // z = (1, x_1, ..., x_l, w_1, ...) so x_i = z[i] for i in 1..=l.
-        // We open z̃ at the boolean hypercube point for index i, allowing the
-        // verifier to confirm z̃(bits(i)) == public_inputs[i-1].
+        // Open z̃ at boolean points for the constant z[0]=1 and each public input.
+        // z = (1, x_1, ..., x_l, w_1, ...) so:
+        //   index 0: z[0] = 1 (R1CS constant)
+        //   index i: z[i] = public_inputs[i-1] for i in 1..=l
         // -----------------------------------------------------------------------
         let n_witness_vars = z_mle.num_vars();
-        let mut public_input_proofs = Vec::with_capacity(public_inputs.len());
-        for i in 1..=public_inputs.len() {
+        // Build the expected values: [1, x_1, ..., x_l]
+        let expected_public: Vec<FieldElement<F>> = core::iter::once(FieldElement::one())
+            .chain(public_inputs.iter().cloned())
+            .collect();
+
+        let mut public_input_proofs = Vec::with_capacity(expected_public.len());
+        for (i, expected_val) in expected_public.iter().enumerate() {
             let point = index_to_multilinear_point::<F>(i, n_witness_vars);
             let (eval, proof) = self
                 .pcs
                 .open(&z_mle, &point)
                 .map_err(|e| SpartanError::PcsError(e.to_string()))?;
             debug_assert_eq!(
-                eval,
-                public_inputs[i - 1],
-                "public input opening mismatch at index {i}"
+                eval, *expected_val,
+                "public witness opening mismatch at index {i}"
             );
             public_input_proofs.push((point, proof));
         }
-
-        // -----------------------------------------------------------------------
-        // Step 9: Open z̃ at the all-zeros boolean point to prove z[0] = 1.
-        //
-        // The R1CS convention requires z = (1, x, w), so z[0] = 1 always.
-        // Without this opening, a malicious prover could commit z[0] ≠ 1.
-        // -----------------------------------------------------------------------
-        let zero_point = vec![FieldElement::<F>::zero(); n_witness_vars];
-        let (constant_eval, constant_proof) = self
-            .pcs
-            .open(&z_mle, &zero_point)
-            .map_err(|e| SpartanError::PcsError(e.to_string()))?;
-        debug_assert_eq!(
-            constant_eval,
-            FieldElement::one(),
-            "z̃(0) must equal 1 (R1CS constant term)"
-        );
 
         Ok(SpartanProof {
             witness_commitment,
@@ -382,7 +369,6 @@ where
             witness_eval,
             witness_proof,
             public_input_proofs,
-            constant_proof,
         })
     }
 }

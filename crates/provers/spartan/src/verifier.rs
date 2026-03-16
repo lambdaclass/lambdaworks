@@ -234,59 +234,41 @@ where
         }
 
         // -----------------------------------------------------------------------
-        // Step 10: Verify public input consistency.
+        // Step 10: Verify public input consistency (including constant z[0] = 1).
         //
-        // Each proof entry (point, pi_proof) asserts z̃(point) == public_inputs[i-1].
-        // Without this step a malicious prover can commit to a witness that
-        // disagrees with the claimed public inputs while all sumcheck checks pass.
+        // z = (1, x_1, ..., x_l, w_1, ...) so the public part is (1, x_1, ..., x_l).
+        // The proof contains openings at boolean points for indices 0..=l:
+        //   index 0: z̃(bits(0)) = 1 (R1CS constant)
+        //   index i: z̃(bits(i)) = public_inputs[i-1] for i in 1..=l
         // -----------------------------------------------------------------------
-        if proof.public_input_proofs.len() != public_inputs.len() {
+        let expected_public: Vec<FieldElement<F>> = core::iter::once(FieldElement::one())
+            .chain(public_inputs.iter().cloned())
+            .collect();
+
+        if proof.public_input_proofs.len() != expected_public.len() {
             return Ok(false);
         }
 
-        // num_cols_padded is already computed above; derive the witness variable count.
         let n_witness_vars = num_cols_padded.trailing_zeros() as usize;
 
-        for (i, (pi, (point, pi_proof))) in public_inputs
+        for (i, (expected_val, (point, pi_proof))) in expected_public
             .iter()
             .zip(proof.public_input_proofs.iter())
             .enumerate()
         {
-            // Verify the evaluation point matches the expected boolean point for index i+1.
-            let expected_point = index_to_multilinear_point::<F>(i + 1, n_witness_vars);
+            let expected_point = index_to_multilinear_point::<F>(i, n_witness_vars);
             if *point != expected_point {
                 return Ok(false);
             }
 
             let pi_ok = self
                 .pcs
-                .verify(&proof.witness_commitment, point, pi, pi_proof)
+                .verify(&proof.witness_commitment, point, expected_val, pi_proof)
                 .map_err(|e| SpartanError::PcsError(e.to_string()))?;
 
             if !pi_ok {
                 return Ok(false);
             }
-        }
-
-        // -----------------------------------------------------------------------
-        // Step 11: Verify z̃(0,...,0) = 1 (R1CS constant term).
-        //
-        // The R1CS convention requires z[0] = 1. Without this check, a malicious
-        // prover could set z[0] to any value.
-        // -----------------------------------------------------------------------
-        let zero_point = vec![FieldElement::<F>::zero(); n_witness_vars];
-        let constant_ok = self
-            .pcs
-            .verify(
-                &proof.witness_commitment,
-                &zero_point,
-                &FieldElement::one(),
-                &proof.constant_proof,
-            )
-            .map_err(|e| SpartanError::PcsError(e.to_string()))?;
-
-        if !constant_ok {
-            return Ok(false);
         }
 
         Ok(true)
