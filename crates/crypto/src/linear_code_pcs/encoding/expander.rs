@@ -220,7 +220,7 @@ mod tests {
         let ax_plus_by: Vec<FE> = x
             .iter()
             .zip(y.iter())
-            .map(|(xi, yi)| a.clone() * xi.clone() + b.clone() * yi.clone())
+            .map(|(xi, yi)| a * *xi + b * *yi)
             .collect();
 
         let enc_combined = enc.encode(&ax_plus_by);
@@ -230,7 +230,7 @@ mod tests {
         let expected: Vec<FE> = enc_x
             .iter()
             .zip(enc_y.iter())
-            .map(|(ex, ey)| a.clone() * ex.clone() + b.clone() * ey.clone())
+            .map(|(ex, ey)| a * *ex + b * *ey)
             .collect();
 
         assert_eq!(enc_combined, expected, "encoding must be linear");
