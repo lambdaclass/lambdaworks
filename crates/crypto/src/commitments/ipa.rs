@@ -13,7 +13,7 @@ use lambdaworks_math::{
 use crate::fiat_shamir::is_transcript::IsTranscript;
 
 /// Errors that can occur during IPA operations.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum IpaError {
     /// The setup parameters are invalid (e.g. generator count not a power of two).
     InvalidSetup,
@@ -23,6 +23,8 @@ pub enum IpaError {
     MsmError,
     /// A Fiat-Shamir challenge was zero (cryptographically negligible).
     ZeroChallenge,
+    /// The proof has an unexpected structure (e.g. empty after folding).
+    MalformedProof,
 }
 
 impl fmt::Display for IpaError {
@@ -36,6 +38,7 @@ impl fmt::Display for IpaError {
             }
             IpaError::MsmError => write!(f, "MSM length mismatch"),
             IpaError::ZeroChallenge => write!(f, "Fiat-Shamir challenge was zero"),
+            IpaError::MalformedProof => write!(f, "proof has unexpected structure"),
         }
     }
 }
@@ -113,6 +116,10 @@ where
 
     /// Create an evaluation proof that p(z) = y.
     ///
+    /// Returns `(y, proof)` where `y = p(z)` is the evaluation and `proof` is
+    /// the IPA opening proof. Returning `y` ensures the caller uses the same
+    /// value that was bound to the Fiat-Shamir transcript.
+    ///
     /// The `commitment` must be the result of `self.commit(p)`. Passing it
     /// explicitly avoids recomputing the MSM.
     pub fn open(
@@ -121,7 +128,7 @@ where
         p: &Polynomial<FieldElement<F>>,
         z: &FieldElement<F>,
         transcript: &mut impl IsTranscript<F>,
-    ) -> Result<IpaProof<F, G>, IpaError> {
+    ) -> Result<(FieldElement<F>, IpaProof<F, G>), IpaError> {
         let n = self.setup.generators.len();
         if p.coefficients.len() > n {
             return Err(IpaError::PolynomialTooLarge);
@@ -183,11 +190,14 @@ where
             g = g_new;
         }
 
-        Ok(IpaProof {
-            l_points,
-            r_points,
-            a_final: a.pop().ok_or(IpaError::MsmError)?,
-        })
+        Ok((
+            y,
+            IpaProof {
+                l_points,
+                r_points,
+                a_final: a.pop().ok_or(IpaError::MalformedProof)?,
+            },
+        ))
     }
 
     /// Verify an evaluation proof.
@@ -314,6 +324,11 @@ fn compute_s_vector_with_inverses<F: IsPrimeField>(
     challenges: &[FieldElement<F>],
     inverses: &[FieldElement<F>],
 ) -> Vec<FieldElement<F>> {
+    assert_eq!(
+        challenges.len(),
+        inverses.len(),
+        "challenges and inverses must have same length"
+    );
     let k = challenges.len();
     let n = 1 << k;
     let mut s = Vec::with_capacity(n);
@@ -356,6 +371,11 @@ fn compute_b_final_with_inverses<F: IsPrimeField>(
     challenges: &[FieldElement<F>],
     inverses: &[FieldElement<F>],
 ) -> FieldElement<F> {
+    assert_eq!(
+        challenges.len(),
+        inverses.len(),
+        "challenges and inverses must have same length"
+    );
     let k = challenges.len();
     let mut result = FieldElement::one();
 
@@ -480,7 +500,7 @@ mod tests {
         assert_eq!(y, FE::from(42));
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa
+        let (_, proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
         assert!(ipa
@@ -499,7 +519,7 @@ mod tests {
         let y = p.evaluate(&z); // 3 + 35 = 38
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa
+        let (_, proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
         assert!(ipa
@@ -518,7 +538,7 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa
+        let (_, proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
 
@@ -542,7 +562,7 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa
+        let (_, proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
 
@@ -565,7 +585,7 @@ mod tests {
         let z = FE::from(3);
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa
+        let (_, proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
 
@@ -587,7 +607,7 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa
+        let (_, proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
 
@@ -609,7 +629,7 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa
+        let (_, proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
 
@@ -924,7 +944,7 @@ mod tests {
         assert_eq!(y, FE::zero());
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa
+        let (_, proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
         assert!(ipa
@@ -944,7 +964,7 @@ mod tests {
         assert_eq!(y, FE::from(3));
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa
+        let (_, proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
         assert!(ipa
@@ -963,7 +983,7 @@ mod tests {
         let y = p.evaluate(&z); // 1 + 20 + 300 = 321
 
         let commitment = ipa.commit(&p).unwrap();
-        let proof = ipa
+        let (_, proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
         assert!(ipa
@@ -982,7 +1002,7 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let mut proof = ipa
+        let (_, mut proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
 
@@ -1004,7 +1024,7 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let mut proof = ipa
+        let (_, mut proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
 
@@ -1027,7 +1047,7 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let mut proof = ipa
+        let (_, mut proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
 
@@ -1049,7 +1069,7 @@ mod tests {
         let y = p.evaluate(&z);
 
         let commitment = ipa.commit(&p).unwrap();
-        let mut proof = ipa
+        let (_, mut proof) = ipa
             .open(&commitment, &p, &z, &mut make_transcript())
             .unwrap();
 
