@@ -172,6 +172,54 @@ mod ligero {
         );
         assert!(ok);
     }
+
+    #[test]
+    fn proof_replay_different_point_fails() {
+        let n_vars = 4;
+        let (evals, _poly) = make_poly(n_vars);
+        let encoding = ReedSolomonEncoding::<F>::new(4, 2);
+        let out = commit::<F, B, _>(&evals, &encoding);
+
+        // Generate proof for point_1
+        let point_1: Vec<FE> = (1..=n_vars).map(|x| FE::from(x as u64)).collect();
+        let mut transcript_p = DefaultTranscript::<F>::new(&[0x42]);
+        let proof = prove(
+            &out.commitment,
+            &out.state,
+            &encoding,
+            &point_1,
+            &mut transcript_p,
+            128,
+        );
+
+        // Try to verify the same proof against a different point_2
+        // that shares the same first half (so tensor-half `a` is identical)
+        // but differs in the second half
+        let mut point_2 = point_1.clone();
+        point_2[n_vars - 1] = FE::from(99u64);
+
+        // Compute the value the cheating verifier would claim
+        let b2 = tensor_vec(&point_2[n_vars / 2..]);
+        let fake_value: FE = proof
+            .v
+            .iter()
+            .zip(b2.iter())
+            .fold(FE::zero(), |acc, (vi, bi)| acc + vi.clone() * bi.clone());
+
+        // With proper transcript binding, this MUST fail because the
+        // transcript will derive different column indices
+        let mut transcript_v = DefaultTranscript::<F>::new(&[0x42]);
+        let ok = verify(
+            &out.commitment,
+            &proof,
+            &encoding,
+            &point_2,
+            &fake_value,
+            &mut transcript_v,
+            128,
+        );
+        assert!(!ok, "proof replay with different point must fail");
+    }
 }
 
 // ---------- Brakedown (Expander) tests with Mersenne31 ----------

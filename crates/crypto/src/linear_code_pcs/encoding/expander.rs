@@ -34,14 +34,25 @@ pub struct ExpanderEncoding<F: IsField> {
 impl<F: IsField> ExpanderEncoding<F> {
     /// Create an expander encoding for messages of length `msg_len`.
     ///
-    /// Parameters:
+    /// # Parameters
     /// - `alpha`: dimension reduction factor per level (e.g. 0.2 means output = 0.2 * input)
     /// - `nnz_per_row`: number of nonzero entries per row in the sparse matrix (the degree)
     /// - `base_len`: stop recursing when dimension drops below this
     /// - `seed`: deterministic seed for generating the sparse matrices
     /// - `distance`: relative minimum distance as `(numerator, denominator)`.
-    ///   For example `(1, 25)` means distance ~0.04. The caller should set this
-    ///   based on the expander analysis for the chosen `alpha` and `nnz_per_row`.
+    ///   For example `(1, 25)` means distance ~0.04.
+    ///
+    /// # Safety (soundness)
+    ///
+    /// **The `distance` parameter is NOT verified at construction time.** The caller
+    /// MUST ensure the claimed distance holds for the chosen `alpha`, `nnz_per_row`,
+    /// and `base_len` based on an external spectral expansion analysis. If the claimed
+    /// distance is too large, `calculate_t` will compute too few column openings and
+    /// the PCS soundness guarantee will be violated.
+    ///
+    /// For typical parameters (alpha=0.25, nnz_per_row >= 8, msg_len >= 64),
+    /// a conservative distance of `(1, 25)` (~0.04) is reasonable. See the
+    /// Brakedown paper (Golovnev et al., CRYPTO 2023) Section 4 for analysis.
     pub fn new(
         msg_len: usize,
         alpha: f64,

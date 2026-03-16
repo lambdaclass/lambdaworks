@@ -51,8 +51,14 @@ where
         return false;
     }
 
-    // 2. Replay transcript to re-derive column indices
+    // 2. Replay transcript to re-derive column indices.
+    // Bind all public statement parameters (root, point, claimed_value, v)
+    // to ensure proof cannot be replayed for a different statement.
     transcript.append_bytes(commitment.root.as_ref());
+    for pi in point {
+        transcript.append_field_element(pi);
+    }
+    transcript.append_field_element(claimed_value);
     for vi in &proof.v {
         transcript.append_field_element(vi);
     }

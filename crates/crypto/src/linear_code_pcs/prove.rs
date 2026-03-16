@@ -53,8 +53,22 @@ where
     // This is a vector of length n_cols such that <v, b> = f(point)
     let v = state.matrix.row_mul(&a);
 
-    // Feed commitment root and v into transcript
+    // Compute the claimed evaluation value to bind it to the transcript.
+    // claimed_value = <v, b>
+    let claimed_value: FieldElement<F> = v
+        .iter()
+        .zip(b.iter())
+        .fold(FieldElement::<F>::zero(), |acc, (vi, bi)| {
+            acc + vi.clone() * bi.clone()
+        });
+
+    // Bind all public statement parameters to the Fiat-Shamir transcript
+    // before deriving random column indices.
     transcript.append_bytes(commitment.root.as_ref());
+    for pi in point {
+        transcript.append_field_element(pi);
+    }
+    transcript.append_field_element(&claimed_value);
     for vi in &v {
         transcript.append_field_element(vi);
     }

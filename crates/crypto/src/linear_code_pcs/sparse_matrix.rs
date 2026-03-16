@@ -45,35 +45,56 @@ impl<F: IsField> SparseMatrix<F> {
     /// Generates a random sparse matrix where each row has exactly `nnz_per_row`
     /// nonzero entries, each set to the field element `1`.
     ///
-    /// Uses a simple deterministic approach based on the provided seed for
-    /// reproducibility: for row i, the nonzero columns are chosen by a
-    /// stride-based selection that covers distinct columns.
+    /// Uses SHA3-256 to derive an independent PRNG seed per row from (seed, row_index),
+    /// ensuring each row's column selection is pseudorandom and uncorrelated.
     pub fn random_binary(n_rows: usize, n_cols: usize, nnz_per_row: usize, seed: u64) -> Self {
+        use sha3::{Digest, Sha3_256};
+
+        /// Extract the first 8 bytes of a 32-byte hash as a u64.
+        fn u64_from_hash(hash: &[u8; 32]) -> u64 {
+            let mut buf = [0u8; 8];
+            buf.copy_from_slice(&hash[..8]);
+            u64::from_le_bytes(buf)
+        }
+
+        /// Hash (seed, row, counter) into a 32-byte digest.
+        fn derive(seed: u64, row: u64, counter: u64) -> [u8; 32] {
+            let mut h = Sha3_256::new();
+            h.update(seed.to_le_bytes());
+            h.update(row.to_le_bytes());
+            h.update(counter.to_le_bytes());
+            h.finalize().into()
+        }
+
         assert!(nnz_per_row <= n_cols);
         let one = FieldElement::<F>::one();
         let mut entries = Vec::with_capacity(n_rows);
 
         for i in 0..n_rows {
             let mut row = Vec::with_capacity(nnz_per_row);
-            // Simple deterministic column selection using hash-like mixing
-            let mut state = seed
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(i as u64);
+            let row_idx = i as u64;
+
+            // Derive initial per-row state via SHA3-256(seed || row_index || 0)
+            let hash = derive(seed, row_idx, 0);
+            let mut state = u64_from_hash(&hash);
+            let mut hash_counter: u64 = 1;
             let mut used = alloc::collections::BTreeSet::new();
+
             for _ in 0..nnz_per_row {
-                state = state
-                    .wrapping_mul(6364136223846793005)
-                    .wrapping_add(1442695040888963407);
-                let mut col = (state >> 33) as usize % n_cols;
+                let mut col = (state >> 1) as usize % n_cols;
                 while used.contains(&col) {
-                    // Re-mix PRNG state instead of linear probing to avoid clustering bias
-                    state = state
-                        .wrapping_mul(6364136223846793005)
-                        .wrapping_add(1442695040888963407);
-                    col = (state >> 33) as usize % n_cols;
+                    let rehash = derive(seed, row_idx, hash_counter);
+                    state = u64_from_hash(&rehash);
+                    hash_counter += 1;
+                    col = (state >> 1) as usize % n_cols;
                 }
                 used.insert(col);
                 row.push((col, one.clone()));
+
+                // Advance state for next column pick
+                let next_hash = derive(seed, row_idx, hash_counter);
+                state = u64_from_hash(&next_hash);
+                hash_counter += 1;
             }
             entries.push(row);
         }
@@ -106,6 +127,25 @@ mod tests {
         let result = m.mul_vec(&v);
         assert_eq!(result[0], FE::from(14)); // 2*1 + 3*4
         assert_eq!(result[1], FE::from(10)); // 5*2
+    }
+
+    #[test]
+    fn consecutive_rows_have_different_column_patterns() {
+        let m = SparseMatrix::<F>::random_binary(100, 64, 3, 42);
+        let mut identical_count = 0;
+        for i in 0..m.n_rows - 1 {
+            let mut cols_i: Vec<usize> = m.entries[i].iter().map(|(c, _)| *c).collect();
+            let mut cols_next: Vec<usize> = m.entries[i + 1].iter().map(|(c, _)| *c).collect();
+            cols_i.sort();
+            cols_next.sort();
+            if cols_i == cols_next {
+                identical_count += 1;
+            }
+        }
+        assert_eq!(
+            identical_count, 0,
+            "consecutive rows should not share identical column sets"
+        );
     }
 
     #[test]
