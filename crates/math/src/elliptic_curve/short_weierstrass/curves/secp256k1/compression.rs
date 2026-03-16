@@ -1,91 +1,27 @@
 //! Point compression for secp256k1 using SEC1 encoding.
 //!
-//! Compressed format: 33 bytes
-//! - Byte 0: 0x02 (y is even) or 0x03 (y is odd)
-//! - Bytes 1..33: x-coordinate in big-endian
-//!
-//! secp256k1 has a 256-bit field, so no spare bits in 32 bytes — requires a prefix byte.
+//! Compressed format: 33 bytes (0x02/0x03 prefix + 32 bytes x-coordinate)
 
 use super::curve::Secp256k1Curve;
 use crate::{
-    elliptic_curve::{
-        short_weierstrass::{
-            point::ShortWeierstrassProjectivePoint,
-            traits::IsShortWeierstrass,
-        },
-        traits::FromAffine,
+    elliptic_curve::short_weierstrass::{
+        compression::decompress_sec1, point::ShortWeierstrassProjectivePoint,
     },
     errors::ByteConversionError,
-    field::{element::FieldElement, fields::secp256k1_field::Secp256k1PrimeField},
-    traits::ByteConversion,
 };
 
-use crate::cyclic_group::IsGroup;
+#[cfg(feature = "alloc")]
+use crate::elliptic_curve::short_weierstrass::compression::compress_sec1;
 
 type Point = ShortWeierstrassProjectivePoint<Secp256k1Curve>;
-type FE = FieldElement<Secp256k1PrimeField>;
 
-/// Compress a secp256k1 point to 33 bytes (SEC1 format).
-///
-/// Returns `[0x00; 33]` for the point at infinity (non-standard but unambiguous).
 #[cfg(feature = "alloc")]
-pub fn compress_point(point: &Point) -> [u8; 33] {
-    if *point == Point::neutral_element() {
-        [0u8; 33]
-    } else {
-        let point_affine = point.to_affine();
-        let x = point_affine.x();
-        let y = point_affine.y();
-
-        let x_bytes = x.to_bytes_be();
-        let mut result = [0u8; 33];
-        result[1..33].copy_from_slice(&x_bytes);
-
-        // SEC1: 0x02 if y is even, 0x03 if y is odd
-        let y_bytes = y.to_bytes_be();
-        let is_odd = y_bytes.last().map(|b| b & 1 == 1).unwrap_or(false);
-        result[0] = if is_odd { 0x03 } else { 0x02 };
-
-        result
-    }
+pub fn compress_point(point: &Point) -> alloc::vec::Vec<u8> {
+    compress_sec1(point)
 }
 
-/// Decompress a SEC1-encoded secp256k1 point from 33 bytes.
 pub fn decompress_point(input: &[u8]) -> Result<Point, ByteConversionError> {
-    if input.len() != 33 {
-        return Err(ByteConversionError::InvalidValue);
-    }
-
-    let prefix = input[0];
-
-    // All zeros = point at infinity
-    if prefix == 0x00 && input[1..].iter().all(|&b| b == 0) {
-        return Ok(Point::neutral_element());
-    }
-
-    if prefix != 0x02 && prefix != 0x03 {
-        return Err(ByteConversionError::InvalidValue);
-    }
-
-    let x = FE::from_bytes_be(&input[1..33])?;
-
-    // y² = x³ + 7
-    let y_squared = x.pow(3_u16) + Secp256k1Curve::b();
-
-    let (y_sqrt_1, y_sqrt_2) = y_squared.sqrt().ok_or(ByteConversionError::InvalidValue)?;
-
-    // Pick the root matching the parity indicated by the prefix
-    let want_odd = prefix == 0x03;
-    let y1_bytes = y_sqrt_1.to_bytes_be();
-    let y1_is_odd = y1_bytes.last().map(|b| b & 1 == 1).unwrap_or(false);
-
-    let y = if y1_is_odd == want_odd {
-        y_sqrt_1
-    } else {
-        y_sqrt_2
-    };
-
-    Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)
+    decompress_sec1(input)
 }
 
 #[cfg(test)]

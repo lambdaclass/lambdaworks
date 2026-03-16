@@ -4,76 +4,24 @@
 
 use super::curve::PallasCurve;
 use crate::{
-    elliptic_curve::{
-        short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
-        traits::FromAffine,
+    elliptic_curve::short_weierstrass::{
+        compression::decompress_sec1, point::ShortWeierstrassProjectivePoint,
     },
     errors::ByteConversionError,
-    field::{element::FieldElement, fields::pallas_field::Pallas255PrimeField},
-    traits::ByteConversion,
 };
 
-use crate::cyclic_group::IsGroup;
+#[cfg(feature = "alloc")]
+use crate::elliptic_curve::short_weierstrass::compression::compress_sec1;
 
 type Point = ShortWeierstrassProjectivePoint<PallasCurve>;
-type FE = FieldElement<Pallas255PrimeField>;
 
-/// Compress a Pallas point to 33 bytes (SEC1 format).
 #[cfg(feature = "alloc")]
-pub fn compress_point(point: &Point) -> [u8; 33] {
-    if *point == Point::neutral_element() {
-        [0u8; 33]
-    } else {
-        let point_affine = point.to_affine();
-        let x = point_affine.x();
-        let y = point_affine.y();
-
-        let x_bytes = x.to_bytes_be();
-        let mut result = [0u8; 33];
-        result[1..33].copy_from_slice(&x_bytes);
-
-        let y_bytes = y.to_bytes_be();
-        let is_odd = y_bytes.last().map(|b| b & 1 == 1).unwrap_or(false);
-        result[0] = if is_odd { 0x03 } else { 0x02 };
-
-        result
-    }
+pub fn compress_point(point: &Point) -> alloc::vec::Vec<u8> {
+    compress_sec1(point)
 }
 
-/// Decompress a SEC1-encoded Pallas point from 33 bytes.
 pub fn decompress_point(input: &[u8]) -> Result<Point, ByteConversionError> {
-    if input.len() != 33 {
-        return Err(ByteConversionError::InvalidValue);
-    }
-
-    let prefix = input[0];
-
-    if prefix == 0x00 && input[1..].iter().all(|&b| b == 0) {
-        return Ok(Point::neutral_element());
-    }
-
-    if prefix != 0x02 && prefix != 0x03 {
-        return Err(ByteConversionError::InvalidValue);
-    }
-
-    let x = FE::from_bytes_be(&input[1..33])?;
-
-    // y² = x³ + 5
-    let y_squared = x.pow(3_u16) + PallasCurve::b();
-
-    let (y_sqrt_1, y_sqrt_2) = y_squared.sqrt().ok_or(ByteConversionError::InvalidValue)?;
-
-    let want_odd = prefix == 0x03;
-    let y1_bytes = y_sqrt_1.to_bytes_be();
-    let y1_is_odd = y1_bytes.last().map(|b| b & 1 == 1).unwrap_or(false);
-
-    let y = if y1_is_odd == want_odd {
-        y_sqrt_1
-    } else {
-        y_sqrt_2
-    };
-
-    Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)
+    decompress_sec1(input)
 }
 
 #[cfg(test)]

@@ -1,4 +1,7 @@
-use super::{field_extension::BLS12377PrimeField, twist::BLS12377TwistCurve};
+use super::{
+    field_extension::{BLS12377PrimeField, BLS12377_PRIME_FIELD_ORDER},
+    twist::BLS12377TwistCurve,
+};
 use crate::{
     elliptic_curve::short_weierstrass::{
         curves::bls12_377::{curve::BLS12377Curve, field_extension::Degree2ExtensionField, sqrt},
@@ -6,6 +9,7 @@ use crate::{
         traits::{Compress, IsShortWeierstrass},
     },
     field::element::FieldElement,
+    unsigned_integer::element::U384,
 };
 use core::cmp::Ordering;
 
@@ -58,8 +62,7 @@ impl Compress for BLS12377Curve {
             // Set first bit to 1 to indicate compressed element.
             x_bytes[0] |= 1 << 7;
 
-            let y_neg = core::ops::Neg::neg(y);
-            if y_neg.canonical() < y.canonical() {
+            if (-y).canonical() < y.canonical() {
                 x_bytes[0] |= 1 << 5;
             }
             x_bytes
@@ -88,23 +91,28 @@ impl Compress for BLS12377Curve {
         let first_byte_without_control_bits = (first_byte << 3) >> 3;
         input_bytes[0] = first_byte_without_control_bits;
 
-        let x = BLS12377FieldElement::from_bytes_be(input_bytes)?;
+        // Reject non-canonical x-coordinates (>= p) to prevent encoding malleability.
+        let x_int = U384::from_bytes_be(input_bytes)?;
+        if x_int >= BLS12377_PRIME_FIELD_ORDER {
+            return Err(ByteConversionError::InvalidValue);
+        }
+        let x = BLS12377FieldElement::new(x_int);
 
         // y² = x³ + 1 (BLS12-377 has b=1)
         let y_squared = x.pow(3_u16) + BLS12377FieldElement::from(1);
 
-        let (y_sqrt_1, y_sqrt_2) = &y_squared.sqrt().ok_or(ByteConversionError::InvalidValue)?;
+        let (y_sqrt_1, y_sqrt_2) = y_squared.sqrt().ok_or(ByteConversionError::InvalidValue)?;
 
-        let y = match (y_sqrt_1.canonical().cmp(&y_sqrt_2.canonical()), third_bit) {
-            (Ordering::Greater, 0) => y_sqrt_2,
-            (Ordering::Greater, _) => y_sqrt_1,
-            (Ordering::Less, 0) => y_sqrt_1,
-            (Ordering::Less, _) => y_sqrt_2,
-            (Ordering::Equal, _) => y_sqrt_1,
+        // Select the root matching the sign bit: third_bit=1 means the larger root.
+        let want_larger = third_bit == 1;
+        let sqrt1_is_larger = y_sqrt_1.canonical() > y_sqrt_2.canonical();
+        let y = if sqrt1_is_larger == want_larger {
+            y_sqrt_1
+        } else {
+            y_sqrt_2
         };
 
-        let point =
-            G1Point::from_affine(x, y.clone()).map_err(|_| ByteConversionError::InvalidValue)?;
+        let point = G1Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)?;
 
         point
             .is_in_subgroup()
@@ -133,10 +141,11 @@ impl Compress for BLS12377Curve {
 
             x_bytes[0] |= 1 << 7;
 
+            // Zcash spec: c1 (higher-degree coefficient) is the primary comparison key.
             let y_neg = -y;
             match (
-                y.value()[0].canonical().cmp(&y_neg.value()[0].canonical()),
                 y.value()[1].canonical().cmp(&y_neg.value()[1].canonical()),
+                y.value()[0].canonical().cmp(&y_neg.value()[0].canonical()),
             ) {
                 (Ordering::Greater, _) | (Ordering::Equal, Ordering::Greater) => {
                     x_bytes[0] |= 1 << 5;
@@ -173,14 +182,41 @@ impl Compress for BLS12377Curve {
 
         let input0 = &input_bytes[48..];
         let input1 = &input_bytes[0..48];
-        let x0 = BLS12377FieldElement::from_bytes_be(input0)?;
-        let x1 = BLS12377FieldElement::from_bytes_be(input1)?;
+
+        // Reject non-canonical Fp coordinates (>= p) to prevent encoding malleability.
+        let x0_int = U384::from_bytes_be(input0)?;
+        let x1_int = U384::from_bytes_be(input1)?;
+        if x0_int >= BLS12377_PRIME_FIELD_ORDER || x1_int >= BLS12377_PRIME_FIELD_ORDER {
+            return Err(ByteConversionError::InvalidValue);
+        }
+        let x0 = BLS12377FieldElement::new(x0_int);
+        let x1 = BLS12377FieldElement::new(x1_int);
         let x: FieldElement<Degree2ExtensionField> = FieldElement::new([x0, x1]);
 
         let b_param_qfe = BLS12377TwistCurve::b();
 
-        let y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), third_bit)
+        let root = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe))
             .ok_or(ByteConversionError::InvalidValue)?;
+        let root_neg = -&root;
+
+        // Zcash spec: c1 (higher-degree coefficient) is primary comparison key
+        let root_is_greater = matches!(
+            (
+                root.value()[1]
+                    .canonical()
+                    .cmp(&root_neg.value()[1].canonical()),
+                root.value()[0]
+                    .canonical()
+                    .cmp(&root_neg.value()[0].canonical()),
+            ),
+            (Ordering::Greater, _) | (Ordering::Equal, Ordering::Greater)
+        );
+
+        let y = if root_is_greater == (third_bit == 1) {
+            root
+        } else {
+            root_neg
+        };
 
         let point =
             Self::G2Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)?;
@@ -205,14 +241,13 @@ mod tests {
     };
 
     #[test]
-    fn test_zero_point() {
+    fn test_invalid_point_rejected() {
         let g1 = BLS12377Curve::generator();
         assert!(g1.is_in_subgroup());
+        // (0, 2) does not satisfy y² = x³ + 1 (4 ≠ 1), so construction must fail.
         let new_x = BLS12377FieldElement::zero();
         let new_y = BLS12377FieldElement::one() + BLS12377FieldElement::one();
-        let false_point = G1Point::new([new_x, new_y, BLS12377FieldElement::one()]);
-        // Point (0, 2, 1) should not be on the curve (y²=x³+1 gives 4≠1)
-        assert!(false_point.is_err() || !false_point.unwrap().is_in_subgroup());
+        assert!(G1Point::new([new_x, new_y, BLS12377FieldElement::one()]).is_err());
     }
 
     #[cfg(feature = "alloc")]
@@ -260,8 +295,7 @@ mod tests {
 
         let mut compressed_g2_slice: [u8; 48] = BLS12377Curve::compress_g1_point(&g_2);
 
-        let decompressed_g2 =
-            BLS12377Curve::decompress_g1_point(&mut compressed_g2_slice).unwrap();
+        let decompressed_g2 = BLS12377Curve::decompress_g1_point(&mut compressed_g2_slice).unwrap();
 
         assert_eq!(g_2, decompressed_g2);
     }
@@ -314,8 +348,7 @@ mod tests {
 
         let mut compressed_g2_slice: [u8; 96] = BLS12377Curve::compress_g2_point(&g_2);
 
-        let decompressed_g2 =
-            BLS12377Curve::decompress_g2_point(&mut compressed_g2_slice).unwrap();
+        let decompressed_g2 = BLS12377Curve::decompress_g2_point(&mut compressed_g2_slice).unwrap();
 
         assert_eq!(g_2, decompressed_g2);
     }
@@ -330,9 +363,31 @@ mod tests {
 
         let mut compressed_g3_slice: [u8; 96] = BLS12377Curve::compress_g2_point(&g_3);
 
-        let decompressed_g3 =
-            BLS12377Curve::decompress_g2_point(&mut compressed_g3_slice).unwrap();
+        let decompressed_g3 = BLS12377Curve::decompress_g2_point(&mut compressed_g3_slice).unwrap();
 
         assert_eq!(g_3, decompressed_g3);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_decompress_rejects_non_canonical_x() {
+        // Compress the generator, then replace the x-coordinate with x + p.
+        // This non-canonical encoding should be rejected.
+        let g = BLS12377Curve::generator();
+        let mut compressed = BLS12377Curve::compress_g1_point(&g);
+
+        // Strip flag bits, add p to x, restore flag bits.
+        let flags = compressed[0] & 0xe0;
+        compressed[0] &= 0x1f;
+
+        use super::U384;
+        use crate::traits::ByteConversion;
+        let x_int = U384::from_bytes_be(&compressed).unwrap();
+        let non_canonical = x_int + super::BLS12377_PRIME_FIELD_ORDER;
+        let nc_bytes = non_canonical.to_bytes_be();
+        compressed.copy_from_slice(&nc_bytes);
+        compressed[0] |= flags;
+
+        assert!(BLS12377Curve::decompress_g1_point(&mut compressed).is_err());
     }
 }

@@ -1,3 +1,5 @@
+/// Generic SEC1 point compression for prime-field curves.
+pub mod compression;
 /// Implementation of particular cases of elliptic curves.
 pub mod curves;
 /// Structs for points
