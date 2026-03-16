@@ -78,7 +78,7 @@ impl<F: IsField> ExpanderEncoding<F> {
         let mut level_seed = seed;
 
         while current_len > base_len {
-            let out_len = ((current_len as f64) * alpha).ceil() as usize;
+            let out_len = libm::ceil((current_len as f64) * alpha) as usize;
             let out_len = out_len.max(1);
 
             let nnz = nnz_per_row.min(current_len);

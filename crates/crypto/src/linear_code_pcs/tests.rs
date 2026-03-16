@@ -204,7 +204,7 @@ mod ligero {
             .v
             .iter()
             .zip(b2.iter())
-            .fold(FE::zero(), |acc, (vi, bi)| acc + vi.clone() * bi.clone());
+            .fold(FE::zero(), |acc, (vi, bi)| acc + vi * bi);
 
         // With proper transcript binding, this MUST fail because the
         // transcript will derive different column indices
@@ -375,12 +375,12 @@ mod tensor {
         assert_eq!(t.len(), 4);
 
         let one = FE::one();
-        let one_minus_r0 = one.clone() - FE::from(2u64);
-        let one_minus_r1 = one.clone() - FE::from(3u64);
+        let one_minus_r0 = one - FE::from(2u64);
+        let one_minus_r1 = one - FE::from(3u64);
 
-        assert_eq!(t[0], one_minus_r0.clone() * one_minus_r1.clone());
-        assert_eq!(t[1], one_minus_r0.clone() * FE::from(3u64));
-        assert_eq!(t[2], FE::from(2u64) * one_minus_r1.clone());
+        assert_eq!(t[0], one_minus_r0 * one_minus_r1);
+        assert_eq!(t[1], one_minus_r0 * FE::from(3u64));
+        assert_eq!(t[2], FE::from(2u64) * one_minus_r1);
         assert_eq!(t[3], FE::from(2u64) * FE::from(3u64));
     }
 
@@ -408,9 +408,9 @@ mod tensor {
         let a = tensor_vec(&r[..1]);
         let b = tensor_vec(&r[1..]);
 
-        let v0 = a[0].clone() * FE::from(1u64) + a[1].clone() * FE::from(3u64);
-        let v1 = a[0].clone() * FE::from(2u64) + a[1].clone() * FE::from(4u64);
-        let result = v0 * b[0].clone() + v1 * b[1].clone();
+        let v0 = a[0] * FE::from(1u64) + a[1] * FE::from(3u64);
+        let v1 = a[0] * FE::from(2u64) + a[1] * FE::from(4u64);
+        let result = v0 * b[0] + v1 * b[1];
         assert_eq!(result, expected);
     }
 }
@@ -455,7 +455,7 @@ mod matrix_tests {
         let result: FE = v
             .iter()
             .zip(b.iter())
-            .fold(FE::zero(), |acc, (vi, bi)| acc + vi.clone() * bi.clone());
+            .fold(FE::zero(), |acc, (vi, bi)| acc + vi * bi);
 
         assert_eq!(result, expected);
     }

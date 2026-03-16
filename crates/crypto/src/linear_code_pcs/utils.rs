@@ -11,8 +11,8 @@ pub fn calculate_t(
 ) -> usize {
     let delta = (delta_num as f64) / (delta_den as f64);
     // log2(1 / (1 - delta))
-    let log_factor = -(1.0 - delta).log2();
-    let t = (sec_param as f64 / log_factor).ceil() as usize;
+    let log_factor = -libm::log2(1.0 - delta);
+    let t = libm::ceil(sec_param as f64 / log_factor) as usize;
     t.min(n_ext_cols)
 }
 
@@ -44,7 +44,7 @@ mod tests {
     fn calculate_t_small_distance() {
         // delta = 1/25 = 0.04
         let t = calculate_t(128, 1, 25, 10000);
-        let expected = (128.0_f64 / (-(1.0 - 1.0 / 25.0_f64).log2())).ceil() as usize;
+        let expected = libm::ceil(128.0_f64 / (-libm::log2(1.0 - 1.0 / 25.0_f64))) as usize;
         assert_eq!(t, expected);
     }
 }
