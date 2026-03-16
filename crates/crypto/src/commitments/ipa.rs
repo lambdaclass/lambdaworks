@@ -15,6 +15,8 @@ use crate::fiat_shamir::is_transcript::IsTranscript;
 /// Errors that can occur during IPA operations.
 #[derive(Debug)]
 pub enum IpaError {
+    /// The setup parameters are invalid (e.g. generator count not a power of two).
+    InvalidSetup,
     /// The polynomial has more coefficients than generators in the setup.
     PolynomialTooLarge,
     /// An MSM operation failed due to mismatched lengths.
@@ -26,6 +28,9 @@ pub enum IpaError {
 impl fmt::Display for IpaError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            IpaError::InvalidSetup => {
+                write!(f, "generator count must be a power of two")
+            }
             IpaError::PolynomialTooLarge => {
                 write!(f, "polynomial degree exceeds generator count")
             }
@@ -84,15 +89,14 @@ where
     F: IsPrimeField<CanonicalType = UnsignedInteger<N>>,
     G: IsGroup + AsBytes,
 {
-    pub fn new(setup: IpaSetup<G>) -> Self {
-        assert!(
-            setup.generators.len().is_power_of_two(),
-            "generator count must be a power of two"
-        );
-        Self {
+    pub fn new(setup: IpaSetup<G>) -> Result<Self, IpaError> {
+        if !setup.generators.len().is_power_of_two() {
+            return Err(IpaError::InvalidSetup);
+        }
+        Ok(Self {
             setup,
             _phantom: PhantomData,
-        }
+        })
     }
 
     /// Commit to a polynomial: C = MSM(coefficients, generators).
@@ -436,7 +440,7 @@ mod tests {
     #[test]
     fn commit_and_open_degree_0() {
         let setup = test_setup(1);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let p = Polynomial::new(&[FE::from(42)]);
         let z = FE::from(100);
@@ -455,7 +459,7 @@ mod tests {
     #[test]
     fn commit_and_open_degree_1() {
         let setup = test_setup(2);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         // p(x) = 3 + 5x
         let p = Polynomial::new(&[FE::from(3), FE::from(5)]);
@@ -474,7 +478,7 @@ mod tests {
     #[test]
     fn commit_and_open_degree_7() {
         let setup = test_setup(8);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
@@ -498,7 +502,7 @@ mod tests {
     #[test]
     fn commit_and_open_degree_15() {
         let setup = test_setup(16);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let coeffs: Vec<FE> = (1..=16).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
@@ -522,7 +526,7 @@ mod tests {
     #[test]
     fn wrong_evaluation_rejected() {
         let setup = test_setup(8);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
@@ -543,7 +547,7 @@ mod tests {
     #[test]
     fn wrong_commitment_rejected() {
         let setup = test_setup(8);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
@@ -565,7 +569,7 @@ mod tests {
     #[test]
     fn wrong_point_rejected() {
         let setup = test_setup(8);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
@@ -779,7 +783,7 @@ mod tests {
         let setup = test_setup(8);
         let u = setup.u.clone();
         let original_generators = setup.generators.clone();
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
@@ -879,7 +883,7 @@ mod tests {
     #[test]
     fn zero_polynomial() {
         let setup = test_setup(4);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         // p(x) = 0
         let p = Polynomial::new(&[FE::zero()]);
@@ -899,7 +903,7 @@ mod tests {
     #[test]
     fn evaluate_at_zero() {
         let setup = test_setup(8);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         // p(x) = 3 + 5x + 7x^2, evaluated at z=0 should give 3
         let p = Polynomial::new(&[FE::from(3), FE::from(5), FE::from(7)]);
@@ -920,7 +924,7 @@ mod tests {
     fn polynomial_degree_less_than_n() {
         // Degree-2 polynomial with n=8 generators (needs padding)
         let setup = test_setup(8);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let p = Polynomial::new(&[FE::from(1), FE::from(2), FE::from(3)]);
         let z = FE::from(10);
@@ -938,7 +942,7 @@ mod tests {
     #[test]
     fn tampered_l_point_rejected() {
         let setup = test_setup(8);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
@@ -960,7 +964,7 @@ mod tests {
     #[test]
     fn tampered_r_point_rejected() {
         let setup = test_setup(8);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
@@ -983,7 +987,7 @@ mod tests {
     #[test]
     fn tampered_a_final_rejected() {
         let setup = test_setup(8);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
@@ -1005,7 +1009,7 @@ mod tests {
     #[test]
     fn wrong_proof_length_rejected() {
         let setup = test_setup(8);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();
         let p = Polynomial::new(&coeffs);
@@ -1025,19 +1029,18 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "generator count must be a power of two")]
-    fn non_power_of_two_generators_panics() {
+    fn non_power_of_two_generators_returns_error() {
         let g = PallasCurve::generator();
         let generators: Vec<G> = (1..=5u64).map(|i| g.operate_with_self(i)).collect();
         let u = g.operate_with_self(1337u64);
         let setup = IpaSetup { generators, u };
-        let _ = Ipa::<4, F, G>::new(setup);
+        assert!(Ipa::<4, F, G>::new(setup).is_err());
     }
 
     #[test]
     fn polynomial_too_large_returns_error() {
         let setup = test_setup(4);
-        let ipa = Ipa::<4, F, G>::new(setup);
+        let ipa = Ipa::<4, F, G>::new(setup).unwrap();
 
         // 8 coefficients but only 4 generators
         let coeffs: Vec<FE> = (1..=8).map(FE::from).collect();

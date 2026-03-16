@@ -201,7 +201,7 @@ let deserialized_srs = StructuredReferenceString::<
 
 The Inner Product Argument (IPA) is a transparent polynomial commitment scheme — it requires **no trusted setup**. Security relies only on the discrete logarithm assumption over any prime-order group. It produces $O(\log n)$ sized proofs with $O(n)$ verification time (dominated by a single multi-scalar multiplication).
 
-IPA is used in protocols like [Halo](https://eprint.iacr.org/2019/1021), [Halo 2](https://zcash.github.io/halo2/), and [Spartan](https://eprint.iacr.org/2019/550). It complements KZG for scenarios where transparency is preferred over the smaller proof sizes that pairings enable.
+The IPA folding protocol originates from [Bulletproofs (Bünz et al., 2017)](https://eprint.iacr.org/2017/1066) and is used in protocols like [Halo](https://eprint.iacr.org/2019/1021), [Halo 2](https://zcash.github.io/halo2/), and [Spartan](https://eprint.iacr.org/2019/550). It complements KZG for scenarios where transparency is preferred over the smaller proof sizes that pairings enable.
 
 ### Setup
 
