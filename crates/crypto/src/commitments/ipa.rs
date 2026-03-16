@@ -221,6 +221,12 @@ where
             challenges.push(x);
         }
 
+        // Compute all challenge inverses once, reuse for P_final, s_vector, and b_final.
+        let challenge_inverses: Vec<FieldElement<F>> = challenges
+            .iter()
+            .map(|x| x.inv().map_err(|_| IpaError::ZeroChallenge))
+            .collect::<Result<Vec<_>, _>>()?;
+
         // P_final = P + Σ(x_j² * L_j + x_j^{-2} * R_j)
         // where P = commitment + <a, b> * U  but since we start from
         // P = MSM(a, G) + <a,b>*U, and commitment = MSM(a, G),
@@ -228,22 +234,21 @@ where
         let mut p_final = commitment.operate_with(&self.setup.u.operate_with_self(y.canonical()));
         for (j, x) in challenges.iter().enumerate() {
             let x_sq = x * x;
-            let x_inv = x.inv().map_err(|_| IpaError::ZeroChallenge)?;
-            let x_inv_sq = &x_inv * &x_inv;
+            let x_inv_sq = &challenge_inverses[j] * &challenge_inverses[j];
             p_final = p_final
                 .operate_with(&proof.l_points[j].operate_with_self(x_sq.canonical()))
                 .operate_with(&proof.r_points[j].operate_with_self(x_inv_sq.canonical()));
         }
 
         // Compute s vector (tensor product of challenges)
-        let s = compute_s_vector(&challenges)?;
+        let s = compute_s_vector_with_inverses(&challenges, &challenge_inverses);
 
         // G_final = MSM(s, G)
         let s_canonical: Vec<_> = s.iter().map(|si| si.canonical()).collect();
         let g_final = msm(&s_canonical, &self.setup.generators).map_err(|_| IpaError::MsmError)?;
 
-        // b_final via O(log n) computation
-        let b_final = compute_b_final(z, &challenges)?;
+        // b_final via O(log n) computation using pre-computed inverses
+        let b_final = compute_b_final_with_inverses(z, &challenges, &challenge_inverses);
 
         // Check: P_final == a_final * G_final + (a_final * b_final) * U
         let expected = g_final
@@ -264,8 +269,13 @@ where
 // ---------------------------------------------------------------------------
 
 /// Dot product of two vectors of field elements.
+///
+/// # Panics
+/// Panics if `a` and `b` have different lengths. This is enforced with a hard
+/// assert (not debug_assert) because `zip` silently truncates to the shorter
+/// slice, which would produce cryptographically incorrect results.
 fn inner_product<F: IsPrimeField>(a: &[FieldElement<F>], b: &[FieldElement<F>]) -> FieldElement<F> {
-    debug_assert_eq!(a.len(), b.len());
+    assert_eq!(a.len(), b.len(), "inner_product: length mismatch");
     a.iter()
         .zip(b.iter())
         .fold(FieldElement::zero(), |acc, (ai, bi)| acc + ai * bi)
@@ -288,9 +298,22 @@ fn compute_b_vector<F: IsPrimeField>(z: &FieldElement<F>, n: usize) -> Vec<Field
 /// s_i = Π_{j=1}^{k} (if bit j of i is 1 then x_j else x_j^{-1})
 ///
 /// This gives the coefficients for reconstructing G_final = MSM(s, G).
+#[cfg(test)]
 fn compute_s_vector<F: IsPrimeField>(
     challenges: &[FieldElement<F>],
 ) -> Result<Vec<FieldElement<F>>, IpaError> {
+    let inverses: Vec<FieldElement<F>> = challenges
+        .iter()
+        .map(|x| x.inv().map_err(|_| IpaError::ZeroChallenge))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(compute_s_vector_with_inverses(challenges, &inverses))
+}
+
+/// Compute the s vector using pre-computed challenge inverses.
+fn compute_s_vector_with_inverses<F: IsPrimeField>(
+    challenges: &[FieldElement<F>],
+    inverses: &[FieldElement<F>],
+) -> Vec<FieldElement<F>> {
     let k = challenges.len();
     let n = 1 << k;
     let mut s = Vec::with_capacity(n);
@@ -299,29 +322,40 @@ fn compute_s_vector<F: IsPrimeField>(
     // Build tensor product iteratively, processing challenges in reverse so that
     // challenges[0] (first round) corresponds to the most significant bit position.
     // This matches the folding convention: G' = x^{-1}*G_L + x*G_R where L = first half.
-    for x in challenges.iter().rev() {
-        let x_inv = x.inv().map_err(|_| IpaError::ZeroChallenge)?;
+    for (x, x_inv) in challenges.iter().rev().zip(inverses.iter().rev()) {
         let current_len = s.len();
-        // Extend with x * existing entries
         for i in 0..current_len {
             s.push(&s[i] * x);
         }
-        // Multiply existing entries by x_inv
         for si in s.iter_mut().take(current_len) {
-            *si = &*si * &x_inv;
+            *si = &*si * x_inv;
         }
     }
 
-    Ok(s)
+    s
 }
 
 /// Compute b_final = <s, b> in O(log n) time.
 ///
 /// b_final = Π_{j=1}^{k} (x_j^{-1} + x_j * z^{2^{k-j}})
+#[cfg(test)]
 fn compute_b_final<F: IsPrimeField>(
     z: &FieldElement<F>,
     challenges: &[FieldElement<F>],
 ) -> Result<FieldElement<F>, IpaError> {
+    let inverses: Vec<FieldElement<F>> = challenges
+        .iter()
+        .map(|x| x.inv().map_err(|_| IpaError::ZeroChallenge))
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(compute_b_final_with_inverses(z, challenges, &inverses))
+}
+
+/// Compute b_final using pre-computed challenge inverses.
+fn compute_b_final_with_inverses<F: IsPrimeField>(
+    z: &FieldElement<F>,
+    challenges: &[FieldElement<F>],
+    inverses: &[FieldElement<F>],
+) -> FieldElement<F> {
     let k = challenges.len();
     let mut result = FieldElement::one();
 
@@ -334,13 +368,11 @@ fn compute_b_final<F: IsPrimeField>(
     }
 
     for j in 0..k {
-        let x_inv = challenges[j].inv().map_err(|_| IpaError::ZeroChallenge)?;
-        // z^{2^{k-1-j}} — index into z_powers reversed
         let z_pow = &z_powers[k - 1 - j];
-        result = &result * &(&x_inv + &(&challenges[j] * z_pow));
+        result = &result * &(&inverses[j] + &(&challenges[j] * z_pow));
     }
 
-    Ok(result)
+    result
 }
 
 /// Pad polynomial coefficients to length `n`, returning canonical representations.
