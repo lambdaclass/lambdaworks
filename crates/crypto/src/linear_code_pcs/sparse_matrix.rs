@@ -43,6 +43,78 @@ impl<F: IsField> SparseMatrix<F> {
     }
 
     /// Generates a random sparse matrix where each row has exactly `nnz_per_row`
+    /// nonzero entries with random non-zero field element values.
+    ///
+    /// Per Brakedown (Golovnev et al., Section 5.1): the matrix entries must be
+    /// "uniform random non-zero elements of F" for the distance analysis to hold.
+    ///
+    /// Uses SHA3-256 to derive independent PRNG seeds per (row, column) pair.
+    pub fn random_nonzero(n_rows: usize, n_cols: usize, nnz_per_row: usize, seed: u64) -> Self {
+        use sha3::{Digest, Sha3_256};
+
+        fn derive(seed: u64, row: u64, counter: u64) -> [u8; 32] {
+            let mut h = Sha3_256::new();
+            h.update(seed.to_le_bytes());
+            h.update(row.to_le_bytes());
+            h.update(counter.to_le_bytes());
+            h.finalize().into()
+        }
+
+        fn u64_from_hash(hash: &[u8; 32]) -> u64 {
+            let mut buf = [0u8; 8];
+            buf.copy_from_slice(&hash[..8]);
+            u64::from_le_bytes(buf)
+        }
+
+        assert!(nnz_per_row <= n_cols);
+        let mut entries = Vec::with_capacity(n_rows);
+
+        for i in 0..n_rows {
+            let mut row = Vec::with_capacity(nnz_per_row);
+            let row_idx = i as u64;
+            let hash = derive(seed, row_idx, 0);
+            let mut state = u64_from_hash(&hash);
+            let mut hash_counter: u64 = 1;
+            let mut used = alloc::collections::BTreeSet::new();
+
+            for _ in 0..nnz_per_row {
+                // Pick column
+                let mut col = (state >> 1) as usize % n_cols;
+                while used.contains(&col) {
+                    let rehash = derive(seed, row_idx, hash_counter);
+                    state = u64_from_hash(&rehash);
+                    hash_counter += 1;
+                    col = (state >> 1) as usize % n_cols;
+                }
+                used.insert(col);
+
+                // Derive a non-zero value: use hash bytes as a small integer, ensure ≠ 0.
+                // Map state to [1, p-1] by taking (state % (p-1)) + 1 via FieldElement.
+                let val_raw = (state >> 33).max(1);
+                let val = FieldElement::<F>::from(val_raw);
+                // If the field element is zero (only if val_raw ≡ 0 mod p), use 1 instead.
+                let val = if val == FieldElement::zero() {
+                    FieldElement::one()
+                } else {
+                    val
+                };
+                row.push((col, val));
+
+                let next_hash = derive(seed, row_idx, hash_counter);
+                state = u64_from_hash(&next_hash);
+                hash_counter += 1;
+            }
+            entries.push(row);
+        }
+
+        Self {
+            n_rows,
+            n_cols,
+            entries,
+        }
+    }
+
+    /// Generates a random sparse matrix where each row has exactly `nnz_per_row`
     /// nonzero entries, each set to the field element `1`.
     ///
     /// Uses SHA3-256 to derive an independent PRNG seed per row from (seed, row_index),
