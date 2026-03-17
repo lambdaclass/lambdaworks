@@ -371,7 +371,7 @@ mod tests {
             let mut result = vec![FE::zero(); r1cs.num_constraints];
             for e in &matrix.entries {
                 if e.row < r1cs.num_constraints {
-                    result[e.row] += &e.val * &witness[e.col];
+                    result[e.row] += e.val * witness[e.col];
                 }
             }
             result
@@ -383,7 +383,7 @@ mod tests {
 
         let mut sum = FE::zero();
         for i in 0..r1cs.num_constraints {
-            sum += &eq_ev.evals()[i] * &(&az[i] * &bz[i] - &cz[i]);
+            sum += eq_ev.evals()[i] * (az[i] * bz[i] - cz[i]);
         }
 
         assert_eq!(sum, FE::zero(), "Outer sum should be 0 for satisfied R1CS");

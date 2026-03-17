@@ -227,7 +227,7 @@ mod tests {
             vec![SparseEntry {
                 row: 0,
                 col: 2,
-                val: one.clone(),
+                val: one,
             }],
             1,
             4,
@@ -237,7 +237,7 @@ mod tests {
             vec![SparseEntry {
                 row: 0,
                 col: 3,
-                val: one.clone(),
+                val: one,
             }],
             1,
             4,

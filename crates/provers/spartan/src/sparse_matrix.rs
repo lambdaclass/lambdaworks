@@ -101,10 +101,7 @@ mod tests {
         let z = FE::zero();
         let one = FE::one();
         let two = FE::from(2u64);
-        let dense = vec![
-            vec![one.clone(), z.clone(), two.clone()],
-            vec![z.clone(), z.clone(), one.clone()],
-        ];
+        let dense = vec![vec![one, z, two], vec![z, z, one]];
         let sparse = SparseMatrix::from_dense(&dense);
         assert_eq!(sparse.num_rows, 2);
         assert_eq!(sparse.num_cols, 3);
@@ -120,7 +117,7 @@ mod tests {
     #[test]
     fn test_from_dense_all_zeros() {
         let z = FE::zero();
-        let dense = vec![vec![z.clone(), z.clone()], vec![z.clone(), z.clone()]];
+        let dense = vec![vec![z, z], vec![z, z]];
         let sparse = SparseMatrix::from_dense(&dense);
         assert!(sparse.entries.is_empty());
     }
