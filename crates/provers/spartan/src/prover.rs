@@ -179,15 +179,7 @@ where
         // -----------------------------------------------------------------------
         // Ensure at least 2 constraints so sumcheck has at least 1 variable
         let num_constraints_padded = next_power_of_two(r1cs.num_constraints).max(2);
-        let log_constraints = {
-            let mut k = 0;
-            let mut n = num_constraints_padded;
-            while n > 1 {
-                k += 1;
-                n >>= 1;
-            }
-            k
-        };
+        let log_constraints = num_constraints_padded.trailing_zeros() as usize;
 
         transcript.append_bytes(b"tau_challenge");
         let tau = draw_challenges(&mut transcript, log_constraints);
@@ -209,38 +201,22 @@ where
         let eq_mle = eq_poly(&tau);
 
         // Compute AZ(x), BZ(x), CZ(x) for all x ∈ {0,1}^s (boolean constraint indices)
-        let mut az_evals = vec![FieldElement::zero(); num_constraints_padded];
-        let mut bz_evals = vec![FieldElement::zero(); num_constraints_padded];
-        let mut cz_evals = vec![FieldElement::zero(); num_constraints_padded];
-
-        for i in 0..r1cs.num_constraints {
-            az_evals[i] = r1cs.a[i]
-                .iter()
-                .zip(witness_z.iter())
-                .map(|(a_ij, z_j)| a_ij * z_j)
-                .fold(FieldElement::zero(), |acc, x| acc + x);
-
-            bz_evals[i] = r1cs.b[i]
-                .iter()
-                .zip(witness_z.iter())
-                .map(|(b_ij, z_j)| b_ij * z_j)
-                .fold(FieldElement::zero(), |acc, x| acc + x);
-
-            cz_evals[i] = r1cs.c[i]
-                .iter()
-                .zip(witness_z.iter())
-                .map(|(c_ij, z_j)| c_ij * z_j)
-                .fold(FieldElement::zero(), |acc, x| acc + x);
-        }
+        let compute_mz = |matrix: &[Vec<FieldElement<F>>]| -> Vec<FieldElement<F>> {
+            let mut evals = vec![FieldElement::zero(); num_constraints_padded];
+            for (i, row) in matrix.iter().enumerate().take(r1cs.num_constraints) {
+                evals[i] = dot_product(row, witness_z);
+            }
+            evals
+        };
+        let az_evals = compute_mz(&r1cs.a);
+        let bz_evals = compute_mz(&r1cs.b);
+        let cz_evals = compute_mz(&r1cs.c);
 
         let az_mle = DenseMultilinearPolynomial::new(az_evals);
         let bz_mle = DenseMultilinearPolynomial::new(bz_evals);
 
         // Negate CZ for term 2: neg_cz[i] = -cz[i]
-        let neg_cz_evals: Vec<FieldElement<F>> = cz_evals
-            .iter()
-            .map(|v| FieldElement::<F>::zero() - v)
-            .collect();
+        let neg_cz_evals: Vec<FieldElement<F>> = cz_evals.iter().map(|v| -v).collect();
         let neg_cz_mle = DenseMultilinearPolynomial::new(neg_cz_evals);
 
         // Run two-term product sumcheck following GKR pattern
@@ -393,6 +369,16 @@ where
     sum
 }
 
+/// Dot product of two field element slices.
+fn dot_product<F: IsField>(a: &[FieldElement<F>], b: &[FieldElement<F>]) -> FieldElement<F>
+where
+    F::BaseType: Send + Sync,
+{
+    a.iter()
+        .zip(b.iter())
+        .fold(FieldElement::zero(), |acc, (ai, bi)| acc + ai * bi)
+}
+
 /// Runs the two-term sumcheck following the GKR pattern.
 ///
 /// Proves ∑_x [∏ term1_factors(x) + ∏ term2_factors(x)] = claimed_sum.
@@ -437,18 +423,7 @@ where
         // Combine: g_j = g_j1 + g_j2
         let g_j = g_j1 + g_j2;
 
-        // Append to transcript using GKR-style format
-        let round_label = format!("round_{round}_poly");
-        transcript.append_bytes(round_label.as_bytes());
-        let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
-        if coeffs.is_empty() {
-            transcript.append_field_element(&FieldElement::zero());
-        } else {
-            for coeff in coeffs {
-                transcript.append_field_element(coeff);
-            }
-        }
+        append_round_poly_to_transcript(transcript, round, &g_j);
 
         round_polys.push(g_j);
 

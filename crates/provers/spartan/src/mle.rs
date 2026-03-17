@@ -8,12 +8,10 @@ use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolyno
 
 use crate::errors::SpartanError;
 
-/// Returns the smallest power of 2 that is >= n.
+/// Returns the smallest power of 2 that is >= n (returns 1 for n = 0).
 pub fn next_power_of_two(n: usize) -> usize {
     if n == 0 {
         1
-    } else if n.is_power_of_two() {
-        n
     } else {
         n.next_power_of_two()
     }
@@ -91,9 +89,9 @@ where
 
     for tau_i in tau.iter() {
         let half = evals.len();
+        let one_minus_tau_i = FieldElement::<F>::one() - tau_i;
         let mut new_evals = vec![FieldElement::zero(); half * 2];
         for k in 0..half {
-            let one_minus_tau_i = FieldElement::<F>::one() - tau_i;
             new_evals[2 * k] = &evals[k] * &one_minus_tau_i;
             new_evals[2 * k + 1] = &evals[k] * tau_i;
         }

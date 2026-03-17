@@ -26,54 +26,29 @@ where
     transcript.append_bytes(&(r1cs.num_variables as u64).to_be_bytes());
     transcript.append_bytes(&(r1cs.num_public_inputs as u64).to_be_bytes());
 
-    // Append non-zero entries from A, prefixed with NNZ count for unambiguous encoding
-    transcript.append_bytes(b"matrix_A");
-    let nnz_a = r1cs
-        .a
-        .iter()
-        .flatten()
-        .filter(|v| **v != FieldElement::zero())
-        .count();
-    transcript.append_bytes(&(nnz_a as u64).to_be_bytes());
-    for (i, row) in r1cs.a.iter().enumerate() {
-        for (j, val) in row.iter().enumerate() {
-            if *val != FieldElement::zero() {
-                transcript.append_bytes(&(i as u64).to_be_bytes());
-                transcript.append_bytes(&(j as u64).to_be_bytes());
-                transcript.append_field_element(val);
-            }
-        }
-    }
+    append_sparse_matrix(transcript, b"matrix_A", &r1cs.a);
+    append_sparse_matrix(transcript, b"matrix_B", &r1cs.b);
+    append_sparse_matrix(transcript, b"matrix_C", &r1cs.c);
+}
 
-    // Append non-zero entries from B
-    transcript.append_bytes(b"matrix_B");
-    let nnz_b = r1cs
-        .b
+/// Append non-zero entries of a sparse matrix to the transcript.
+fn append_sparse_matrix<F>(
+    transcript: &mut DefaultTranscript<F>,
+    label: &[u8],
+    matrix: &[Vec<FieldElement<F>>],
+) where
+    F: IsField + HasDefaultTranscript,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: ByteConversion,
+{
+    transcript.append_bytes(label);
+    let nnz: usize = matrix
         .iter()
         .flatten()
         .filter(|v| **v != FieldElement::zero())
         .count();
-    transcript.append_bytes(&(nnz_b as u64).to_be_bytes());
-    for (i, row) in r1cs.b.iter().enumerate() {
-        for (j, val) in row.iter().enumerate() {
-            if *val != FieldElement::zero() {
-                transcript.append_bytes(&(i as u64).to_be_bytes());
-                transcript.append_bytes(&(j as u64).to_be_bytes());
-                transcript.append_field_element(val);
-            }
-        }
-    }
-
-    // Append non-zero entries from C
-    transcript.append_bytes(b"matrix_C");
-    let nnz_c = r1cs
-        .c
-        .iter()
-        .flatten()
-        .filter(|v| **v != FieldElement::zero())
-        .count();
-    transcript.append_bytes(&(nnz_c as u64).to_be_bytes());
-    for (i, row) in r1cs.c.iter().enumerate() {
+    transcript.append_bytes(&(nnz as u64).to_be_bytes());
+    for (i, row) in matrix.iter().enumerate() {
         for (j, val) in row.iter().enumerate() {
             if *val != FieldElement::zero() {
                 transcript.append_bytes(&(i as u64).to_be_bytes());

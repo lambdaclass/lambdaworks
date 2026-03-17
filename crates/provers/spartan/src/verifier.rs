@@ -75,15 +75,7 @@ where
         // Step 2: Draw tau (same as prover)
         // -----------------------------------------------------------------------
         let num_constraints_padded = next_power_of_two(r1cs.num_constraints).max(2);
-        let log_constraints = {
-            let mut k = 0;
-            let mut n = num_constraints_padded;
-            while n > 1 {
-                k += 1;
-                n >>= 1;
-            }
-            k
-        };
+        let log_constraints = num_constraints_padded.trailing_zeros() as usize;
         let num_cols_padded = next_power_of_two(r1cs.num_variables).max(2);
 
         transcript.append_bytes(b"tau_challenge");
@@ -100,10 +92,11 @@ where
 
         let outer_claimed_sum = FieldElement::<F>::zero();
 
-        let (outer_ok, r_x) = verify_two_term_sumcheck_round_polys(
+        let (outer_ok, r_x) = verify_sumcheck_round_polys(
             outer_claimed_sum,
             &proof.outer_sumcheck_polys,
             3, // max degree for cubic sumcheck
+            2, // two-term product sumcheck
             &mut transcript,
         )?;
 
@@ -173,7 +166,8 @@ where
         let (inner_ok, r_y) = verify_sumcheck_round_polys(
             inner_claimed_sum,
             &proof.inner_sumcheck_polys,
-            2, // max degree for quadratic sumcheck (2 factors)
+            2, // max degree for quadratic sumcheck
+            2, // two-factor product
             &mut transcript,
         )?;
 
@@ -275,13 +269,16 @@ where
     }
 }
 
-/// Verifies the two-term (GKR-style) sumcheck round polynomials.
+/// Verifies sumcheck round polynomials against a claimed sum.
 ///
-/// Uses the same transcript format as `run_two_term_sumcheck` in the prover.
-fn verify_two_term_sumcheck_round_polys<F>(
+/// Checks degree bounds, the g(0)+g(1) consistency at each round, and replays
+/// the transcript to re-derive challenges. Used for both the outer (two-term,
+/// cubic) and inner (quadratic) sumchecks.
+fn verify_sumcheck_round_polys<F>(
     claimed_sum: FieldElement<F>,
     round_polys: &[Polynomial<FieldElement<F>>],
     max_degree: usize,
+    num_terms: u64,
     transcript: &mut DefaultTranscript<F>,
 ) -> Result<(bool, Vec<FieldElement<F>>), SpartanError>
 where
@@ -290,98 +287,30 @@ where
     FieldElement<F>: ByteConversion,
 {
     let num_vars = round_polys.len();
-
-    // Append initial sum to transcript (same as prover)
-    transcript.append_bytes(b"initial_sum");
-    transcript.append_field_element(&FieldElement::from(num_vars as u64));
-    transcript.append_field_element(&FieldElement::from(2u64)); // two-term product sumcheck
-    transcript.append_field_element(&claimed_sum);
-
     let mut current_claim = claimed_sum;
-    let mut challenges = Vec::with_capacity(num_vars);
 
-    for (round, g_j) in round_polys.iter().enumerate() {
-        // Check degree bound
-        if g_j.degree() > max_degree {
-            return Ok((false, challenges));
-        }
-
-        // Check g_j(0) + g_j(1) == current_claim
-        let eval_0 = g_j.evaluate(&FieldElement::<F>::zero());
-        let eval_1 = g_j.evaluate(&FieldElement::<F>::one());
-        let sum_check = eval_0 + eval_1;
-
-        if sum_check != current_claim {
-            return Ok((false, challenges));
-        }
-
-        // Append to transcript (same GKR format as prover)
-        let round_label = format!("round_{round}_poly");
-        transcript.append_bytes(round_label.as_bytes());
-        let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
-        if coeffs.is_empty() {
-            transcript.append_field_element(&FieldElement::zero());
-        } else {
-            for coeff in coeffs {
-                transcript.append_field_element(coeff);
-            }
-        }
-
-        let r = transcript.sample_field_element();
-
-        // Update claim for next round
-        current_claim = g_j.evaluate(&r);
-        challenges.push(r);
-    }
-
-    Ok((true, challenges))
-}
-
-/// Verifies sumcheck round polynomials using the external transcript.
-///
-/// Uses the standard round polynomial transcript format.
-fn verify_sumcheck_round_polys<F>(
-    mut claimed_sum: FieldElement<F>,
-    round_polys: &[Polynomial<FieldElement<F>>],
-    max_degree: usize,
-    transcript: &mut DefaultTranscript<F>,
-) -> Result<(bool, Vec<FieldElement<F>>), SpartanError>
-where
-    F: IsField + HasDefaultTranscript,
-    F::BaseType: Send + Sync,
-    FieldElement<F>: ByteConversion,
-{
-    let num_vars = round_polys.len();
-    let mut challenges = Vec::with_capacity(num_vars);
-
-    // Bind the claimed sum to the transcript before rounds (mirrors prover).
     transcript.append_bytes(b"initial_sum");
     transcript.append_field_element(&FieldElement::from(num_vars as u64));
-    transcript.append_field_element(&FieldElement::from(2u64)); // quadratic (2-factor) sumcheck
-    transcript.append_field_element(&claimed_sum);
+    transcript.append_field_element(&FieldElement::from(num_terms));
+    transcript.append_field_element(&current_claim);
+
+    let mut challenges = Vec::with_capacity(num_vars);
 
     for (round, g_j) in round_polys.iter().enumerate() {
-        // Check degree bound
         if g_j.degree() > max_degree {
             return Ok((false, challenges));
         }
 
-        // Check g_j(0) + g_j(1) == claimed_sum
-        let eval_0 = g_j.evaluate(&FieldElement::<F>::zero());
-        let eval_1 = g_j.evaluate(&FieldElement::<F>::one());
-        let sum_check = eval_0 + eval_1;
+        let sum =
+            g_j.evaluate(&FieldElement::<F>::zero()) + g_j.evaluate(&FieldElement::<F>::one());
 
-        if sum_check != claimed_sum {
+        if sum != current_claim {
             return Ok((false, challenges));
         }
 
-        // Append to transcript and draw challenge (same format as prover)
         append_round_poly_to_transcript(transcript, round, g_j);
         let r = transcript.sample_field_element();
-
-        // Update claimed sum for next round
-        claimed_sum = g_j.evaluate(&r);
+        current_claim = g_j.evaluate(&r);
         challenges.push(r);
     }
 
