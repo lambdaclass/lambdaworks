@@ -52,15 +52,15 @@ where
 {
     let s = tau.len();
     let n = 1 << s;
-    let mut current = vec![FieldElement::one(); 1];
+    let mut current = vec![FieldElement::one()];
 
     for tau_i in tau.iter() {
         let half = current.len();
         let one_minus_tau_i = FieldElement::<F>::one() - tau_i;
-        let mut new_vals = vec![FieldElement::zero(); half * 2];
-        for k in 0..half {
-            new_vals[2 * k] = &current[k] * &one_minus_tau_i;
-            new_vals[2 * k + 1] = &current[k] * tau_i;
+        let mut new_vals = Vec::with_capacity(half * 2);
+        for val in current.iter() {
+            new_vals.push(val * &one_minus_tau_i);
+            new_vals.push(val * tau_i);
         }
         current = new_vals;
     }
@@ -82,9 +82,7 @@ where
 {
     // Build eq evaluations over {0,1}^{log(size)} using expansion algorithm
     let eq_mle = eq_poly(r_x);
-    let eq_ev = eq_mle.evals().to_vec();
-    // Pad or truncate to `size`
-    let mut result = eq_ev;
+    let mut result = eq_mle.evals().to_vec();
     result.resize(size, FieldElement::zero());
     result
 }
@@ -111,7 +109,7 @@ where
 
     for entry in &matrix.entries {
         if entry.row < num_rows_padded && entry.col < num_cols_padded {
-            result[entry.col] = &result[entry.col] + &eq_weights[entry.row] * &entry.val;
+            result[entry.col] += &eq_weights[entry.row] * &entry.val;
         }
     }
 

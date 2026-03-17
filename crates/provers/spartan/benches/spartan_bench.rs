@@ -31,7 +31,7 @@ fn generate_chain_circuit(n: usize) -> (R1CS<F>, Vec<FE>, Vec<FE>) {
     // chain = [x_0, x_1, ..., x_n] where x_n is the output
 
     // Build witness: z = [1, output, x_0, x_1, ..., x_{n-1}]
-    let mut witness = vec![one.clone(), chain[n].clone()];
+    let mut witness = vec![one, chain[n]];
     witness.extend_from_slice(&chain[..n]);
 
     let mut a_entries = Vec::with_capacity(n);
@@ -43,19 +43,19 @@ fn generate_chain_circuit(n: usize) -> (R1CS<F>, Vec<FE>, Vec<FE>) {
         a_entries.push(SparseEntry {
             row: i,
             col: i + 2,
-            val: one.clone(),
+            val: one,
         });
         b_entries.push(SparseEntry {
             row: i,
             col: i + 2,
-            val: one.clone(),
+            val: one,
         });
         // C selects the result: x_{i+1} if i < n-1, or output (col 1) if i == n-1
         let result_col = if i < n - 1 { i + 3 } else { 1 };
         c_entries.push(SparseEntry {
             row: i,
             col: result_col,
-            val: one.clone(),
+            val: one,
         });
     }
 
@@ -64,7 +64,7 @@ fn generate_chain_circuit(n: usize) -> (R1CS<F>, Vec<FE>, Vec<FE>) {
     let c = SparseMatrix::new(c_entries, n, num_vars).unwrap();
 
     let r1cs = R1CS::new(a, b, c, 1).unwrap();
-    let public_inputs = vec![chain[n].clone()];
+    let public_inputs = vec![chain[n]];
 
     (r1cs, witness, public_inputs)
 }

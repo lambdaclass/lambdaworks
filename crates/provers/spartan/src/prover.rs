@@ -205,7 +205,7 @@ where
             let mut evals = vec![FieldElement::zero(); num_constraints_padded];
             for entry in &matrix.entries {
                 if entry.row < r1cs.num_constraints {
-                    evals[entry.row] = &evals[entry.row] + &entry.val * &witness_z[entry.col];
+                    evals[entry.row] += &entry.val * &witness_z[entry.col];
                 }
             }
             evals
@@ -218,7 +218,7 @@ where
         let bz_mle = DenseMultilinearPolynomial::new(bz_evals);
 
         // Negate CZ for term 2: neg_cz[i] = -cz[i]
-        let neg_cz_evals: Vec<FieldElement<F>> = cz_evals.iter().map(|v| -v).collect();
+        let neg_cz_evals: Vec<FieldElement<F>> = cz_evals.into_iter().map(|v| -v).collect();
         let neg_cz_mle = DenseMultilinearPolynomial::new(neg_cz_evals);
 
         // Run two-term product sumcheck following GKR pattern
@@ -229,8 +229,8 @@ where
         let outer_claimed_sum = &claimed_sum_term1 + &claimed_sum_term2;
 
         let (outer_sumcheck_polys, outer_challenges) = run_two_term_sumcheck(
-            vec![eq_mle.clone(), az_mle.clone(), bz_mle.clone()],
-            vec![eq_mle.clone(), neg_cz_mle.clone()],
+            vec![eq_mle.clone(), az_mle, bz_mle],
+            vec![eq_mle, neg_cz_mle],
             outer_claimed_sum,
             &mut transcript,
         )?;
@@ -420,8 +420,8 @@ where
         round_polys.push(g_j);
 
         let r = transcript.sample_field_element();
-        challenges.push(r.clone());
-        current_challenge = Some(r);
+        current_challenge = Some(r.clone());
+        challenges.push(r);
     }
 
     Ok((round_polys, challenges))
@@ -467,8 +467,8 @@ where
         round_polys.push(g_j);
 
         let r = transcript.sample_field_element();
-        challenges.push(r.clone());
-        current_challenge = Some(r);
+        current_challenge = Some(r.clone());
+        challenges.push(r);
     }
 
     Ok((round_polys, challenges))
