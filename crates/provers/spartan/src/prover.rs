@@ -201,10 +201,12 @@ where
         let eq_mle = eq_poly(&tau);
 
         // Compute AZ(x), BZ(x), CZ(x) for all x ∈ {0,1}^s (boolean constraint indices)
-        let compute_mz = |matrix: &[Vec<FieldElement<F>>]| -> Vec<FieldElement<F>> {
+        let compute_mz = |matrix: &crate::sparse_matrix::SparseMatrix<F>| -> Vec<FieldElement<F>> {
             let mut evals = vec![FieldElement::zero(); num_constraints_padded];
-            for (i, row) in matrix.iter().enumerate().take(r1cs.num_constraints) {
-                evals[i] = dot_product(row, witness_z);
+            for entry in &matrix.entries {
+                if entry.row < r1cs.num_constraints {
+                    evals[entry.row] = &evals[entry.row] + &entry.val * &witness_z[entry.col];
+                }
             }
             evals
         };
@@ -367,16 +369,6 @@ where
         sum += product;
     }
     sum
-}
-
-/// Dot product of two field element slices.
-fn dot_product<F: IsField>(a: &[FieldElement<F>], b: &[FieldElement<F>]) -> FieldElement<F>
-where
-    F::BaseType: Send + Sync,
-{
-    a.iter()
-        .zip(b.iter())
-        .fold(FieldElement::zero(), |acc, (ai, bi)| acc + ai * bi)
 }
 
 /// Runs the two-term sumcheck following the GKR pattern.

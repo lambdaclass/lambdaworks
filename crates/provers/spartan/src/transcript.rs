@@ -10,6 +10,7 @@ use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::traits::ByteConversion;
 
 use crate::r1cs::R1CS;
+use crate::sparse_matrix::SparseMatrix;
 
 /// Append R1CS instance parameters to the transcript.
 ///
@@ -32,30 +33,24 @@ where
 }
 
 /// Append non-zero entries of a sparse matrix to the transcript.
+///
+/// COO entries are sorted by (row, col), matching the row-major scan order
+/// of the previous dense implementation. This preserves Fiat-Shamir compatibility.
 fn append_sparse_matrix<F>(
     transcript: &mut DefaultTranscript<F>,
     label: &[u8],
-    matrix: &[Vec<FieldElement<F>>],
+    matrix: &SparseMatrix<F>,
 ) where
     F: IsField + HasDefaultTranscript,
     F::BaseType: Send + Sync,
     FieldElement<F>: ByteConversion,
 {
     transcript.append_bytes(label);
-    let nnz: usize = matrix
-        .iter()
-        .flatten()
-        .filter(|v| **v != FieldElement::zero())
-        .count();
-    transcript.append_bytes(&(nnz as u64).to_be_bytes());
-    for (i, row) in matrix.iter().enumerate() {
-        for (j, val) in row.iter().enumerate() {
-            if *val != FieldElement::zero() {
-                transcript.append_bytes(&(i as u64).to_be_bytes());
-                transcript.append_bytes(&(j as u64).to_be_bytes());
-                transcript.append_field_element(val);
-            }
-        }
+    transcript.append_bytes(&(matrix.entries.len() as u64).to_be_bytes());
+    for entry in &matrix.entries {
+        transcript.append_bytes(&(entry.row as u64).to_be_bytes());
+        transcript.append_bytes(&(entry.col as u64).to_be_bytes());
+        transcript.append_field_element(&entry.val);
     }
 }
 

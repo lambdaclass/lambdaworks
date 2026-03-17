@@ -11,3 +11,8 @@ lambdaworks-sumcheck = { workspace = true }
 
 [dev-dependencies]
 lambdaworks-groth16 = { workspace = true }
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "spartan_bench"
+harness = false

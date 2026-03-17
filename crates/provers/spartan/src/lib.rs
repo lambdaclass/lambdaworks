@@ -23,6 +23,7 @@ pub mod mle;
 pub mod pcs;
 pub mod prover;
 pub mod r1cs;
+pub mod sparse_matrix;
 mod transcript;
 pub mod verifier;
 
@@ -30,6 +31,7 @@ pub use errors::SpartanError;
 pub use pcs::trivial::{TrivialCommitment, TrivialPCS, TrivialProof};
 pub use prover::{SpartanProof, SpartanProver};
 pub use r1cs::R1CS;
+pub use sparse_matrix::{SparseEntry, SparseMatrix};
 pub use verifier::SpartanVerifier;
 
 use lambdaworks_math::field::{
@@ -108,7 +110,7 @@ mod tests {
         let b_mat = vec![vec![zero(), zero(), zero(), one()]];
         let c_mat = vec![vec![zero(), one(), zero(), zero()]];
 
-        let r1cs = R1CS::new(a_mat, b_mat, c_mat, 1).unwrap();
+        let r1cs = R1CS::from_dense(a_mat, b_mat, c_mat, 1).unwrap();
 
         // witness = [1, c, a, b]
         let witness = vec![one(), fe(c_val), fe(a_val), fe(b_val)];
@@ -180,7 +182,8 @@ mod tests {
         use crate::mle::matrix_vector_product_mle;
 
         let two = fe(2);
-        let a = vec![vec![one(), zero()], vec![zero(), two]];
+        let a_dense = vec![vec![one(), zero()], vec![zero(), two]];
+        let a = SparseMatrix::from_dense(&a_dense);
 
         // r_x = [0] -> selects row 0 weighted by eq([0], i)
         let r_x = vec![FE::zero()];
@@ -308,7 +311,7 @@ mod tests {
             vec![zero, zero, one, zero, zero, zero],
         ];
 
-        let r1cs = R1CS::new(a_mat, b_mat, c_mat, 2).unwrap();
+        let r1cs = R1CS::from_dense(a_mat, b_mat, c_mat, 2).unwrap();
 
         // witness = [1, c, e, a, b, d]
         let witness = vec![one, fe(c_val), fe(e_val), fe(a_val), fe(b_val), fe(d_val)];
@@ -354,43 +357,33 @@ mod tests {
         assert!(r1cs.is_satisfied(&witness));
 
         let num_constraints_padded = crate::mle::next_power_of_two(r1cs.num_constraints);
-        let log_constraints = {
-            let mut k = 0;
-            let mut n = num_constraints_padded;
-            while n > 1 {
-                k += 1;
-                n >>= 1;
-            }
-            k
-        };
+        let log_constraints = num_constraints_padded.trailing_zeros() as usize;
 
         // Use a fixed tau for testing
         let tau: Vec<FE> = (0..log_constraints)
             .map(|i| fe((i as u64 + 2) * 7 % MODULUS))
             .collect();
 
-        // Compute combined sum: ∑_i eq(τ,i) * (AZ[i]*BZ[i] - CZ[i])
         let eq_ev = eq_poly(&tau);
+
+        // Sparse accumulation of per-row dot products
+        let accumulate = |matrix: &SparseMatrix<F>| -> Vec<FE> {
+            let mut result = vec![FE::zero(); r1cs.num_constraints];
+            for e in &matrix.entries {
+                if e.row < r1cs.num_constraints {
+                    result[e.row] += &e.val * &witness[e.col];
+                }
+            }
+            result
+        };
+
+        let az = accumulate(&r1cs.a);
+        let bz = accumulate(&r1cs.b);
+        let cz = accumulate(&r1cs.c);
 
         let mut sum = FE::zero();
         for i in 0..r1cs.num_constraints {
-            let az_i: FE = r1cs.a[i]
-                .iter()
-                .zip(witness.iter())
-                .map(|(a, z)| a * z)
-                .fold(FE::zero(), |acc, x| acc + x);
-            let bz_i: FE = r1cs.b[i]
-                .iter()
-                .zip(witness.iter())
-                .map(|(b, z)| b * z)
-                .fold(FE::zero(), |acc, x| acc + x);
-            let cz_i: FE = r1cs.c[i]
-                .iter()
-                .zip(witness.iter())
-                .map(|(c, z)| c * z)
-                .fold(FE::zero(), |acc, x| acc + x);
-
-            sum += eq_ev.evals()[i] * (az_i * bz_i - cz_i);
+            sum += &eq_ev.evals()[i] * &(&az[i] * &bz[i] - &cz[i]);
         }
 
         assert_eq!(sum, FE::zero(), "Outer sum should be 0 for satisfied R1CS");
@@ -491,7 +484,7 @@ mod tests {
         let a = vec![vec![zero.clone(), zero.clone(), one.clone(), zero.clone()]];
         let b = vec![vec![zero.clone(), zero.clone(), zero.clone(), one.clone()]];
         let c = vec![vec![zero.clone(), one.clone(), zero.clone(), zero.clone()]];
-        let r1cs = R1CS::new(a, b, c, 1).unwrap();
+        let r1cs = R1CS::from_dense(a, b, c, 1).unwrap();
 
         let witness: Vec<FE> = vec![
             FieldElement::one(),
@@ -549,7 +542,7 @@ mod tests {
         let a = vec![vec![zero.clone(), zero.clone(), one.clone(), zero.clone()]];
         let b = vec![vec![zero.clone(), zero.clone(), zero.clone(), one.clone()]];
         let c = vec![vec![zero.clone(), one.clone(), zero.clone(), zero.clone()]];
-        let r1cs = R1CS::new(a, b, c, 1).unwrap();
+        let r1cs = R1CS::from_dense(a, b, c, 1).unwrap();
 
         // Corrupt the witness: claim 2*3=7 instead of 6
         let wrong_witness: Vec<FE> = vec![
