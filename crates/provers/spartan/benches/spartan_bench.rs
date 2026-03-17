@@ -10,39 +10,51 @@ type FE = FieldElement<F>;
 
 /// Generates a multiplication-chain circuit with `n` constraints.
 ///
-/// Variables: [1, x_0, x_1, ..., x_{n}]
-/// Constraint i: x_i * x_i = x_{i+1}  (repeated squaring from x_0=2)
+/// Variables: [1, output, x_0, x_1, ..., x_{n-1}]
+///   index:    0    1      2    3          n+1
+///
+/// Constraint i (0..n-1): x_i * x_i = x_{i+1}
+/// Constraint n-1:        x_{n-1} * x_{n-1} = output
+///
+/// The output (x_n = 2^(2^n)) is placed at index 1 so it matches
+/// the public input slot (z = (1, public, witness...)).
 fn generate_chain_circuit(n: usize) -> (R1CS<F>, Vec<FE>, Vec<FE>) {
-    let num_vars = n + 2; // 1 + x_0 + ... + x_n
+    let num_vars = n + 2; // 1 + output + x_0 + ... + x_{n-1}
     let one = FE::one();
 
     // Compute the chain: x_0=2, x_{i+1} = x_i^2
-    let mut values = vec![one.clone()]; // z[0] = 1 (constant)
-    let mut cur = FE::from(2u64);
-    values.push(cur.clone());
+    let mut chain = vec![FE::from(2u64)];
     for _ in 0..n {
-        cur = &cur * &cur;
-        values.push(cur.clone());
+        let prev = chain.last().unwrap();
+        chain.push(prev * prev);
     }
+    // chain = [x_0, x_1, ..., x_n] where x_n is the output
+
+    // Build witness: z = [1, output, x_0, x_1, ..., x_{n-1}]
+    let mut witness = vec![one.clone(), chain[n].clone()];
+    witness.extend_from_slice(&chain[..n]);
 
     let mut a_entries = Vec::with_capacity(n);
     let mut b_entries = Vec::with_capacity(n);
     let mut c_entries = Vec::with_capacity(n);
 
     for i in 0..n {
+        // A and B select x_i (at column i+2 in the witness)
         a_entries.push(SparseEntry {
             row: i,
-            col: i + 1,
+            col: i + 2,
             val: one.clone(),
         });
         b_entries.push(SparseEntry {
             row: i,
-            col: i + 1,
+            col: i + 2,
             val: one.clone(),
         });
+        // C selects the result: x_{i+1} if i < n-1, or output (col 1) if i == n-1
+        let result_col = if i < n - 1 { i + 3 } else { 1 };
         c_entries.push(SparseEntry {
             row: i,
-            col: i + 2,
+            col: result_col,
             val: one.clone(),
         });
     }
@@ -51,11 +63,10 @@ fn generate_chain_circuit(n: usize) -> (R1CS<F>, Vec<FE>, Vec<FE>) {
     let b = SparseMatrix::new(b_entries, n, num_vars).unwrap();
     let c = SparseMatrix::new(c_entries, n, num_vars).unwrap();
 
-    // Public input: just the final result x_n
     let r1cs = R1CS::new(a, b, c, 1).unwrap();
-    let public_inputs = vec![values[n + 1].clone()];
+    let public_inputs = vec![chain[n].clone()];
 
-    (r1cs, values, public_inputs)
+    (r1cs, witness, public_inputs)
 }
 
 fn bench_spartan(c: &mut Criterion) {
