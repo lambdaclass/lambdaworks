@@ -51,7 +51,7 @@ where
     pub witness_commitment: PCS::Commitment,
     /// Outer sumcheck round polynomials (cubic-quadratic combined)
     pub outer_sumcheck_polys: Vec<Polynomial<FieldElement<F>>>,
-    /// Outer sumcheck challenges (r_x), one per constraint variable
+    /// Outer sumcheck challenges (r_x), one per sumcheck round (log2 of padded constraint count)
     pub outer_challenges: Vec<FieldElement<F>>,
     /// AZ(r_x) = ∑_j A(r_x, j) · z̃(j)  (MLE of AZ evaluated at r_x)
     pub v_a: FieldElement<F>,
@@ -61,7 +61,7 @@ where
     pub v_c: FieldElement<F>,
     /// Inner sumcheck round polynomials
     pub inner_sumcheck_polys: Vec<Polynomial<FieldElement<F>>>,
-    /// Inner sumcheck challenges (r_y), one per witness variable
+    /// Inner sumcheck challenges (r_y), one per sumcheck round (log2 of padded column count)
     pub inner_challenges: Vec<FieldElement<F>>,
     /// z̃(r_y): PCS-opening value
     pub witness_eval: FieldElement<F>,
@@ -123,6 +123,16 @@ where
                 witness_z.len(),
                 r1cs.num_variables
             )));
+        }
+
+        // -----------------------------------------------------------------------
+        // Guard: R1CS constant term z[0] must be 1.
+        // Without this the prover silently produces an invalid proof.
+        // -----------------------------------------------------------------------
+        if witness_z[0] != FieldElement::one() {
+            return Err(SpartanError::R1CSError(
+                "witness_z[0] must be 1 (R1CS constant term)".to_string(),
+            ));
         }
 
         // -----------------------------------------------------------------------
