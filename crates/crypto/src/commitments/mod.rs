@@ -1,3 +1,4 @@
+pub mod ipa;
 pub mod kzg;
 #[cfg(feature = "std")]
 pub mod multilinear;
