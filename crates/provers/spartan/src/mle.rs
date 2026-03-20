@@ -140,6 +140,24 @@ where
     result
 }
 
+/// Like `mz_eval`, but accepts precomputed eq weights to avoid recomputation.
+pub fn mz_eval_with_eq<F: IsField>(
+    matrix: &SparseMatrix<F>,
+    z: &[FieldElement<F>],
+    eq_weights: &[FieldElement<F>],
+) -> FieldElement<F>
+where
+    F::BaseType: Send + Sync,
+{
+    let mut result = FieldElement::zero();
+    for entry in &matrix.entries {
+        if entry.row < eq_weights.len() {
+            result += &eq_weights[entry.row] * &entry.val * &z[entry.col];
+        }
+    }
+    result
+}
+
 /// Converts a witness index `i` into its boolean point for the witness MLE.
 ///
 /// `DenseMultilinearPolynomial` uses MSB-first ordering: the bit representation of `i`

@@ -23,8 +23,8 @@ use lambdaworks_sumcheck::Prover as SumcheckProver;
 
 use crate::errors::SpartanError;
 use crate::mle::{
-    encode_witness, eq_poly, index_to_multilinear_point, matrix_vector_product_mle, mz_eval,
-    next_power_of_two,
+    encode_witness, eq_evals, eq_poly, index_to_multilinear_point, matrix_vector_product_mle,
+    mz_eval_with_eq, next_power_of_two,
 };
 use crate::pcs::IsMultilinearPCS;
 use crate::r1cs::R1CS;
@@ -250,9 +250,10 @@ where
         // -----------------------------------------------------------------------
         // Step 5: Compute v_a, v_b, v_c at r_x
         // -----------------------------------------------------------------------
-        let v_a = mz_eval(&r1cs.a, witness_z, num_constraints_padded, r_x);
-        let v_b = mz_eval(&r1cs.b, witness_z, num_constraints_padded, r_x);
-        let v_c = mz_eval(&r1cs.c, witness_z, num_constraints_padded, r_x);
+        let eq_rx = eq_evals(r_x, num_constraints_padded);
+        let v_a = mz_eval_with_eq(&r1cs.a, witness_z, &eq_rx);
+        let v_b = mz_eval_with_eq(&r1cs.b, witness_z, &eq_rx);
+        let v_c = mz_eval_with_eq(&r1cs.c, witness_z, &eq_rx);
 
         // Append v_a, v_b, v_c to transcript
         transcript.append_bytes(b"v_a");
