@@ -313,8 +313,7 @@ where
             .map_err(|e| PcsError(format!("{e:?}")))?;
 
         let q_hats = compute_zeromorph_quotients(poly.evals(), point);
-        let q_commitments: Vec<P::G1Point> =
-            q_hats.iter().map(|q| self.kzg.commit(q)).collect();
+        let q_commitments: Vec<P::G1Point> = q_hats.iter().map(|q| self.kzg.commit(q)).collect();
 
         // Use the provided commitment instead of recomputing it
         let (x, upsilon) =
