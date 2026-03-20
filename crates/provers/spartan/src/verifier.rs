@@ -187,9 +187,13 @@ where
         // Then check: combined_matrix_eval * z̃(r_y) = last inner poly eval at r_y[last]
         // -----------------------------------------------------------------------
         let (a_eval, b_eval, c_eval) = batch_matrix_mle_eval(
-            &r1cs.a, &r1cs.b, &r1cs.c,
-            num_constraints_padded, num_cols_padded,
-            &r_x, &r_y,
+            &r1cs.a,
+            &r1cs.b,
+            &r1cs.c,
+            num_constraints_padded,
+            num_cols_padded,
+            &r_x,
+            &r_y,
         );
 
         let combined_matrix_eval = rho_a * &a_eval + rho_b * &b_eval + rho_c * &c_eval;
