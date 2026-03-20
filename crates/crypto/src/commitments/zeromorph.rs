@@ -286,6 +286,61 @@ where
         ))
     }
 
+    fn open_with_commitment(
+        &self,
+        poly: &DenseMultilinearPolynomial<F>,
+        point: &[FieldElement<F>],
+        commitment: &Self::Commitment,
+    ) -> Result<(FieldElement<F>, Self::Proof), Self::Error> {
+        let n = poly.num_vars();
+        if point.len() != n {
+            return Err(PcsError(format!(
+                "point length {} != num_vars {}",
+                point.len(),
+                n
+            )));
+        }
+        let n_evals = poly.evals().len();
+        if n_evals > self.kzg.srs_size() {
+            return Err(PcsError(format!(
+                "polynomial has {n_evals} evaluations but SRS only supports {}",
+                self.kzg.srs_size()
+            )));
+        }
+
+        let value = poly
+            .evaluate(point.to_vec())
+            .map_err(|e| PcsError(format!("{e:?}")))?;
+
+        let q_hats = compute_zeromorph_quotients(poly.evals(), point);
+        let q_commitments: Vec<P::G1Point> =
+            q_hats.iter().map(|q| self.kzg.commit(q)).collect();
+
+        // Use the provided commitment instead of recomputing it
+        let (x, upsilon) =
+            derive_zeromorph_challenges::<F, P>(&commitment.g1, point, &value, &q_commitments);
+
+        let f_hat = Polynomial::new(poly.evals());
+        let z_f = f_hat.evaluate(&x);
+        let z_qs: Vec<FieldElement<F>> = q_hats.iter().map(|q| q.evaluate(&x)).collect();
+
+        let all_polys: Vec<Polynomial<FieldElement<F>>> =
+            std::iter::once(f_hat).chain(q_hats).collect();
+        let all_ys: Vec<FieldElement<F>> =
+            std::iter::once(z_f.clone()).chain(z_qs.clone()).collect();
+        let kzg_proof = self.kzg.open_batch(&x, &all_ys, &all_polys, &upsilon);
+
+        Ok((
+            value,
+            ZeromorphProof {
+                q_commitments,
+                z_f,
+                z_qs,
+                kzg_proof,
+            },
+        ))
+    }
+
     fn verify(
         &self,
         commitment: &Self::Commitment,

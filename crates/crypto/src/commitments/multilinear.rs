@@ -45,6 +45,20 @@ where
         point: &[FieldElement<F>],
     ) -> Result<(FieldElement<F>, Self::Proof), Self::Error>;
 
+    /// Open with a precomputed commitment, avoiding redundant commitment recomputation.
+    ///
+    /// Default implementation ignores the commitment and delegates to `open()`.
+    /// PCS implementations that need the commitment for Fiat-Shamir (e.g., Zeromorph)
+    /// should override this to avoid the redundant MSM.
+    fn open_with_commitment(
+        &self,
+        poly: &DenseMultilinearPolynomial<F>,
+        point: &[FieldElement<F>],
+        _commitment: &Self::Commitment,
+    ) -> Result<(FieldElement<F>, Self::Proof), Self::Error> {
+        self.open(poly, point)
+    }
+
     /// Verify an opening proof.
     fn verify(
         &self,

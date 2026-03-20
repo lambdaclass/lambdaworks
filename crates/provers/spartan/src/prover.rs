@@ -304,7 +304,7 @@ where
         // -----------------------------------------------------------------------
         let (witness_eval, witness_proof) = self
             .pcs
-            .open(&z_mle, r_y)
+            .open_with_commitment(&z_mle, r_y, &witness_commitment)
             .map_err(|e| SpartanError::PcsError(e.to_string()))?;
 
         // Note: witness_eval is NOT absorbed into the transcript because no further
@@ -331,7 +331,7 @@ where
             let point = index_to_multilinear_point::<F>(i, n_witness_vars);
             let (eval, proof) = self
                 .pcs
-                .open(&z_mle, &point)
+                .open_with_commitment(&z_mle, &point, &witness_commitment)
                 .map_err(|e| SpartanError::PcsError(e.to_string()))?;
             debug_assert_eq!(
                 eval, *expected_val,
