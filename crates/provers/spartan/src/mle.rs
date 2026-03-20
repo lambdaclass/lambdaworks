@@ -116,6 +116,24 @@ where
     Ok(DenseMultilinearPolynomial::new(result))
 }
 
+/// Like `matrix_vector_product_mle`, but accepts precomputed eq weights.
+pub fn matrix_vector_product_mle_with_eq<F: IsField>(
+    matrix: &SparseMatrix<F>,
+    num_cols_padded: usize,
+    eq_weights: &[FieldElement<F>],
+) -> DenseMultilinearPolynomial<F>
+where
+    F::BaseType: Send + Sync,
+{
+    let mut result = vec![FieldElement::zero(); num_cols_padded];
+    for entry in &matrix.entries {
+        if entry.row < eq_weights.len() && entry.col < num_cols_padded {
+            result[entry.col] += &eq_weights[entry.row] * &entry.val;
+        }
+    }
+    DenseMultilinearPolynomial::new(result)
+}
+
 /// Computes AZ(r_x) = sum_i eq(r_x, i) * <A[i], z>.
 ///
 /// Iterates only non-zero entries of the sparse matrix.

@@ -23,8 +23,8 @@ use lambdaworks_sumcheck::Prover as SumcheckProver;
 
 use crate::errors::SpartanError;
 use crate::mle::{
-    encode_witness, eq_evals, eq_poly, index_to_multilinear_point, matrix_vector_product_mle,
-    mz_eval_with_eq, next_power_of_two,
+    encode_witness, eq_evals, eq_poly, index_to_multilinear_point,
+    matrix_vector_product_mle_with_eq, mz_eval_with_eq, next_power_of_two,
 };
 use crate::pcs::IsMultilinearPCS;
 use crate::r1cs::R1CS;
@@ -274,15 +274,9 @@ where
         let (rho_a, rho_b, rho_c) = (&rho[0], &rho[1], &rho[2]);
 
         // Build combined matrix MLE at (r_x, y): rho_a*A(r_x,y) + rho_b*B(r_x,y) + rho_c*C(r_x,y)
-        let az_row =
-            matrix_vector_product_mle(&r1cs.a, num_constraints_padded, num_cols_padded, r_x)
-                .map_err(|e| SpartanError::MleError(e.to_string()))?;
-        let bz_row =
-            matrix_vector_product_mle(&r1cs.b, num_constraints_padded, num_cols_padded, r_x)
-                .map_err(|e| SpartanError::MleError(e.to_string()))?;
-        let cz_row =
-            matrix_vector_product_mle(&r1cs.c, num_constraints_padded, num_cols_padded, r_x)
-                .map_err(|e| SpartanError::MleError(e.to_string()))?;
+        let az_row = matrix_vector_product_mle_with_eq(&r1cs.a, num_cols_padded, &eq_rx);
+        let bz_row = matrix_vector_product_mle_with_eq(&r1cs.b, num_cols_padded, &eq_rx);
+        let cz_row = matrix_vector_product_mle_with_eq(&r1cs.c, num_cols_padded, &eq_rx);
 
         // combined_matrix[y] = rho_a * az_row[y] + rho_b * bz_row[y] + rho_c * cz_row[y]
         let combined_matrix_evals: Vec<FieldElement<F>> = (0..num_cols_padded)
