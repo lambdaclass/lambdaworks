@@ -237,6 +237,10 @@ where
             compute_sum_of_product(&[eq_mle.evals(), az_mle.evals(), bz_mle.evals()]);
         let claimed_sum_term2 = compute_sum_of_product(&[eq_mle.evals(), neg_cz_mle.evals()]);
         let outer_claimed_sum = &claimed_sum_term1 + &claimed_sum_term2;
+        debug_assert!(
+            !r1cs.is_satisfied(witness_z) || outer_claimed_sum == FieldElement::zero(),
+            "outer sum must be 0 for satisfied R1CS"
+        );
 
         let (outer_sumcheck_polys, outer_challenges) = run_two_term_sumcheck(
             vec![eq_mle.clone(), az_mle, bz_mle],
@@ -314,8 +318,6 @@ where
         // -----------------------------------------------------------------------
         // Step 8: Open z̃ at each public input position.
         //
-        // z = (1, x_1, ..., x_l, w_1, ...) so x_i = z[i] for i in 1..=l.
-        // Open z̃ at boolean points for the constant z[0]=1 and each public input.
         // z = (1, x_1, ..., x_l, w_1, ...) so:
         //   index 0: z[0] = 1 (R1CS constant)
         //   index i: z[i] = public_inputs[i-1] for i in 1..=l
