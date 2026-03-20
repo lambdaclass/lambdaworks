@@ -15,7 +15,7 @@ use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::ByteConversion;
 
 use crate::errors::SpartanError;
-use crate::mle::{eq_poly, index_to_multilinear_point, matrix_mle_eval, next_power_of_two};
+use crate::mle::{batch_matrix_mle_eval, eq_poly, index_to_multilinear_point, next_power_of_two};
 use crate::pcs::IsMultilinearPCS;
 use crate::prover::SpartanProof;
 use crate::r1cs::R1CS;
@@ -186,9 +186,11 @@ where
         //   rho_a * A(r_x, r_y) + rho_b * B(r_x, r_y) + rho_c * C(r_x, r_y)
         // Then check: combined_matrix_eval * z̃(r_y) = last inner poly eval at r_y[last]
         // -----------------------------------------------------------------------
-        let a_eval = matrix_mle_eval(&r1cs.a, num_constraints_padded, num_cols_padded, &r_x, &r_y);
-        let b_eval = matrix_mle_eval(&r1cs.b, num_constraints_padded, num_cols_padded, &r_x, &r_y);
-        let c_eval = matrix_mle_eval(&r1cs.c, num_constraints_padded, num_cols_padded, &r_x, &r_y);
+        let (a_eval, b_eval, c_eval) = batch_matrix_mle_eval(
+            &r1cs.a, &r1cs.b, &r1cs.c,
+            num_constraints_padded, num_cols_padded,
+            &r_x, &r_y,
+        );
 
         let combined_matrix_eval = rho_a * &a_eval + rho_b * &b_eval + rho_c * &c_eval;
 

@@ -226,6 +226,38 @@ where
     result
 }
 
+/// Evaluates multiple matrix MLEs at the same (r_x, r_y) point, sharing eq computation.
+///
+/// Returns (A_eval, B_eval, C_eval) using a single pair of eq_evals calls
+/// instead of one per matrix.
+pub fn batch_matrix_mle_eval<F: IsField>(
+    a: &SparseMatrix<F>,
+    b: &SparseMatrix<F>,
+    c: &SparseMatrix<F>,
+    num_rows_padded: usize,
+    num_cols_padded: usize,
+    r_x: &[FieldElement<F>],
+    r_y: &[FieldElement<F>],
+) -> (FieldElement<F>, FieldElement<F>, FieldElement<F>)
+where
+    F::BaseType: Send + Sync,
+{
+    let eq_x = eq_evals(r_x, num_rows_padded);
+    let eq_y = eq_evals(r_y, num_cols_padded);
+
+    let eval_matrix = |matrix: &SparseMatrix<F>| -> FieldElement<F> {
+        let mut result = FieldElement::zero();
+        for entry in &matrix.entries {
+            if entry.row < num_rows_padded && entry.col < num_cols_padded {
+                result += &eq_x[entry.row] * &eq_y[entry.col] * &entry.val;
+            }
+        }
+        result
+    };
+
+    (eval_matrix(a), eval_matrix(b), eval_matrix(c))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
