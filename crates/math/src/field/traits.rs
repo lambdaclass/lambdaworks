@@ -236,7 +236,10 @@ pub trait IsPrimeField: IsField {
     }
 
     /// Returns the two square roots of `self` if they exist and
-    /// `None` otherwise
+    /// `None` otherwise.
+    ///
+    /// Uses a direct exponentiation when p ≡ 3 (mod 4), and falls back to
+    /// Tonelli-Shanks for the general case.
     fn sqrt(a: &Self::BaseType) -> Option<(Self::BaseType, Self::BaseType)> {
         match Self::legendre_symbol(a) {
             LegendreSymbol::Zero => return Some((Self::zero(), Self::zero())),
@@ -245,9 +248,21 @@ pub trait IsPrimeField: IsField {
         };
 
         let integer_one = Self::CanonicalType::from(1_u16);
-        let mut s: usize = 0;
-        let mut q = Self::modulus_minus_one();
+        let integer_two = Self::CanonicalType::from(2_u16);
+        let integer_three = Self::CanonicalType::from(3_u16);
+        let pm1 = Self::modulus_minus_one();
 
+        // Fast path: p ≡ 3 (mod 4) means sqrt(a) = a^((p+1)/4).
+        if pm1 & integer_three == integer_two {
+            let exp = (pm1 + integer_two) >> 2;
+            let x = Self::pow(a, exp);
+            let neg_x = Self::neg(&x);
+            return Some((x, neg_x));
+        }
+
+        // General case: Tonelli-Shanks.
+        let mut s: usize = 0;
+        let mut q = pm1;
         while q & integer_one != integer_one {
             s += 1;
             q >>= 1;
@@ -255,12 +270,10 @@ pub trait IsPrimeField: IsField {
 
         let one = Self::one();
         let mut c = {
-            // Calculate a non residue:
             let mut non_qr = Self::from_u64(2);
             while Self::legendre_symbol(&non_qr) != LegendreSymbol::MinusOne {
                 non_qr = Self::add(&non_qr, &one);
             }
-
             Self::pow(&non_qr, q)
         };
 
