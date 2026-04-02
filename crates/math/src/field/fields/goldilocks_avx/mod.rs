@@ -52,6 +52,9 @@ pub mod avx512;
 #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 pub mod avx2_ext;
 
+// Portable scalar fallback (always available)
+pub mod scalar;
+
 // Re-exports for base field
 #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 pub use avx2::PackedGoldilocksAVX2;
@@ -62,3 +65,13 @@ pub use avx512::PackedGoldilocksAVX512;
 // Re-exports for extension fields
 #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
 pub use avx2_ext::{PackedGoldilocksFp2AVX2, PackedGoldilocksFp3AVX2};
+
+pub use scalar::PackedGoldilocksScalar;
+
+/// Auto-selecting type alias: uses AVX2 on x86_64 when available, scalar otherwise.
+#[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
+pub type PackedGoldilocks = PackedGoldilocksAVX2;
+
+/// Auto-selecting type alias: scalar fallback on non-AVX2 platforms.
+#[cfg(not(all(target_arch = "x86_64", target_feature = "avx2")))]
+pub type PackedGoldilocks = PackedGoldilocksScalar;
