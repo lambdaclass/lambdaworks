@@ -160,12 +160,12 @@ impl PublicKey {
         let g1 = BLS12381Curve::generator();
 
         // Compute e(pk, H(m))
-        let lhs = BLS12381AtePairing::compute_batch(&[(&self.pk.to_affine(), &h.to_affine())])
+        let lhs = BLS12381AtePairing::compute_batch(&[(self.pk.to_affine(), h.to_affine())])
             .map_err(|_| BlsError::PairingError)?;
 
         // Compute e(G1, sig)
         let rhs =
-            BLS12381AtePairing::compute_batch(&[(&g1.to_affine(), &signature.sig.to_affine())])
+            BLS12381AtePairing::compute_batch(&[(g1.to_affine(), signature.sig.to_affine())])
                 .map_err(|_| BlsError::PairingError)?;
 
         if lhs == rhs {
@@ -335,7 +335,7 @@ pub fn batch_verify(
     let lhs = final_exponentiation(&lhs).map_err(|_| BlsError::PairingError)?;
 
     // Compute e(G1, sig_sum)
-    let rhs = BLS12381AtePairing::compute_batch(&[(&g1.to_affine(), &sig_sum.to_affine())])
+    let rhs = BLS12381AtePairing::compute_batch(&[(g1.to_affine(), sig_sum.to_affine())])
         .map_err(|_| BlsError::PairingError)?;
 
     if lhs == rhs {

@@ -60,7 +60,7 @@ pub trait IsPairing {
     /// Compute the product of the pairings for a list of point pairs.
     /// More efficient than just calling the pairing for each pair of points individually
     fn compute_batch(
-        pairs: &[(&Self::G1Point, &Self::G2Point)],
+        pairs: &[(Self::G1Point, Self::G2Point)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError>;
 
     /// Compute the ate pairing between point `p` in G1 and `q` in G2.
@@ -68,6 +68,6 @@ pub trait IsPairing {
         p: &Self::G1Point,
         q: &Self::G2Point,
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
-        Self::compute_batch(&[(p, q)])
+        Self::compute_batch(&[(p.clone(), q.clone())])
     }
 }
