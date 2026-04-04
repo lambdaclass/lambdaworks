@@ -524,6 +524,11 @@ mod tests {
     }
 
     #[test]
+    fn canonical_of_prime_is_zero() {
+        assert_eq!(F::canonical(&MERSENNE_31_PRIME_FIELD_ORDER), 0u32);
+    }
+
+    #[test]
     fn mul_by_inv() {
         let x = 3476715743_u32;
         assert_eq!(FE::from(&x).inv().unwrap() * FE::from(&x), FE::one());
