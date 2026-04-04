@@ -8,7 +8,6 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use crate::field::element::FieldElement;
 use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
-use crate::field::traits::IsField;
 
 /// Number of Goldilocks elements in a packed value (matches AVX2 width).
 pub const WIDTH: usize = 4;
@@ -78,7 +77,7 @@ impl Default for PackedGoldilocksScalar {
 
 impl PartialEq for PackedGoldilocksScalar {
     fn eq(&self, other: &Self) -> bool {
-        (0..WIDTH).all(|i| <Goldilocks64Field as IsField>::eq(self.0[i].value(), other.0[i].value()))
+        self.0 == other.0
     }
 }
 
@@ -140,6 +139,7 @@ impl MulAssign for PackedGoldilocksScalar {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::field::fields::u64_goldilocks_field::GOLDILOCKS_PRIME;
 
     #[test]
     fn scalar_add_works() {
@@ -178,5 +178,75 @@ mod tests {
         let b = -a;
         let c = a + b;
         assert_eq!(c, PackedGoldilocksScalar::zero());
+    }
+
+    #[test]
+    fn scalar_overflow_handling() {
+        let near_max = GOLDILOCKS_PRIME - 1;
+        let a = PackedGoldilocksScalar::from_u64_array([near_max, near_max, near_max, near_max]);
+        let one = PackedGoldilocksScalar::from_u64_array([1, 1, 1, 1]);
+
+        // Adding 1 to (p-1) should give 0
+        let result = a + one;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::zero());
+        }
+    }
+
+    #[test]
+    fn scalar_sub_underflow() {
+        // 0 - 1 should give p - 1
+        let zero = PackedGoldilocksScalar::from_u64_array([0, 0, 0, 0]);
+        let one = PackedGoldilocksScalar::from_u64_array([1, 1, 1, 1]);
+        let result = zero - one;
+        let p_minus_1 = FieldElement::<Goldilocks64Field>::from(GOLDILOCKS_PRIME - 1);
+        for elem in result.to_array() {
+            assert_eq!(elem, p_minus_1, "0 - 1 should equal p - 1");
+        }
+
+        // 1 - 2 should give p - 1
+        let one = PackedGoldilocksScalar::from_u64_array([1, 1, 1, 1]);
+        let two = PackedGoldilocksScalar::from_u64_array([2, 2, 2, 2]);
+        let result = one - two;
+        for elem in result.to_array() {
+            assert_eq!(elem, p_minus_1, "1 - 2 should equal p - 1");
+        }
+    }
+
+    #[test]
+    fn scalar_neg_boundary() {
+        // -0 = 0
+        let zero = PackedGoldilocksScalar::from_u64_array([0, 0, 0, 0]);
+        let result = -zero;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::zero(), "-0 should be 0");
+        }
+
+        // -(p-1) = 1
+        let p_minus_1 = GOLDILOCKS_PRIME - 1;
+        let a = PackedGoldilocksScalar::from_u64_array([p_minus_1; WIDTH]);
+        let result = -a;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::one(), "-(p-1) should be 1");
+        }
+    }
+
+    #[test]
+    fn scalar_mul_near_modulus() {
+        // (p-1) * (p-1) should equal 1 (since (p-1) = -1, and (-1)*(-1) = 1)
+        let p_minus_1 = GOLDILOCKS_PRIME - 1;
+        let a = PackedGoldilocksScalar::from_u64_array([p_minus_1; WIDTH]);
+        let result = a * a;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::one(), "(p-1)*(p-1) should be 1");
+        }
+
+        // (p-1) * 2 should equal p-2
+        let two = PackedGoldilocksScalar::from_u64_array([2; WIDTH]);
+        let result = a * two;
+        let expected = FieldElement::<Goldilocks64Field>::from(GOLDILOCKS_PRIME - 2);
+        for elem in result.to_array() {
+            assert_eq!(elem, expected, "(p-1)*2 should be p-2");
+        }
     }
 }
