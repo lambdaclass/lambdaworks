@@ -16,6 +16,7 @@ use crate::{
     },
     errors::PairingError,
 };
+use core::borrow::Borrow;
 use crate::{
     elliptic_curve::short_weierstrass::{
         curves::bn_254::field_extension::Degree6ExtensionField,
@@ -157,11 +158,13 @@ impl IsPairing for BN254AtePairing {
     /// Computes the product of the ate pairing for a list of point pairs.
     /// Uses multi-Miller loop optimization: shares squarings across all pairs.
     fn compute_batch(
-        pairs: &[(Self::G1Point, Self::G2Point)],
+        pairs: &[(impl Borrow<Self::G1Point>, impl Borrow<Self::G2Point>)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         // Validate and prepare pairs
         let mut valid_pairs: Vec<(G1Point, G2Point)> = Vec::new();
         for (p, q) in pairs {
+            let p = p.borrow();
+            let q = q.borrow();
             if !q.is_in_subgroup() {
                 return Err(PairingError::PointNotInSubgroup);
             }
@@ -188,10 +191,12 @@ impl IsPairing for BN254AtePairing {
 
     /// Computes the product of the ate pairing for a list of point pairs.
     fn compute_batch(
-        pairs: &[(Self::G1Point, Self::G2Point)],
+        pairs: &[(impl Borrow<Self::G1Point>, impl Borrow<Self::G2Point>)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         let mut result = Fp12E::one();
         for (p, q) in pairs {
+            let p = p.borrow();
+            let q = q.borrow();
             if !q.is_in_subgroup() {
                 return Err(PairingError::PointNotInSubgroup);
             }

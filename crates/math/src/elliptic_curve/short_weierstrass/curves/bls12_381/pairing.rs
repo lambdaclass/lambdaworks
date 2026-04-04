@@ -6,6 +6,7 @@ use super::{
     twist::BLS12381TwistCurve,
 };
 use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
+use core::borrow::Borrow;
 use crate::{
     elliptic_curve::short_weierstrass::{
         curves::bls12_381::field_extension::Degree6ExtensionField,
@@ -267,11 +268,13 @@ impl IsPairing for BLS12381AtePairing {
     /// exponentiation. Without `parallel`, uses a shared-square multi-Miller
     /// loop that saves (n-1)×63 Fp12 squares.
     fn compute_batch(
-        pairs: &[(Self::G1Point, Self::G2Point)],
+        pairs: &[(impl Borrow<Self::G1Point>, impl Borrow<Self::G2Point>)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         // Validate subgroup membership and filter neutral elements
         let mut valid_pairs = Vec::with_capacity(pairs.len());
         for (p, q) in pairs {
+            let p = p.borrow();
+            let q = q.borrow();
             if !p.is_in_subgroup() || !q.is_in_subgroup() {
                 return Err(PairingError::PointNotInSubgroup);
             }
@@ -1147,12 +1150,12 @@ mod tests {
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p = BLS12381Curve::generator().to_affine();
         let q = ShortWeierstrassJacobianPoint::neutral_element();
-        let result = BLS12381AtePairing::compute_batch(&[(p.to_affine().clone(), q.clone())]).unwrap();
+        let result = BLS12381AtePairing::compute_batch(&[(p.to_affine(), q.clone())]).unwrap();
         assert_eq!(result, FieldElement::one());
 
         let p = ShortWeierstrassJacobianPoint::neutral_element();
         let q = BLS12381TwistCurve::generator();
-        let result = BLS12381AtePairing::compute_batch(&[(p.clone(), q.to_affine().clone())]).unwrap();
+        let result = BLS12381AtePairing::compute_batch(&[(p.clone(), q.to_affine())]).unwrap();
         assert_eq!(result, FieldElement::one());
     }
 
@@ -1167,7 +1170,7 @@ mod tests {
         ])
         .unwrap();
         let q = ShortWeierstrassJacobianPoint::neutral_element();
-        let result = BLS12381AtePairing::compute_batch(&[(p.to_affine().clone(), q.clone())]);
+        let result = BLS12381AtePairing::compute_batch(&[(p.to_affine(), q.clone())]);
         assert!(result.is_err())
     }
 
