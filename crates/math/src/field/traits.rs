@@ -256,6 +256,10 @@ pub trait IsPrimeField: IsField {
         if pm1 & integer_three == integer_two {
             let exp = (pm1 + integer_two) >> 2;
             let x = Self::pow(a, exp);
+            debug_assert!(
+                Self::eq(&Self::mul(&x, &x), a),
+                "fast sqrt path produced incorrect result"
+            );
             let neg_x = Self::neg(&x);
             return Some((x, neg_x));
         }
