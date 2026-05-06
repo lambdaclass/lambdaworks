@@ -65,6 +65,13 @@ pub const GOLDILOCKS_PRIME: u64 = 0xFFFF_FFFF_0000_0001;
 /// This is the key constant for fast reduction.
 const EPSILON: u64 = 0xFFFF_FFFF;
 
+/// Number of rounds used by the Pornin-style binary xgcd inverse for a 64-bit field.
+const INVERSE_XGCD_ROUNDS: u32 = 126;
+
+/// 2^-126 modulo the Goldilocks prime. The binary xgcd loop returns a Bezout
+/// coefficient scaled by 2^126, so direct representation only needs this factor.
+const INVERSE_XGCD_CORRECTION: u64 = 0x3_FFFF_FFFC;
+
 // =====================================================
 // BASE FIELD (Fp)
 // =====================================================
@@ -188,7 +195,7 @@ impl IsField for Goldilocks64Field {
         }
     }
 
-    /// Returns the multiplicative inverse of `a` using optimized addition chain.
+    /// Returns the multiplicative inverse of `a`.
     #[inline]
     fn inv(a: &u64) -> Result<u64, FieldError> {
         let canonical = canonicalize(*a);
@@ -196,20 +203,7 @@ impl IsField for Goldilocks64Field {
             return Err(FieldError::InvZeroError);
         }
 
-        // Addition chain for computing a^{-1} = a^{ORDER-2}
-        // ORDER - 2 = 2^64 - 2^32 - 1
-        let a = &canonical;
-        let t2 = <Self as IsField>::mul(&<Self as IsField>::square(a), a);
-        let t3 = <Self as IsField>::mul(&<Self as IsField>::square(&t2), a);
-        let t6 = exp_acc::<3>(&t3, &t3);
-        let t60 = <Self as IsField>::square(&t6);
-        let t7 = <Self as IsField>::mul(&t60, a);
-        let t12 = exp_acc::<5>(&t60, &t6);
-        let t24 = exp_acc::<12>(&t12, &t12);
-        let t31 = exp_acc::<7>(&t24, &t7);
-        let t63 = exp_acc::<32>(&t31, &t31);
-
-        Ok(<Self as IsField>::mul(&<Self as IsField>::square(&t63), a))
+        Ok(inv_pornin_direct(canonical))
     }
 
     /// Returns the division of `a` and `b`.
@@ -614,8 +608,10 @@ mod x86_64_asm {
 /// Reduce a 128-bit value to a 64-bit Goldilocks field element.
 ///
 /// Uses the identities: 2^64 ≡ 2^32 - 1 (mod p), 2^96 ≡ -1 (mod p).
-/// Branch hints mark rare borrow/carry paths for better branch prediction.
+/// The x86_64 path keeps the newer inline-asm final addition; the fallback
+/// keeps the previous portable reduction, which benchmarks better on aarch64.
 #[inline(always)]
+#[cfg(target_arch = "x86_64")]
 fn reduce128(x: u128) -> u64 {
     let (x_lo, x_hi) = (x as u64, (x >> 64) as u64);
     let x_hi_hi = x_hi >> 32;
@@ -637,9 +633,26 @@ fn reduce128(x: u128) -> u64 {
     unsafe { add_no_canonicalize_trashing_input(t0, t1) }
 }
 
+#[inline(always)]
+#[cfg(not(target_arch = "x86_64"))]
+fn reduce128(x: u128) -> u64 {
+    let (x_lo, x_hi) = (x as u64, (x >> 64) as u64);
+    let x_hi_hi = x_hi >> 32;
+    let x_hi_lo = x_hi & EPSILON;
+
+    let (mut t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
+    if borrow {
+        t0 -= EPSILON; // Cannot underflow.
+    }
+
+    let t1 = x_hi_lo * EPSILON;
+    let (res_wrapped, carry) = t0.overflowing_add(t1);
+    res_wrapped + EPSILON * (carry as u64)
+}
+
 /// Fast modular addition: returns (x + y) mod p, assuming x + y < 2^64 + ORDER.
-/// On x86_64, uses inline asm (add + sbb trick) for 2-instruction modular add.
-/// On other architectures, uses portable overflowing_add + conditional correction.
+/// Uses inline asm (add + sbb trick) for 2-instruction modular add. Only the
+/// x86_64 `reduce128` uses this; the aarch64 path inlines the portable add.
 ///
 /// # Safety
 /// Caller must ensure x + y < 2^64 + ORDER.
@@ -660,13 +673,6 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     res_wrapped + adjustment
 }
 
-#[inline(always)]
-#[cfg(not(target_arch = "x86_64"))]
-unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
-    let (res_wrapped, carry) = x.overflowing_add(y);
-    res_wrapped.wrapping_add(EPSILON * (carry as u64))
-}
-
 /// Canonicalize a field element to [0, p).
 #[inline(always)]
 fn canonicalize(x: u64) -> u64 {
@@ -677,20 +683,77 @@ fn canonicalize(x: u64) -> u64 {
     }
 }
 
-/// Square `base` N times, then multiply by `tail`.
-#[inline(always)]
-fn exp_acc<const N: usize>(base: &u64, tail: &u64) -> u64 {
-    <Goldilocks64Field as IsField>::mul(&exp_power_of_2::<N>(base), tail)
+/// Inversion via a fixed-round binary extended GCD variant based on Pornin's
+/// "Optimized Binary GCD for Modular Inversion", using the same deferred-update
+/// shape as Plonky3's Goldilocks implementation.
+#[inline]
+fn inv_pornin_direct(input: u64) -> u64 {
+    debug_assert!(input != 0);
+
+    let mut rem_a = input;
+    let mut rem_b = GOLDILOCKS_PRIME;
+
+    // For a 64-bit prime, 126 inner steps reduce len(a) + len(b) to <= 2.
+    // Splitting into two 63-step rounds keeps update coefficients in i64.
+    const ROUND_SIZE: usize = (INVERSE_XGCD_ROUNDS / 2) as usize;
+    let (f00, _, f10, _) = gcd_inner::<ROUND_SIZE>(&mut rem_a, &mut rem_b);
+    let (_, _, f11, g11) = gcd_inner::<ROUND_SIZE>(&mut rem_a, &mut rem_b);
+
+    let u = from_unusual_int(f00);
+    let v = from_unusual_int(f10);
+    let u_fac11 = from_unusual_int(f11);
+    let v_fac11 = from_unusual_int(g11);
+
+    let lhs = <Goldilocks64Field as IsField>::mul(&u, &u_fac11);
+    let rhs = <Goldilocks64Field as IsField>::mul(&v, &v_fac11);
+    let scaled_inverse = <Goldilocks64Field as IsField>::add(&lhs, &rhs);
+
+    // Each inner step introduces a factor of 2. Since 2^192 = 1 in Goldilocks,
+    // dividing by 2^126 is equivalent to multiplying by 2^66.
+    <Goldilocks64Field as IsField>::mul(&scaled_inverse, &INVERSE_XGCD_CORRECTION)
 }
 
-/// Square `base` POWER_LOG times.
-#[inline(always)]
-fn exp_power_of_2<const POWER_LOG: usize>(base: &u64) -> u64 {
-    let mut res = *base;
-    for _ in 0..POWER_LOG {
-        res = <Goldilocks64Field as IsField>::square(&res);
+/// Inner loop of the deferred binary GCD algorithm.
+#[inline]
+fn gcd_inner<const NUM_ROUNDS: usize>(a: &mut u64, b: &mut u64) -> (i64, i64, i64, i64) {
+    let (mut f0, mut g0, mut f1, mut g1) = (1_i64, 0_i64, 0_i64, 1_i64);
+
+    let mut round = 0;
+    while round < NUM_ROUNDS {
+        if *a & 1 == 0 {
+            *a >>= 1;
+        } else {
+            if *a < *b {
+                core::mem::swap(a, b);
+                (f0, f1) = (f1, f0);
+                (g0, g1) = (g1, g0);
+            }
+            *a -= *b;
+            *a >>= 1;
+            f0 -= f1;
+            g0 -= g1;
+        }
+        f1 <<= 1;
+        g1 <<= 1;
+        round += 1;
     }
-    res
+
+    (f0, g0, f1, g1)
+}
+
+/// Convert an i64 coefficient to a Goldilocks element.
+///
+/// `i64::MIN` (-2^63) is reinterpreted as 2^63 instead of being reduced as a
+/// negative value: `-(-2^63)` overflows in i64, but 2^63 < p so the unsigned
+/// bit pattern is already a valid canonical representative. Plonky3 relies on
+/// the same trick.
+#[inline(always)]
+fn from_unusual_int(int: i64) -> u64 {
+    if int >= 0 || int == i64::MIN {
+        int as u64
+    } else {
+        GOLDILOCKS_PRIME.wrapping_add_signed(int)
+    }
 }
 
 /// Multiply a field element by 7 (the quadratic non-residue).
