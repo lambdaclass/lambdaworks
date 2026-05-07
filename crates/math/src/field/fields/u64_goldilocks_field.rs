@@ -65,7 +65,7 @@ pub const GOLDILOCKS_PRIME: u64 = 0xFFFF_FFFF_0000_0001;
 /// This is the key constant for fast reduction.
 const EPSILON: u64 = 0xFFFF_FFFF;
 
-/// Number of rounds used by the Pornin-style binary xgcd inverse for a 64-bit field.
+/// Number of rounds used by the binary xgcd inverse for a 64-bit field.
 const INVERSE_XGCD_ROUNDS: u32 = 126;
 
 /// 2^-126 modulo the Goldilocks prime. The binary xgcd loop returns a Bezout
@@ -203,7 +203,7 @@ impl IsField for Goldilocks64Field {
             return Err(FieldError::InvZeroError);
         }
 
-        Ok(inv_pornin_direct(canonical))
+        Ok(inv_binary_xgcd(canonical))
     }
 
     /// Returns the division of `a` and `b`.
@@ -683,11 +683,9 @@ fn canonicalize(x: u64) -> u64 {
     }
 }
 
-/// Inversion via a fixed-round binary extended GCD variant based on Pornin's
-/// "Optimized Binary GCD for Modular Inversion", using the same deferred-update
-/// shape as Plonky3's Goldilocks implementation.
+/// Fixed-round binary extended GCD modular inverse. Ported from Plonky3.
 #[inline]
-fn inv_pornin_direct(input: u64) -> u64 {
+fn inv_binary_xgcd(input: u64) -> u64 {
     debug_assert!(input != 0);
 
     let mut rem_a = input;
@@ -745,8 +743,7 @@ fn gcd_inner<const NUM_ROUNDS: usize>(a: &mut u64, b: &mut u64) -> (i64, i64, i6
 ///
 /// `i64::MIN` (-2^63) is reinterpreted as 2^63 instead of being reduced as a
 /// negative value: `-(-2^63)` overflows in i64, but 2^63 < p so the unsigned
-/// bit pattern is already a valid canonical representative. Plonky3 relies on
-/// the same trick.
+/// bit pattern is already a valid canonical representative.
 #[inline(always)]
 fn from_unusual_int(int: i64) -> u64 {
     if int >= 0 || int == i64::MIN {
