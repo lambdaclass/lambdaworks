@@ -3,7 +3,7 @@
 //! This module provides:
 //! - `Goldilocks64Field`: The base field with p = 2^64 - 2^32 + 1
 //! - `Degree2GoldilocksExtensionField`: Quadratic extension using w^2 = 7
-//! - `Degree3GoldilocksExtensionField`: Cubic extension using w^3 = 2
+//! - `Degree3GoldilocksExtensionField`: Cubic extension using w^3 = w + 1
 //!
 //! All implementations use direct u64 representation (no Montgomery form) and
 //! exploit the special structure of the Goldilocks prime for fast reduction.
@@ -667,6 +667,69 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
     res_wrapped.wrapping_add(EPSILON * (carry as u64))
 }
 
+// =====================================================
+// FUSED MULTIPLY-ACCUMULATE (inspired by Plonky3)
+// =====================================================
+
+/// Compute a0*b0 + a1*b1 mod p in a single reduction pass.
+///
+/// Instead of reducing each product separately (2 reduce128 calls),
+/// this sums the u128 products and reduces once. When the sum overflows u128,
+/// we correct by adding 2^128 mod p = EPSILON^2 = (2^32 - 1)^2.
+#[allow(dead_code)]
+#[inline(always)]
+pub(crate) fn dot_product_2(a0: u64, b0: u64, a1: u64, b1: u64) -> u64 {
+    let prod0 = (a0 as u128) * (b0 as u128);
+    let prod1 = (a1 as u128) * (b1 as u128);
+    let (sum, overflow) = prod0.overflowing_add(prod1);
+
+    let reduced = reduce128(sum);
+
+    if overflow {
+        // True value is sum + 2^128. Since 2^128 mod p = EPSILON^2,
+        // add EPSILON^2 = (2^32-1)^2 = 2^64 - 2^33 + 1.
+        // Safety: reduced < 2^64, EPSILON_SQ < p, so sum < 2^64 + p.
+        branch_hint();
+        const EPSILON_SQ: u64 = EPSILON.wrapping_mul(EPSILON);
+        unsafe { add_no_canonicalize_trashing_input(reduced, EPSILON_SQ) }
+    } else {
+        reduced
+    }
+}
+
+/// Compute a0*b0 + a1*b1 + a2*b2 mod p in a single reduction pass.
+///
+/// Accumulates three u128 products, tracking overflow count (at most 2).
+/// Each overflow adds 2^128 mod p = EPSILON^2 to the result.
+/// This is the critical building block for Fp3 multiplication.
+#[inline(always)]
+pub(crate) fn dot_product_3(a0: u64, b0: u64, a1: u64, b1: u64, a2: u64, b2: u64) -> u64 {
+    let prod0 = (a0 as u128) * (b0 as u128);
+    let prod1 = (a1 as u128) * (b1 as u128);
+    let prod2 = (a2 as u128) * (b2 as u128);
+
+    let (sum01, over1) = prod0.overflowing_add(prod1);
+    let (sum012, over2) = sum01.overflowing_add(prod2);
+    let overflow_count = (over1 as u64) + (over2 as u64);
+
+    let mut reduced = reduce128(sum012);
+
+    if overflow_count > 0 {
+        // Each overflow represents +2^128 to the true sum.
+        // 2^128 mod p = EPSILON^2 = (2^32 - 1)^2 = 2^64 - 2^33 + 1.
+        // Safety: reduced < 2^64, EPSILON_SQ < p, so sum < 2^64 + p.
+        branch_hint();
+        const EPSILON_SQ: u64 = EPSILON.wrapping_mul(EPSILON);
+        reduced = unsafe { add_no_canonicalize_trashing_input(reduced, EPSILON_SQ) };
+        if overflow_count > 1 {
+            branch_hint();
+            reduced = unsafe { add_no_canonicalize_trashing_input(reduced, EPSILON_SQ) };
+        }
+    }
+
+    reduced
+}
+
 /// Canonicalize a field element to [0, p).
 #[inline(always)]
 fn canonicalize(x: u64) -> u64 {
@@ -900,9 +963,12 @@ impl AsBytes for FieldElement<Degree2GoldilocksExtensionField> {
 // =====================================================
 // CUBIC EXTENSION (Fp3)
 // =====================================================
-// The cubic extension is constructed using x^3 - 2,
-// where 2 is a cubic non-residue in the Goldilocks field.
-// Elements are represented as a0 + a1*w + a2*w^2 where w^3 = 2
+// The cubic extension is constructed using the trinomial x^3 - x - 1.
+// This is the same irreducible polynomial used by Plonky3 and pil2-stark
+// (ZisK / Polygon Hermez) on Goldilocks; it has minimum Hamming weight among
+// irreducible cubics over Fp.
+// Elements are represented as a0 + a1*w + a2*w^2 where w^3 = w + 1
+// (which also gives w^4 = w^2 + w).
 
 /// Degree 3 extension field of Goldilocks
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
@@ -918,40 +984,52 @@ impl IsField for Degree3GoldilocksExtensionField {
     }
 
     /// Returns the multiplication of `a` and `b`:
-    /// (a0 + a1*w + a2*w^2) * (b0 + b1*w + b2*w^2) mod (w^3 - 2)
+    /// (a0 + a1*w + a2*w^2) * (b0 + b1*w + b2*w^2) mod (w^3 - w - 1)
+    ///
+    /// Applying w^3 = w + 1 (so w^4 = w^2 + w):
+    ///   c0 = a0*b0           +     a1*b2      +    a2*b1
+    ///   c1 = a0*b1           + a1*(b0 + b2)   + a2*(b1 + b2)
+    ///   c2 = a0*b2           +     a1*b1      + a2*(b0 + b2)
+    ///
+    /// Each component is computed as a single dot_product_3 (9 raw muls,
+    /// 3 reduce128 calls total) instead of Karatsuba (6 muls + 6 reduces).
+    /// The reduction savings outweigh the extra multiplications on Goldilocks.
     #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        let v0 = a[0] * b[0];
-        let v1 = a[1] * b[1];
-        let v2 = a[2] * b[2];
+        let (a0, a1, a2) = (*a[0].value(), *a[1].value(), *a[2].value());
+        let (b0, b1, b2) = (*b[0].value(), *b[1].value(), *b[2].value());
 
-        // c0 = v0 + 2 * ((a1 + a2)(b1 + b2) - v1 - v2)
-        // c1 = (a0 + a1)(b0 + b1) - v0 - v1 + 2 * v2
-        // c2 = (a0 + a2)(b0 + b2) - v0 + v1 - v2
-        let t0 = (a[1] + a[2]) * (b[1] + b[2]) - v1 - v2;
-        let t1 = (a[0] + a[1]) * (b[0] + b[1]) - v0 - v1;
-        let t2 = (a[0] + a[2]) * (b[0] + b[2]) - v0 - v2;
+        // Precompute b0+b2 and b1+b2 for the w^3 = w + 1 reduction
+        let b0_plus_b2 = <Goldilocks64Field as IsField>::add(&b0, &b2);
+        let b1_plus_b2 = <Goldilocks64Field as IsField>::add(&b1, &b2);
 
-        [v0 + t0.double(), t1 + v2.double(), t2 + v1]
+        let c0 = dot_product_3(a0, b0, a1, b2, a2, b1);
+        let c1 = dot_product_3(a0, b1, a1, b0_plus_b2, a2, b1_plus_b2);
+        let c2 = dot_product_3(a0, b2, a1, b1, a2, b0_plus_b2);
+
+        [FpE::from_raw(c0), FpE::from_raw(c1), FpE::from_raw(c2)]
     }
 
-    /// Returns the square of `a`
+    /// Returns the square of `a` mod (w^3 - w - 1).
+    ///
+    /// Karatsuba-style using 3 squares + 3 cross products (6 muls + 6 reduces),
+    /// reusing each cross product to avoid recomputation:
+    ///   c0 = a0^2          + 2*a1*a2
+    ///   c1 = 2*a0*a1 + 2*a1*a2 + a2^2
+    ///   c2 = 2*a0*a2 + a1^2          + a2^2
     #[inline(always)]
     fn square(a: &Self::BaseType) -> Self::BaseType {
         let s0 = a[0].square();
         let s1 = a[1].square();
         let s2 = a[2].square();
-        let a01 = a[0] * a[1];
-        let a02 = a[0] * a[2];
-        let a12 = a[1] * a[2];
+        let m01 = a[0] * a[1];
+        let m02 = a[0] * a[2];
+        let m12 = a[1] * a[2];
 
-        // c0 = s0 + 4 * a12
-        // c1 = 2 * a01 + 2 * s2
-        // c2 = 2 * a02 + s1
         [
-            s0 + a12.double().double(),
-            a01.double() + s2.double(),
-            a02.double() + s1,
+            s0 + m12.double(),
+            m01.double() + m12.double() + s2,
+            m02.double() + s1 + s2,
         ]
     }
 
@@ -967,35 +1045,61 @@ impl IsField for Degree3GoldilocksExtensionField {
         [-a[0], -a[1], -a[2]]
     }
 
-    /// Returns the multiplicative inverse of `a`
+    /// Returns the multiplicative inverse of `a` in Fp[w] / (w^3 - w - 1).
+    ///
+    /// Norm refactored to use dot_product_3: group the 8 triple-product terms
+    /// of the norm by their squared factor:
+    ///   a0^2 * (a0 + 2*a2)        = a0^3 + 2*a0^2*a2
+    ///   a1^2 * (a1 - a0)          = a1^3 - a0*a1^2
+    ///   a2^2 * (a2 + a0 - a1)     = a2^3 + a0*a2^2 - a1*a2^2
+    /// Sum is exactly N + 3*a0*a1*a2 (one dot_product_3: 3 muls + 1 reduce).
+    /// Then subtract 3*a0*a1*a2 separately.
+    ///
+    ///   inv[0] = (a0^2 + 2*a0*a2 + a2^2 - a1^2 - a1*a2) / N
+    ///   inv[1] = (a2^2 - a0*a1)                          / N
+    ///   inv[2] = (a1^2 - a0*a2 - a2^2)                   / N
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let a0_sq = a[0].square();
-        let a1_sq = a[1].square();
-        let a2_sq = a[2].square();
+        let a0 = a[0];
+        let a1 = a[1];
+        let a2 = a[2];
 
-        // Compute the norm: N = a0^3 + 2*a1^3 + 4*a2^3 - 6*a0*a1*a2
-        let a0_cubed = a0_sq * a[0];
-        let a1_cubed = a1_sq * a[1];
-        let a2_cubed = a2_sq * a[2];
-        let a0a1a2 = a[0] * a[1] * a[2];
+        let a0_sq = a0.square();
+        let a1_sq = a1.square();
+        let a2_sq = a2.square();
 
-        // N = a0^3 + 2*a1^3 + 4*a2^3 - 6*a0*a1*a2
-        let six_a0a1a2 = a0a1a2.double() + a0a1a2.double().double();
-        let norm = a0_cubed + a1_cubed.double() + a2_cubed.double().double() - six_a0a1a2;
+        let a0_a1 = a0 * a1;
+        let a0_a2 = a0 * a2;
+        let a1_a2 = a1 * a2;
+
+        // Group norm terms by squared factor:
+        //   t1 = a0 + 2*a2, t2 = a1 - a0, t3 = a2 + a0 - a1
+        let two_a2 = a2.double();
+        let t1 = a0 + two_a2;
+        let t2 = a1 - a0;
+        let t3 = a2 + a0 - a1;
+
+        // norm_partial = a0^2*t1 + a1^2*t2 + a2^2*t3  (3 muls, 1 reduce128)
+        let norm_partial = FpE::from_raw(dot_product_3(
+            *a0_sq.value(),
+            *t1.value(),
+            *a1_sq.value(),
+            *t2.value(),
+            *a2_sq.value(),
+            *t3.value(),
+        ));
+
+        // 3 * a0*a1*a2 = (a0*a1) * a2, then triple
+        let a0_a1_a2 = a0_a1 * a2;
+        let three_a0_a1_a2 = a0_a1_a2.double() + a0_a1_a2;
+
+        let norm = norm_partial - three_a0_a1_a2;
 
         let norm_inv = norm.inv()?;
 
-        // inv[0] = (a0^2 - 2*a1*a2) / N
-        // inv[1] = (2*a2^2 - a0*a1) / N
-        // inv[2] = (a1^2 - a0*a2) / N
-        let a1a2 = a[1] * a[2];
-        let a0a1 = a[0] * a[1];
-        let a0a2 = a[0] * a[2];
-
         Ok([
-            (a0_sq - a1a2.double()) * norm_inv,
-            (a2_sq.double() - a0a1) * norm_inv,
-            (a1_sq - a0a2) * norm_inv,
+            (a0_sq + a0_a2.double() + a2_sq - a1_sq - a1_a2) * norm_inv,
+            (a2_sq - a0_a1) * norm_inv,
+            (a1_sq - a0_a2 - a2_sq) * norm_inv,
         ])
     }
 
