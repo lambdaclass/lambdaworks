@@ -277,7 +277,7 @@ where
         // Process index 0 next: g(x0, x1) -> h(x1) = g(a, x1)
         // Variable x0 is still at index 0 in g because we removed x2 (higher index)
         let mut sorted_assignments: Vec<_> = assignments.to_vec();
-        sorted_assignments.sort_by(|a, b| b.0.cmp(&a.0));
+        sorted_assignments.sort_by_key(|b| core::cmp::Reverse(b.0));
 
         let mut current = self.clone();
         for (original_idx, value) in sorted_assignments {

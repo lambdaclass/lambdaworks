@@ -84,11 +84,9 @@ fn solve_constraint<F: IsField>(
         (a, b, c),
         (ct.ql == zero, ct.qr == zero, ct.qm == zero, ct.qo == zero),
     ) {
-        ((Some(a), Some(b), None), _) => {
-            if ct.qo != FE::zero() {
-                let c = -(a * &ct.ql + b * &ct.qr + a * b * &ct.qm + &ct.qc) * ct.qo.inv().unwrap();
-                assignments.insert(constraint.o, c);
-            }
+        ((Some(a), Some(b), None), _) if ct.qo != FE::zero() => {
+            let c = -(a * &ct.ql + b * &ct.qr + a * b * &ct.qm + &ct.qc) * ct.qo.inv().unwrap();
+            assignments.insert(constraint.o, c);
         }
         ((Some(a), None, Some(c)), _) => {
             let denominator = &ct.qr + a * &ct.qm;
