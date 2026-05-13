@@ -648,6 +648,7 @@ fn reduce128(x: u128) -> u64 {
 
     let (mut t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
     if borrow {
+        branch_hint();
         t0 -= EPSILON; // Cannot underflow.
     }
 
