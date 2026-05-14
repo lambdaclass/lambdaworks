@@ -673,61 +673,59 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
 
 /// Compute a0*b0 + a1*b1 mod p in a single reduction pass.
 ///
-/// Instead of reducing each product separately (2 reduce128 calls),
-/// this sums the u128 products and reduces once. When the sum overflows u128,
-/// we correct by adding 2^128 mod p = EPSILON^2 = (2^32 - 1)^2.
+/// Uses Plonky3's OFFSET trick: if the two u128 products overflow when summed,
+/// the true value exceeds 2^128, so we subtract OFFSET (a multiple of p larger
+/// than any single product sum) before reducing. Branchless except for the
+/// overflow check; correct because OFFSET ≡ 0 (mod p).
 #[allow(dead_code)]
 #[inline(always)]
 pub(crate) fn dot_product_2(a0: u64, b0: u64, a1: u64, b1: u64) -> u64 {
+    // OFFSET = p * 2^64 + p * 2^32 - p = p * (2^64 + 2^32 - 1)
+    // It is a multiple of p and larger than the maximum sum of two u64 products.
+    const OFFSET: u128 = ((GOLDILOCKS_PRIME as u128) << 64)
+        - (GOLDILOCKS_PRIME as u128)
+        + ((GOLDILOCKS_PRIME as u128) << 32);
+
     let prod0 = (a0 as u128) * (b0 as u128);
     let prod1 = (a1 as u128) * (b1 as u128);
-    let (sum, overflow) = prod0.overflowing_add(prod1);
-
-    let reduced = reduce128(sum);
-
-    if overflow {
-        // True value is sum + 2^128. Since 2^128 mod p = EPSILON^2,
-        // add EPSILON^2 = (2^32-1)^2 = 2^64 - 2^33 + 1.
-        // Safety: reduced < 2^64, EPSILON_SQ < p, so sum < 2^64 + p.
-        branch_hint();
-        const EPSILON_SQ: u64 = EPSILON.wrapping_mul(EPSILON);
-        unsafe { add_no_canonicalize_trashing_input(reduced, EPSILON_SQ) }
+    let (sum, over) = prod0.overflowing_add(prod1);
+    // Defining sum_corr unconditionally helps the compiler emit a cmov.
+    let sum_corr = sum.wrapping_sub(OFFSET);
+    if over {
+        reduce128(sum_corr)
     } else {
-        reduced
+        reduce128(sum)
     }
 }
 
 /// Compute a0*b0 + a1*b1 + a2*b2 mod p in a single reduction pass.
 ///
-/// Accumulates three u128 products, tracking overflow count (at most 2).
-/// Each overflow adds 2^128 mod p = EPSILON^2 to the result.
-/// This is the critical building block for Fp3 multiplication.
+/// Branchless hi/lo accumulator (Plonky3-style): accumulate each u128 product
+/// into a (lo: u128, hi: u64) pair, where `hi` collects the upper 32 bits of
+/// each product. Then exploit 2^96 ≡ -1 (mod p): the final value mod p is
+/// `lo - hi`, which we compute as `lo + (p - hi)`.
+///
+/// Assumes inputs are canonical (in [0, p)) so each u64*u64 product fits in u128.
 #[inline(always)]
 pub(crate) fn dot_product_3(a0: u64, b0: u64, a1: u64, b1: u64, a2: u64, b2: u64) -> u64 {
     let prod0 = (a0 as u128) * (b0 as u128);
     let prod1 = (a1 as u128) * (b1 as u128);
     let prod2 = (a2 as u128) * (b2 as u128);
 
-    let (sum01, over1) = prod0.overflowing_add(prod1);
-    let (sum012, over2) = sum01.overflowing_add(prod2);
-    let overflow_count = (over1 as u64) + (over2 as u64);
+    // Accumulate top-32-bit fragments into `hi`, full products into `lo`.
+    // For canonical inputs each prod < p^2 < 2^128, so top 32 bits fit in 32 bits.
+    let hi0 = (prod0 >> 96) as u64;
+    let hi1 = (prod1 >> 96) as u64;
+    let hi2 = (prod2 >> 96) as u64;
+    let hi = hi0 + hi1 + hi2;
 
-    let mut reduced = reduce128(sum012);
+    let lo_plus_hi = prod0.wrapping_add(prod1).wrapping_add(prod2);
+    // Remove the (hi << 96) contribution that was double-counted in lo_plus_hi.
+    let lo = lo_plus_hi.wrapping_sub((hi as u128) << 96);
 
-    if overflow_count > 0 {
-        // Each overflow represents +2^128 to the true sum.
-        // 2^128 mod p = EPSILON^2 = (2^32 - 1)^2 = 2^64 - 2^33 + 1.
-        // Safety: reduced < 2^64, EPSILON_SQ < p, so sum < 2^64 + p.
-        branch_hint();
-        const EPSILON_SQ: u64 = EPSILON.wrapping_mul(EPSILON);
-        reduced = unsafe { add_no_canonicalize_trashing_input(reduced, EPSILON_SQ) };
-        if overflow_count > 1 {
-            branch_hint();
-            reduced = unsafe { add_no_canonicalize_trashing_input(reduced, EPSILON_SQ) };
-        }
-    }
-
-    reduced
+    // Apply 2^96 ≡ -1 (mod p): true value mod p = lo + (p - hi).
+    let sum = lo.wrapping_add((GOLDILOCKS_PRIME - hi) as u128);
+    reduce128(sum)
 }
 
 /// Canonicalize a field element to [0, p).
@@ -1012,25 +1010,24 @@ impl IsField for Degree3GoldilocksExtensionField {
 
     /// Returns the square of `a` mod (w^3 - w - 1).
     ///
-    /// Karatsuba-style using 3 squares + 3 cross products (6 muls + 6 reduces),
-    /// reusing each cross product to avoid recomputation:
-    ///   c0 = a0^2          + 2*a1*a2
-    ///   c1 = 2*a0*a1 + 2*a1*a2 + a2^2
-    ///   c2 = 2*a0*a2 + a1^2          + a2^2
+    /// Same fused dot-product structure as mul (matches Plonky3):
+    ///   c0 = a0*a0 + a1*a2 + a2*a1                       = a0^2 + 2*a1*a2
+    ///   c1 = a0*a1 + a1*(a0+a2) + a2*(a1+a2)             = 2*a0*a1 + 2*a1*a2 + a2^2
+    ///   c2 = a0*a2 + a1*a1 + a2*(a0+a2)                  = 2*a0*a2 + a1^2 + a2^2
+    /// 9 muls + 3 reduces total. Discards the symmetric 6-mul Karatsuba form
+    /// in exchange for halving the reductions.
     #[inline(always)]
     fn square(a: &Self::BaseType) -> Self::BaseType {
-        let s0 = a[0].square();
-        let s1 = a[1].square();
-        let s2 = a[2].square();
-        let m01 = a[0] * a[1];
-        let m02 = a[0] * a[2];
-        let m12 = a[1] * a[2];
+        let (a0, a1, a2) = (*a[0].value(), *a[1].value(), *a[2].value());
 
-        [
-            s0 + m12.double(),
-            m01.double() + m12.double() + s2,
-            m02.double() + s1 + s2,
-        ]
+        let a0_plus_a2 = <Goldilocks64Field as IsField>::add(&a0, &a2);
+        let a1_plus_a2 = <Goldilocks64Field as IsField>::add(&a1, &a2);
+
+        let c0 = dot_product_3(a0, a0, a1, a2, a2, a1);
+        let c1 = dot_product_3(a0, a1, a1, a0_plus_a2, a2, a1_plus_a2);
+        let c2 = dot_product_3(a0, a2, a1, a1, a2, a0_plus_a2);
+
+        [FpE::from_raw(c0), FpE::from_raw(c1), FpE::from_raw(c2)]
     }
 
     /// Returns the component-wise subtraction of `a` and `b`
