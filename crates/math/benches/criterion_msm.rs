@@ -40,7 +40,7 @@ pub fn historical_window_msm_benchmarks_with_size(
     assert_eq!(cs.len(), points.len());
     let msm_size = cs.len();
 
-    let mut group = c.benchmark_group(format!("MSM historical windows (size {msm_size})"));
+    let mut group = c.benchmark_group(format!("MSM benchmarks with size {msm_size}"));
 
     group.bench_function("Naive", |bench| {
         bench.iter(|| black_box(naive::msm(cs, points)));
