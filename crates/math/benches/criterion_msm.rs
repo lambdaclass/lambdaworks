@@ -31,7 +31,7 @@ pub fn generate_cs_and_points(msm_size: usize) -> (Vec<UI>, Vec<FP>) {
     (cs, points)
 }
 
-pub fn msm_benchmarks_with_size(
+pub fn historical_window_msm_benchmarks_with_size(
     c: &mut Criterion,
     cs: &[UI],
     points: &[FP],
@@ -40,7 +40,7 @@ pub fn msm_benchmarks_with_size(
     assert_eq!(cs.len(), points.len());
     let msm_size = cs.len();
 
-    let mut group = c.benchmark_group(format!("MSM benchmarks with size {msm_size}"));
+    let mut group = c.benchmark_group(format!("MSM historical windows (size {msm_size})"));
 
     group.bench_function("Naive", |bench| {
         bench.iter(|| black_box(naive::msm(cs, points)));
@@ -63,15 +63,62 @@ pub fn msm_benchmarks_with_size(
     }
 }
 
+pub fn signed_comparison_msm_benchmarks_with_size(
+    c: &mut Criterion,
+    cs: &[UI],
+    points: &[FP],
+    window_sizes: &[usize],
+) {
+    assert_eq!(cs.len(), points.len());
+    let msm_size = cs.len();
+
+    // Keep signed benchmarks on a separate grid so historical unsigned data stays comparable.
+    let mut group = c.benchmark_group(format!("MSM signed comparison (size {msm_size})"));
+
+    for &window_size in window_sizes {
+        group.bench_function(
+            BenchmarkId::new("Sequential Pippenger", window_size),
+            |bench| {
+                bench.iter(|| black_box(pippenger::msm_with(cs, points, window_size)));
+            },
+        );
+
+        group.bench_function(
+            BenchmarkId::new("Sequential Signed Pippenger", window_size),
+            |bench| {
+                bench.iter(|| black_box(pippenger::msm_with_signed(cs, points, window_size)));
+            },
+        );
+
+        group.bench_function(
+            BenchmarkId::new("Parallel Pippenger", window_size),
+            |bench| {
+                bench.iter(|| black_box(pippenger::parallel_msm_with(cs, points, window_size)));
+            },
+        );
+
+        group.bench_function(
+            BenchmarkId::new("Parallel Signed Pippenger", window_size),
+            |bench| {
+                bench.iter(|| {
+                    black_box(pippenger::parallel_msm_with_signed(cs, points, window_size))
+                });
+            },
+        );
+    }
+}
+
 pub fn run_benchmarks(c: &mut Criterion) {
     let exponents = 1..=10;
-    let window_sizes = vec![1, 2, 4, 8, 12];
+    let legacy_window_sizes = vec![1, 2, 4, 8, 12];
+    let signed_window_sizes = vec![2, 3, 4, 6, 8];
 
     for exp in exponents {
         let msm_size = 1 << exp;
         let (cs, points) = generate_cs_and_points(msm_size);
 
-        msm_benchmarks_with_size(c, &cs, &points, &window_sizes);
+        historical_window_msm_benchmarks_with_size(c, &cs, &points, &legacy_window_sizes);
+        signed_comparison_msm_benchmarks_with_size(c, &cs, &points, &signed_window_sizes);
     }
 }
 
