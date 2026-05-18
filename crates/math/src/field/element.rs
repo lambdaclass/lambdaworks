@@ -18,7 +18,7 @@ use core::iter::Sum;
     feature = "lambdaworks-serde-string"
 ))]
 use core::marker::PhantomData;
-use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 #[cfg(feature = "alloc")]
 use num_bigint::BigUint;
 #[cfg(feature = "alloc")]
@@ -327,6 +327,32 @@ where
     #[inline]
     fn sub(self, rhs: FieldElement<L>) -> Self::Output {
         self - &rhs
+    }
+}
+
+/// SubAssign operator overloading for field elements
+impl<F, L> SubAssign<FieldElement<F>> for FieldElement<L>
+where
+    F: IsSubFieldOf<L>,
+    L: IsField,
+{
+    #[inline]
+    fn sub_assign(&mut self, rhs: FieldElement<F>) {
+        let rhs = <F as IsSubFieldOf<L>>::embed(rhs.value);
+        self.value = L::sub(&self.value, &rhs);
+    }
+}
+
+/// SubAssign operator overloading for field elements
+impl<F, L> SubAssign<&FieldElement<F>> for FieldElement<L>
+where
+    F: IsSubFieldOf<L>,
+    L: IsField,
+{
+    #[inline]
+    fn sub_assign(&mut self, rhs: &FieldElement<F>) {
+        let rhs = <F as IsSubFieldOf<L>>::embed(rhs.value.clone());
+        self.value = L::sub(&self.value, &rhs);
     }
 }
 
@@ -1238,6 +1264,24 @@ mod tests {
     fn sub_element_from_itself_gives_zero() {
         let a = FieldElement::<U64TestField>::from(12345u64);
         assert_eq!(&a - &a, FieldElement::<U64TestField>::zero());
+    }
+
+    #[test]
+    fn sub_assign_owned_matches_subtraction() {
+        let mut a = FieldElement::<U64TestField>::from(12345u64);
+        let b = FieldElement::<U64TestField>::from(6789u64);
+        let expected = &a - &b;
+        a -= b;
+        assert_eq!(a, expected);
+    }
+
+    #[test]
+    fn sub_assign_borrowed_matches_subtraction() {
+        let mut a = FieldElement::<U64TestField>::from(12345u64);
+        let b = FieldElement::<U64TestField>::from(6789u64);
+        let expected = &a - &b;
+        a -= &b;
+        assert_eq!(a, expected);
     }
 
     #[test]

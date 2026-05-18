@@ -140,6 +140,18 @@ pub fn starkfield_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
+        group.bench_with_input(format!("sub_assign {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, y) in i {
+                    let mut z = *x;
+                    z -= *y;
+                    black_box(z);
+                }
+            });
+        });
+    }
+
+    for i in input.clone().into_iter() {
         group.bench_with_input(format!("inv {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
