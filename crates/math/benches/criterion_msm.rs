@@ -73,6 +73,8 @@ pub fn signed_comparison_msm_benchmarks_with_size(
     let msm_size = cs.len();
 
     // Keep signed benchmarks on a separate grid so historical unsigned data stays comparable.
+    // This benchmark group is intended to compare already-existing signed MSM paths against the
+    // unsigned ones, without changing runtime defaults in the same PR.
     let mut group = c.benchmark_group(format!("MSM signed comparison (size {msm_size})"));
 
     for &window_size in window_sizes {
@@ -111,6 +113,8 @@ pub fn signed_comparison_msm_benchmarks_with_size(
 pub fn run_benchmarks(c: &mut Criterion) {
     let exponents = 1..=10;
     let legacy_window_sizes = vec![1, 2, 4, 8, 12];
+    // Signed MSM clamps window sizes to a minimum of 2, includes an odd window (3) for contrast,
+    // and samples medium windows (4, 6, 8) without growing the benchmark matrix too much.
     let signed_window_sizes = vec![2, 3, 4, 6, 8];
 
     for exp in exponents {
