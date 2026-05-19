@@ -155,12 +155,10 @@ impl CudaMSM {
                 &[
                     "count_bucket_entries_bls12_381",
                     "scatter_bucket_descriptors_bls12_381",
-                    "segmented_bucket_accumulation_bls12_381",
                     "partial_segment_accumulation_bls12_381",
                     "finalize_segment_accumulation_bls12_381",
                     "partial_bucket_reduction_bls12_381",
                     "finalize_bucket_reduction_bls12_381",
-                    "bucket_reduction_bls12_381",
                 ],
             )
             .map_err(|err| CudaError::PtxError(err.to_string()))?;
@@ -1156,7 +1154,6 @@ mod tests {
 
     #[test]
     fn test_cuda_msm_small() {
-        // Single-point MSMs to avoid the race condition
         let g = BLS12381Curve::generator();
 
         for k in [1u64, 2, 7, 42, 255, 1337, 65536] {
