@@ -14,19 +14,19 @@
 //! 4. **Window combination**: Combine window results with Horner's method (CPU)
 //!
 //! # Known Limitations
-//! - The bucket accumulation kernel has a race condition when multiple threads
-//!   write to the same bucket. This is the same limitation as the Metal MSM.
-//!   A sorting-based fix is planned as follow-up.
 //! - Only BLS12-381 is supported. Constants are hardcoded.
 //! - CPU-side MSM logic is duplicated from the Metal MSM module. A follow-up
 //!   should extract shared code.
 
-use cudarc::driver::{CudaDevice, LaunchAsync, LaunchConfig};
+use cudarc::driver::{safe::CudaSlice, CudaDevice, LaunchAsync, LaunchConfig};
 use cudarc::nvrtc::safe::Ptx;
 use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 use std::sync::Arc;
 
 const BLS12_381_MSM_PTX: &str = include_str!("../gpu/cuda/shaders/msm/bls12_381_msm.ptx");
+const MSM_DESCRIPTOR_INDEX_MASK: usize = 0x7fff_ffff;
+const SEGMENT_ACCUMULATION_CHUNK_SIZE: usize = 256;
+const BUCKET_REDUCTION_CHUNK_SIZE: usize = 256;
 
 /// Configuration for MSM computation.
 ///
@@ -92,6 +92,56 @@ pub struct CudaMSM {
     config: MSMConfig,
 }
 
+fn checked_u32_len(value: usize, name: &str) -> Result<u32, CudaError> {
+    u32::try_from(value)
+        .map_err(|_| CudaError::FunctionError(format!("{name} {value} exceeds u32::MAX")))
+}
+
+fn exclusive_scan_counts(counts: &[u32]) -> Result<(Vec<u32>, u32), CudaError> {
+    let mut offsets = Vec::with_capacity(counts.len() + 1);
+    let mut running = 0u32;
+
+    for &count in counts {
+        offsets.push(running);
+        running = running.checked_add(count).ok_or_else(|| {
+            CudaError::FunctionError("Bucket descriptor count overflowed u32".to_string())
+        })?;
+    }
+
+    offsets.push(running);
+    Ok((offsets, running))
+}
+
+fn build_segment_tasks(counts: &[u32]) -> Result<(Vec<u32>, Vec<u32>, Vec<u32>, u32), CudaError> {
+    let mut task_offsets = Vec::with_capacity(counts.len() + 1);
+    let mut task_starts = Vec::new();
+    let mut task_lengths = Vec::new();
+    let mut descriptor_offset = 0u32;
+    let mut task_count = 0u32;
+
+    for &count in counts {
+        task_offsets.push(task_count);
+
+        let mut consumed = 0u32;
+        while consumed < count {
+            let len = (count - consumed).min(SEGMENT_ACCUMULATION_CHUNK_SIZE as u32);
+            task_starts.push(descriptor_offset + consumed);
+            task_lengths.push(len);
+            consumed += len;
+            task_count = task_count.checked_add(1).ok_or_else(|| {
+                CudaError::FunctionError("Segment task count overflowed u32".to_string())
+            })?;
+        }
+
+        descriptor_offset = descriptor_offset.checked_add(count).ok_or_else(|| {
+            CudaError::FunctionError("Segment descriptor offset overflowed u32".to_string())
+        })?;
+    }
+
+    task_offsets.push(task_count);
+    Ok((task_offsets, task_starts, task_lengths, task_count))
+}
+
 impl CudaMSM {
     /// Creates a new CudaMSM instance with the given configuration.
     pub fn new(config: MSMConfig) -> Result<Self, CudaError> {
@@ -103,7 +153,13 @@ impl CudaMSM {
                 Ptx::from_src(BLS12_381_MSM_PTX),
                 "bls12_381_msm",
                 &[
-                    "bucket_accumulation_bls12_381",
+                    "count_bucket_entries_bls12_381",
+                    "scatter_bucket_descriptors_bls12_381",
+                    "segmented_bucket_accumulation_bls12_381",
+                    "partial_segment_accumulation_bls12_381",
+                    "finalize_segment_accumulation_bls12_381",
+                    "partial_bucket_reduction_bls12_381",
+                    "finalize_bucket_reduction_bls12_381",
                     "bucket_reduction_bls12_381",
                 ],
             )
@@ -172,23 +228,40 @@ impl CudaMSM {
             return Err(CudaError::FunctionError("Empty input".to_string()));
         }
 
-        // TODO: Remove this guard once bucket accumulation race condition is fixed
-        // (sorting-based approach or per-thread local buckets with tree reduction)
-        if num_scalars > 1 {
-            return Err(CudaError::FunctionError(
-                "Multi-point MSM not yet supported: bucket accumulation has a known \
-                 race condition. Use single-point MSM or CPU pippenger for multiple points."
-                    .to_string(),
-            ));
+        let num_buckets = self.config.num_buckets();
+        let effective_windows = self.config.num_windows() + 1;
+
+        if num_scalars > MSM_DESCRIPTOR_INDEX_MASK {
+            return Err(CudaError::FunctionError(format!(
+                "Scalars count {} exceeds descriptor capacity {}",
+                num_scalars, MSM_DESCRIPTOR_INDEX_MASK
+            )));
         }
+
+        let total_bucket_keys = effective_windows.checked_mul(num_buckets).ok_or_else(|| {
+            CudaError::FunctionError("Bucket key count overflowed usize".to_string())
+        })?;
+        let total_digits = num_scalars.checked_mul(effective_windows).ok_or_else(|| {
+            CudaError::FunctionError("Signed digit count overflowed usize".to_string())
+        })?;
+        let total_bucket_elements =
+            total_bucket_keys
+                .checked_mul(limbs_per_point)
+                .ok_or_else(|| {
+                    CudaError::FunctionError("Bucket buffer length overflowed usize".to_string())
+                })?;
+
+        let num_scalars_u32 = checked_u32_len(num_scalars, "num_scalars")?;
+        let effective_windows_u32 = checked_u32_len(effective_windows, "effective_windows")?;
+        let num_buckets_u32 = checked_u32_len(num_buckets, "num_buckets")?;
+        let total_digits_u32 = checked_u32_len(total_digits, "total_digits")?;
+        let total_bucket_keys_u32 = checked_u32_len(total_bucket_keys, "total_bucket_keys")?;
+        let window_size_u32 = checked_u32_len(self.config.window_size, "window_size")?;
 
         // Step 1: Recode scalars to signed digits (CPU)
         let signed_digits = self.recode_scalars_signed(scalars, num_scalars);
 
-        // Step 2: Create GPU buffers
-        let num_buckets = self.config.num_buckets();
-        let effective_windows = self.config.num_windows() + 1;
-
+        // Step 2: Count and compact nonzero signed digits into bucket segments
         let scalars_buf = self
             .device
             .htod_sync_copy(&signed_digits)
@@ -199,80 +272,279 @@ impl CudaMSM {
             .htod_sync_copy(points)
             .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
 
-        // Zero-initialized buckets (identity points have z=0)
-        let total_bucket_elements = effective_windows * num_buckets * limbs_per_point;
-        let bucket_data = vec![0u64; total_bucket_elements];
-        let mut buckets_buf = self
-            .device
-            .htod_sync_copy(&bucket_data)
-            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
-
-        // Config for accumulation: [num_scalars, num_windows, num_buckets, window_size]
         let config_data: [u32; 4] = [
-            num_scalars as u32,
-            effective_windows as u32,
-            num_buckets as u32,
-            self.config.window_size as u32,
+            num_scalars_u32,
+            effective_windows_u32,
+            num_buckets_u32,
+            window_size_u32,
         ];
         let config_buf = self
             .device
             .htod_sync_copy(&config_data)
             .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
 
-        // Step 3: Run bucket accumulation kernel
-        let accum_func = self
+        let mut counts_buf: CudaSlice<u32> = self
             .device
-            .get_func("bls12_381_msm", "bucket_accumulation_bls12_381")
-            .ok_or_else(|| CudaError::FunctionError("bucket_accumulation_bls12_381".to_string()))?;
+            .alloc_zeros(total_bucket_keys)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
 
-        let total_threads = num_scalars * effective_windows;
+        let count_func = self
+            .device
+            .get_func("bls12_381_msm", "count_bucket_entries_bls12_381")
+            .ok_or_else(|| {
+                CudaError::FunctionError("count_bucket_entries_bls12_381".to_string())
+            })?;
+
         let block_size = 256u32;
-        let grid_size = ((total_threads as u32) + block_size - 1) / block_size;
-
-        let accum_config = LaunchConfig {
-            grid_dim: (grid_size, 1, 1),
+        let digit_grid_size = total_digits_u32.div_ceil(block_size);
+        let digit_launch_config = LaunchConfig {
+            grid_dim: (digit_grid_size, 1, 1),
             block_dim: (block_size, 1, 1),
             shared_mem_bytes: 0,
         };
 
         unsafe {
-            accum_func.launch(
-                accum_config,
-                (&scalars_buf, &points_buf, &mut buckets_buf, &config_buf),
+            count_func.launch(
+                digit_launch_config,
+                (&scalars_buf, &mut counts_buf, &config_buf),
             )
         }
         .map_err(|err| CudaError::Launch(err.to_string()))?;
 
-        // Step 4: Run bucket reduction kernel
+        let counts = self
+            .device
+            .sync_reclaim(counts_buf)
+            .map_err(|err| CudaError::RetrieveMemory(err.to_string()))?;
+        let (offsets, nonzero_items) = exclusive_scan_counts(&counts)?;
+        let (task_offsets, task_starts, task_lengths, segment_task_count) =
+            build_segment_tasks(&counts)?;
+        let sorted_descriptor_len = (nonzero_items as usize).max(1);
+        let segment_task_len = (segment_task_count as usize).max(1);
+        let segment_task_count_u32 =
+            checked_u32_len(segment_task_count as usize, "segment_task_count")?;
+        let task_starts_upload = if task_starts.is_empty() {
+            vec![0]
+        } else {
+            task_starts
+        };
+        let task_lengths_upload = if task_lengths.is_empty() {
+            vec![0]
+        } else {
+            task_lengths
+        };
+        let partial_bucket_elements =
+            segment_task_len
+                .checked_mul(limbs_per_point)
+                .ok_or_else(|| {
+                    CudaError::FunctionError("Partial segment buffer overflowed usize".to_string())
+                })?;
+
+        let offsets_buf = self
+            .device
+            .htod_sync_copy(&offsets)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+        let mut write_counts_buf: CudaSlice<u32> = self
+            .device
+            .alloc_zeros(total_bucket_keys)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+        let mut sorted_descriptors_buf: CudaSlice<u32> = self
+            .device
+            .alloc_zeros(sorted_descriptor_len)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+
+        let scatter_func = self
+            .device
+            .get_func("bls12_381_msm", "scatter_bucket_descriptors_bls12_381")
+            .ok_or_else(|| {
+                CudaError::FunctionError("scatter_bucket_descriptors_bls12_381".to_string())
+            })?;
+
+        unsafe {
+            scatter_func.launch(
+                digit_launch_config,
+                (
+                    &scalars_buf,
+                    &mut write_counts_buf,
+                    &offsets_buf,
+                    &mut sorted_descriptors_buf,
+                    &config_buf,
+                ),
+            )
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))?;
+
+        let mut buckets_buf: CudaSlice<u64> = self
+            .device
+            .alloc_zeros(total_bucket_elements)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+
+        let task_offsets_buf = self
+            .device
+            .htod_sync_copy(&task_offsets)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+        let task_starts_buf = self
+            .device
+            .htod_sync_copy(&task_starts_upload)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+        let task_lengths_buf = self
+            .device
+            .htod_sync_copy(&task_lengths_upload)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+        let segment_config_data: [u32; 4] = [segment_task_count_u32, total_bucket_keys_u32, 0, 0];
+        let segment_config_buf = self
+            .device
+            .htod_sync_copy(&segment_config_data)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+        let mut partial_buckets_buf: CudaSlice<u64> = self
+            .device
+            .alloc_zeros(partial_bucket_elements)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+
+        let partial_segment_func = self
+            .device
+            .get_func("bls12_381_msm", "partial_segment_accumulation_bls12_381")
+            .ok_or_else(|| {
+                CudaError::FunctionError("partial_segment_accumulation_bls12_381".to_string())
+            })?;
+        let finalize_segment_func = self
+            .device
+            .get_func("bls12_381_msm", "finalize_segment_accumulation_bls12_381")
+            .ok_or_else(|| {
+                CudaError::FunctionError("finalize_segment_accumulation_bls12_381".to_string())
+            })?;
+
+        let segment_task_grid_size = segment_task_count_u32.div_ceil(block_size).max(1);
+        let segment_task_launch_config = LaunchConfig {
+            grid_dim: (segment_task_grid_size, 1, 1),
+            block_dim: (block_size, 1, 1),
+            shared_mem_bytes: 0,
+        };
+
+        unsafe {
+            partial_segment_func.launch(
+                segment_task_launch_config,
+                (
+                    &sorted_descriptors_buf,
+                    &task_starts_buf,
+                    &task_lengths_buf,
+                    &points_buf,
+                    &mut partial_buckets_buf,
+                    &segment_config_buf,
+                ),
+            )
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))?;
+
+        let bucket_grid_size = total_bucket_keys_u32.div_ceil(block_size);
+        let bucket_launch_config = LaunchConfig {
+            grid_dim: (bucket_grid_size, 1, 1),
+            block_dim: (block_size, 1, 1),
+            shared_mem_bytes: 0,
+        };
+
+        unsafe {
+            finalize_segment_func.launch(
+                bucket_launch_config,
+                (
+                    &task_offsets_buf,
+                    &mut partial_buckets_buf,
+                    &mut buckets_buf,
+                    &segment_config_buf,
+                ),
+            )
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))?;
+
+        // Step 3: Run bucket reduction kernel
         let window_sums_data = vec![0u64; effective_windows * limbs_per_point];
         let mut window_sums_buf = self
             .device
             .htod_sync_copy(&window_sums_data)
             .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
 
-        // Reduction config: [num_windows, num_buckets]
-        let reduction_config_data: [u32; 2] = [effective_windows as u32, num_buckets as u32];
+        let reduction_chunk_size = BUCKET_REDUCTION_CHUNK_SIZE.min(num_buckets);
+        let chunks_per_window = num_buckets.div_ceil(reduction_chunk_size);
+        let total_reduction_chunks = effective_windows
+            .checked_mul(chunks_per_window)
+            .ok_or_else(|| {
+                CudaError::FunctionError("Reduction chunk count overflowed usize".to_string())
+            })?;
+        let reduction_chunk_size_u32 =
+            checked_u32_len(reduction_chunk_size, "reduction_chunk_size")?;
+        let chunks_per_window_u32 = checked_u32_len(chunks_per_window, "chunks_per_window")?;
+        let total_reduction_chunks_u32 =
+            checked_u32_len(total_reduction_chunks, "total_reduction_chunks")?;
+
+        let reduction_config_data: [u32; 4] = [
+            effective_windows_u32,
+            num_buckets_u32,
+            reduction_chunk_size_u32,
+            chunks_per_window_u32,
+        ];
         let reduction_config_buf = self
             .device
             .htod_sync_copy(&reduction_config_data)
             .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
 
-        let reduce_func = self
+        let partial_buffer_elements = total_reduction_chunks
+            .checked_mul(limbs_per_point)
+            .ok_or_else(|| {
+                CudaError::FunctionError("Partial reduction buffer overflowed usize".to_string())
+            })?;
+        let mut partial_sums_buf: CudaSlice<u64> = self
             .device
-            .get_func("bls12_381_msm", "bucket_reduction_bls12_381")
-            .ok_or_else(|| CudaError::FunctionError("bucket_reduction_bls12_381".to_string()))?;
+            .alloc_zeros(partial_buffer_elements)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
+        let mut partial_results_buf: CudaSlice<u64> = self
+            .device
+            .alloc_zeros(partial_buffer_elements)
+            .map_err(|err| CudaError::AllocateMemory(err.to_string()))?;
 
-        let reduce_config = LaunchConfig {
-            grid_dim: (effective_windows as u32, 1, 1),
-            block_dim: (1, 1, 1),
+        let partial_reduce_func = self
+            .device
+            .get_func("bls12_381_msm", "partial_bucket_reduction_bls12_381")
+            .ok_or_else(|| {
+                CudaError::FunctionError("partial_bucket_reduction_bls12_381".to_string())
+            })?;
+        let finalize_reduce_func = self
+            .device
+            .get_func("bls12_381_msm", "finalize_bucket_reduction_bls12_381")
+            .ok_or_else(|| {
+                CudaError::FunctionError("finalize_bucket_reduction_bls12_381".to_string())
+            })?;
+
+        let reduction_grid_size = total_reduction_chunks_u32.div_ceil(block_size);
+        let partial_reduce_config = LaunchConfig {
+            grid_dim: (reduction_grid_size, 1, 1),
+            block_dim: (block_size, 1, 1),
             shared_mem_bytes: 0,
         };
 
         unsafe {
-            reduce_func.launch(
-                reduce_config,
+            partial_reduce_func.launch(
+                partial_reduce_config,
                 (
                     &mut buckets_buf,
+                    &mut partial_sums_buf,
+                    &mut partial_results_buf,
+                    &reduction_config_buf,
+                ),
+            )
+        }
+        .map_err(|err| CudaError::Launch(err.to_string()))?;
+
+        let finalize_reduce_config = LaunchConfig {
+            grid_dim: (effective_windows_u32.div_ceil(block_size), 1, 1),
+            block_dim: (block_size, 1, 1),
+            shared_mem_bytes: 0,
+        };
+
+        unsafe {
+            finalize_reduce_func.launch(
+                finalize_reduce_config,
+                (
+                    &mut partial_sums_buf,
+                    &mut partial_results_buf,
                     &mut window_sums_buf,
                     &reduction_config_buf,
                 ),
@@ -682,6 +954,32 @@ mod tests {
     }
 
     #[test]
+    fn test_exclusive_scan_counts_all_zero() {
+        let (offsets, total) = exclusive_scan_counts(&[0, 0, 0]).expect("scan failed");
+        assert_eq!(offsets, vec![0, 0, 0, 0]);
+        assert_eq!(total, 0);
+    }
+
+    #[test]
+    fn test_exclusive_scan_counts_single_nonzero() {
+        let (offsets, total) = exclusive_scan_counts(&[0, 3, 0]).expect("scan failed");
+        assert_eq!(offsets, vec![0, 0, 3, 3]);
+        assert_eq!(total, 3);
+    }
+
+    #[test]
+    fn test_exclusive_scan_counts_multiple_buckets() {
+        let (offsets, total) = exclusive_scan_counts(&[2, 0, 5, 1]).expect("scan failed");
+        assert_eq!(offsets, vec![0, 2, 2, 7, 8]);
+        assert_eq!(total, 8);
+    }
+
+    #[test]
+    fn test_exclusive_scan_counts_overflow() {
+        assert!(exclusive_scan_counts(&[u32::MAX, 1]).is_err());
+    }
+
+    #[test]
     fn test_scalar_recoding_simple() {
         let config = MSMConfig {
             window_size: 4,
@@ -832,22 +1130,6 @@ mod tests {
 
     #[test]
     fn test_cuda_msm_single_point() {
-        use crate::{
-            cyclic_group::IsGroup,
-            elliptic_curve::{
-                short_weierstrass::{
-                    curves::bls12_381::{
-                        curve::BLS12381Curve, field_extension::BLS12381PrimeField,
-                    },
-                    point::ShortWeierstrassJacobianPoint,
-                },
-                traits::IsEllipticCurve,
-            },
-            field::element::FieldElement,
-            msm::pippenger,
-            unsigned_integer::element::UnsignedInteger,
-        };
-
         let g = BLS12381Curve::generator();
         let scalar = UnsignedInteger::<4>::from_u64(7);
 
@@ -874,22 +1156,6 @@ mod tests {
 
     #[test]
     fn test_cuda_msm_small() {
-        use crate::{
-            cyclic_group::IsGroup,
-            elliptic_curve::{
-                short_weierstrass::{
-                    curves::bls12_381::{
-                        curve::BLS12381Curve, field_extension::BLS12381PrimeField,
-                    },
-                    point::ShortWeierstrassJacobianPoint,
-                },
-                traits::IsEllipticCurve,
-            },
-            field::element::FieldElement,
-            msm::pippenger,
-            unsigned_integer::element::UnsignedInteger,
-        };
-
         // Single-point MSMs to avoid the race condition
         let g = BLS12381Curve::generator();
 
@@ -918,22 +1184,6 @@ mod tests {
 
     #[test]
     fn test_cuda_msm_large_scalar() {
-        use crate::{
-            cyclic_group::IsGroup,
-            elliptic_curve::{
-                short_weierstrass::{
-                    curves::bls12_381::{
-                        curve::BLS12381Curve, field_extension::BLS12381PrimeField,
-                    },
-                    point::ShortWeierstrassJacobianPoint,
-                },
-                traits::IsEllipticCurve,
-            },
-            field::element::FieldElement,
-            msm::pippenger,
-            unsigned_integer::element::UnsignedInteger,
-        };
-
         let g = BLS12381Curve::generator();
         let scalar = UnsignedInteger::<4>::from_limbs([
             0x0000000000000001,
@@ -961,18 +1211,156 @@ mod tests {
         assert_eq!(cpu_affine.y(), gpu_affine.y(), "y mismatch");
     }
 
+    #[test]
+    fn test_cuda_msm_multi_point_matches_cpu() {
+        let g = BLS12381Curve::generator();
+        let scalars: Vec<_> = [1u64, 2, 7, 42, 255, 1337, 65536, 1 << 20]
+            .into_iter()
+            .map(UnsignedInteger::<4>::from_u64)
+            .collect();
+        let points: Vec<_> = (1u64..=scalars.len() as u64)
+            .map(|power| g.operate_with_self(power))
+            .collect();
+
+        let cpu_result = pippenger::msm(&scalars, &points).expect("CPU MSM failed");
+        let cpu_affine = cpu_result.to_affine();
+
+        let scalars_flat: Vec<_> = scalars.iter().flat_map(scalar_to_gpu_limbs).collect();
+        let points_flat: Vec<_> = points.iter().flat_map(point_to_gpu_flat).collect();
+
+        let msm = CudaMSM::new_bls12_381().expect("CUDA device required");
+        let gpu_result_flat = msm
+            .compute(&scalars_flat, &points_flat)
+            .expect("CUDA MSM compute failed");
+
+        let gpu_point = gpu_flat_to_point(&gpu_result_flat);
+        let gpu_affine = gpu_point.to_affine();
+
+        assert_eq!(cpu_affine.x(), gpu_affine.x(), "x mismatch");
+        assert_eq!(cpu_affine.y(), gpu_affine.y(), "y mismatch");
+    }
+
+    #[test]
+    fn test_cuda_msm_bucket_collision_matches_cpu() {
+        let g = BLS12381Curve::generator();
+        let scalars: Vec<_> = [1u64; 8]
+            .into_iter()
+            .map(UnsignedInteger::<4>::from_u64)
+            .collect();
+        let points: Vec<_> = (1u64..=scalars.len() as u64)
+            .map(|power| g.operate_with_self(power))
+            .collect();
+
+        let cpu_result = pippenger::msm(&scalars, &points).expect("CPU MSM failed");
+        let cpu_affine = cpu_result.to_affine();
+
+        let scalars_flat: Vec<_> = scalars.iter().flat_map(scalar_to_gpu_limbs).collect();
+        let points_flat: Vec<_> = points.iter().flat_map(point_to_gpu_flat).collect();
+
+        let msm = CudaMSM::new_bls12_381().expect("CUDA device required");
+        let gpu_result_flat = msm
+            .compute(&scalars_flat, &points_flat)
+            .expect("CUDA MSM compute failed");
+
+        let gpu_point = gpu_flat_to_point(&gpu_result_flat);
+        let gpu_affine = gpu_point.to_affine();
+
+        assert_eq!(cpu_affine.x(), gpu_affine.x(), "x mismatch");
+        assert_eq!(cpu_affine.y(), gpu_affine.y(), "y mismatch");
+    }
+
+    #[test]
+    fn test_cuda_msm_small_window_bucket_collision_matches_cpu() {
+        assert_cuda_msm_matches_cpu_with_config(
+            &[1u64; 8],
+            MSMConfig {
+                window_size: 4,
+                num_limbs: 4,
+                bits_per_limb: 64,
+                point_coord_limbs: 6,
+            },
+        );
+    }
+
+    #[test]
+    fn test_cuda_msm_negative_signed_digits_match_cpu() {
+        assert_cuda_msm_matches_cpu_with_config(
+            &[8u64, 9, 15, 24, 31, 40, 127, 255],
+            MSMConfig {
+                window_size: 4,
+                num_limbs: 4,
+                bits_per_limb: 64,
+                point_coord_limbs: 6,
+            },
+        );
+    }
+
+    #[test]
+    fn test_cuda_msm_zero_heavy_scalars_match_cpu() {
+        assert_cuda_msm_matches_cpu_with_config(
+            &[0u64, 0, 1, 0, 256, 0, 1 << 20, 0],
+            MSMConfig::bls12_381(),
+        );
+    }
+
+    #[test]
+    fn test_cuda_msm_medium_deterministic_input_matches_cpu() {
+        let scalars: Vec<_> = (0..257)
+            .map(|i| {
+                (i as u64 + 1)
+                    .wrapping_mul(0x9e37_79b9_7f4a_7c15)
+                    .rotate_left((i % 63) as u32)
+            })
+            .collect();
+        assert_cuda_msm_matches_cpu_with_config(&scalars, MSMConfig::bls12_381());
+    }
+
     // =========================================================================
     // Helpers for converting between lambdaworks types and GPU limb format
     // =========================================================================
 
     use crate::{
-        elliptic_curve::short_weierstrass::{
-            curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
-            point::ShortWeierstrassJacobianPoint,
+        cyclic_group::IsGroup,
+        elliptic_curve::{
+            short_weierstrass::{
+                curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
+                point::ShortWeierstrassJacobianPoint,
+            },
+            traits::IsEllipticCurve,
         },
         field::element::FieldElement,
+        msm::pippenger,
         unsigned_integer::element::UnsignedInteger,
     };
+
+    fn assert_cuda_msm_matches_cpu_with_config(scalar_values: &[u64], config: MSMConfig) {
+        let g = BLS12381Curve::generator();
+        let scalars: Vec<_> = scalar_values
+            .iter()
+            .copied()
+            .map(UnsignedInteger::<4>::from_u64)
+            .collect();
+        let points: Vec<_> = (1u64..=scalars.len() as u64)
+            .map(|power| g.operate_with_self(power))
+            .collect();
+
+        let cpu_result = pippenger::msm(&scalars, &points).expect("CPU MSM failed");
+        let cpu_affine = cpu_result.to_affine();
+
+        let scalars_flat: Vec<_> = scalars.iter().flat_map(scalar_to_gpu_limbs).collect();
+        let points_flat: Vec<_> = points.iter().flat_map(point_to_gpu_flat).collect();
+
+        let msm = CudaMSM::new(config).expect("CUDA device required");
+        let gpu_result_flat = msm
+            .compute(&scalars_flat, &points_flat)
+            .expect("CUDA MSM compute failed");
+
+        let gpu_point = gpu_flat_to_point(&gpu_result_flat);
+        let gpu_affine = gpu_point.to_affine();
+
+        assert_eq!(cpu_affine.x(), gpu_affine.x(), "x mismatch");
+        assert_eq!(cpu_affine.y(), gpu_affine.y(), "y mismatch");
+    }
 
     fn fe_to_gpu_limbs(fe: &FieldElement<BLS12381PrimeField>) -> [u64; 6] {
         let be_limbs = fe.value().limbs;
