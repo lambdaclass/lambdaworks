@@ -319,6 +319,12 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
 
         let required_len = shift + other.coefficients.len();
+        debug_assert!(
+            required_len <= self.coefficients.len(),
+            "sub_scaled_shifted_assign: required_len ({required_len}) exceeds self.len ({}); \
+             caller invariant violated",
+            self.coefficients.len()
+        );
         if required_len > self.coefficients.len() {
             self.coefficients.resize(required_len, FieldElement::zero());
         }
