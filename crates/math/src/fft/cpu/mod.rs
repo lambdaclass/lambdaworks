@@ -12,3 +12,4 @@ pub mod fft;
 pub mod ops;
 #[cfg(feature = "alloc")]
 pub mod roots_of_unity;
+pub mod ntt_bowers_goldilocks;
