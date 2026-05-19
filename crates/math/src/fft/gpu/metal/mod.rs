@@ -50,6 +50,7 @@
 //! ```
 
 pub mod ops;
+pub mod bowers;
 
 pub use ops::{
     bitrev_permutation, bitrev_permutation_extension, fft, fft_buffer_to_buffer, fft_extension,
