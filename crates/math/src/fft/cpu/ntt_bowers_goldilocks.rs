@@ -39,14 +39,7 @@ fn dif_butterfly(a: &mut u64, b: &mut u64, w: u64) {
     let vb = *b;
     let sum = va.wrapping_add(vb);
     *a = if sum >= P { sum - P } else { sum };
-    *b = goldilocks_reduce(
-        (if va >= vb {
-            va - vb
-        } else {
-            P - vb + va
-        }) as u128
-            * w as u128,
-    );
+    *b = goldilocks_reduce((if va >= vb { va - vb } else { P - vb + va }) as u128 * w as u128);
 }
 
 fn bit_reverse(data: &mut [u64]) {
@@ -100,6 +93,7 @@ pub fn ntt_bowers_butterflies(data: &mut [u64], twiddles: &[u64]) {
         let block_size = 2 * half;
         let num_blocks = n / block_size;
 
+        #[allow(clippy::needless_range_loop)]
         for block in 0..num_blocks {
             let w: u64 = if block == 0 { 1 } else { twiddles[block] };
             let base = block * block_size;
