@@ -614,8 +614,10 @@ mod x86_64_asm {
 /// Reduce a 128-bit value to a 64-bit Goldilocks field element.
 ///
 /// Uses the identities: 2^64 ≡ 2^32 - 1 (mod p), 2^96 ≡ -1 (mod p).
-/// Branch hints mark rare borrow/carry paths for better branch prediction.
+/// The x86_64 path keeps the newer inline-asm final addition; the fallback
+/// keeps the previous portable reduction, which benchmarks better on aarch64.
 #[inline(always)]
+#[cfg(target_arch = "x86_64")]
 fn reduce128(x: u128) -> u64 {
     let (x_lo, x_hi) = (x as u64, (x >> 64) as u64);
     let x_hi_hi = x_hi >> 32;
@@ -637,9 +639,27 @@ fn reduce128(x: u128) -> u64 {
     unsafe { add_no_canonicalize_trashing_input(t0, t1) }
 }
 
+#[inline(always)]
+#[cfg(not(target_arch = "x86_64"))]
+fn reduce128(x: u128) -> u64 {
+    let (x_lo, x_hi) = (x as u64, (x >> 64) as u64);
+    let x_hi_hi = x_hi >> 32;
+    let x_hi_lo = x_hi & EPSILON;
+
+    let (mut t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
+    if borrow {
+        branch_hint();
+        t0 -= EPSILON; // Cannot underflow.
+    }
+
+    let t1 = x_hi_lo * EPSILON;
+    let (res_wrapped, carry) = t0.overflowing_add(t1);
+    res_wrapped + EPSILON * (carry as u64)
+}
+
 /// Fast modular addition: returns (x + y) mod p, assuming x + y < 2^64 + ORDER.
-/// On x86_64, uses inline asm (add + sbb trick) for 2-instruction modular add.
-/// On other architectures, uses portable overflowing_add + conditional correction.
+/// Uses inline asm (add + sbb trick) for 2-instruction modular add. Only the
+/// x86_64 `reduce128` uses this; the aarch64 path inlines the portable add.
 ///
 /// # Safety
 /// Caller must ensure x + y < 2^64 + ORDER.
@@ -658,13 +678,6 @@ unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
         options(pure, nomem, nostack),
     );
     res_wrapped + adjustment
-}
-
-#[inline(always)]
-#[cfg(not(target_arch = "x86_64"))]
-unsafe fn add_no_canonicalize_trashing_input(x: u64, y: u64) -> u64 {
-    let (res_wrapped, carry) = x.overflowing_add(y);
-    res_wrapped.wrapping_add(EPSILON * (carry as u64))
 }
 
 /// Canonicalize a field element to [0, p).
