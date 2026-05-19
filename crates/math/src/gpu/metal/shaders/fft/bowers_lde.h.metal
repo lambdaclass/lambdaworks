@@ -20,8 +20,13 @@ inline void bowers_lde_stage0_body(
 ) {
     uint32_t a_idx, b_idx, tw_idx;
     bowers_butterfly_indices(thread_pos, 0u, n, a_idx, b_idx, tw_idx);
-    Fp a = data[a_idx] * coset_powers[a_idx];
-    Fp b = data[b_idx] * coset_powers[b_idx];
+    // Copy from device/constant to thread-local so address-space operators resolve.
+    Fp a = data[a_idx];
+    Fp b = data[b_idx];
+    Fp ca = coset_powers[a_idx];
+    Fp cb = coset_powers[b_idx];
+    a = a * ca;
+    b = b * cb;
     TwFp w = twiddles_bitrev[tw_idx];
     bowers_dif_butterfly<Fp, TwFp>(a, b, w);
     data[a_idx] = a;

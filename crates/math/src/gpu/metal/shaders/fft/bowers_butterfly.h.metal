@@ -36,11 +36,11 @@ inline void bowers_butterfly_indices(
     uint32_t thread_pos, uint32_t stage, uint32_t n,
     thread uint32_t& a_idx, thread uint32_t& b_idx, thread uint32_t& tw_idx
 ) {
-    uint32_t half       = n >> (stage + 1);
+    uint32_t half_sz    = n >> (stage + 1);
     uint32_t num_blocks = 1u << stage;
-    uint32_t block      = thread_pos / half;
-    uint32_t pos_in_blk = thread_pos & (half - 1);
-    a_idx  = block * (half << 1) + pos_in_blk;
-    b_idx  = a_idx + half;
+    uint32_t block      = thread_pos / half_sz;
+    uint32_t pos_in_blk = thread_pos & (half_sz - 1);
+    a_idx  = block * (half_sz << 1) + pos_in_blk;
+    b_idx  = a_idx + half_sz;
     tw_idx = num_blocks + block;
 }
