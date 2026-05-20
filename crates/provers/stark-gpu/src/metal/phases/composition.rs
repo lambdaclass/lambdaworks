@@ -564,11 +564,7 @@ where
         blowup_factor,
     );
 
-    let evaluator = ConstraintEvaluator::<F, F, A::PublicInputs>::new(
-        air,
-        &round_1_result.rap_challenges,
-        None,
-    );
+    let evaluator = ConstraintEvaluator::<F, F>::new(air, &round_1_result.rap_challenges, None);
     let constraint_evaluations = evaluator.evaluate(
         air,
         &lde_trace,
@@ -983,11 +979,7 @@ where
         blowup_factor,
     );
 
-    let evaluator = ConstraintEvaluator::<F, Fp3, A::PublicInputs>::new(
-        air,
-        &round_1_result.rap_challenges,
-        None,
-    );
+    let evaluator = ConstraintEvaluator::<F, Fp3>::new(air, &round_1_result.rap_challenges, None);
     let constraint_evaluations = evaluator.evaluate(
         air,
         &lde_trace,

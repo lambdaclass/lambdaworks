@@ -1,4 +1,6 @@
 pub mod buffers;
+#[cfg(feature = "bowers-fft")]
+pub mod commit_bowers;
 pub mod constraint_eval;
 pub mod deep_composition;
 pub mod fft;
