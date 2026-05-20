@@ -6,13 +6,16 @@
 //!   stage log_n - 1 -> largest stride (half = n/2)
 //!
 //! Pipeline:
+//!   - Bit-reverse the input columns (`cols` -> `out`). The Bowers-G network
+//!     requires bit-reversed input and yields natural-order output.
 //!   - Fused HEAD kernel covers the first K stages (smallest strides) in
 //!     threadgroup memory, applying the coset multiply on load.
 //!   - Per-stage MIDDLE dispatches handle stages K..log_n.
 //!
-//! No bit-reverse pass: DIF butterflies on natural-order input produce
-//! bit-reversed-order output (intentional; the Merkle leaf indexer absorbs
-//! the reordering via `LeafOrder::Bitrev`).
+//! Output is in natural order, so `coset_powers` must be supplied in
+//! bit-reversed order: the head kernel multiplies the (already bit-reversed)
+//! data element-wise by `coset_powers`, and `bitrev(c) * bitrev(g)` =
+//! `bitrev(c * g)` gives the correct pre-image for the butterfly network.
 //!
 //! If `K == 0` (very small log_n), the dispatcher falls back to a separate
 //! stage-0 dispatch (coset + butterfly with per-block twiddle) followed by
@@ -67,21 +70,35 @@ pub fn metal_bowers_lde(
     let k = optimal_fused_head_stages(log_n);
     let k_val: u32 = k;
 
+    let pipeline_bitrev = state.get_pipeline("bitrev_permutation_Goldilocks")?;
     let pipeline_middle = state.get_pipeline("bowers_lde_middle_Goldilocks")?;
     let middle_tg = MTLSize::new(pipeline_middle.thread_execution_width(), 1, 1);
     let half_grid = MTLSize::new(n as u64 / 2, 1, 1);
+    let full_grid = MTLSize::new(n as u64, 1, 1);
+    let bitrev_tg = MTLSize::new(
+        pipeline_bitrev
+            .max_total_threads_per_threadgroup()
+            .min(n as u64),
+        1,
+        1,
+    );
 
     objc::rc::autoreleasepool(|| -> Result<(), MetalError> {
         let command_buffer = state.queue.new_command_buffer();
 
-        // Blit cols -> out so all NTT stages operate in-place on out.
-        {
-            let blit = command_buffer.new_blit_command_encoder();
-            blit.copy_from_buffer(cols, 0, out, 0, cols.length());
-            blit.end_encoding();
-        }
-
         let enc = command_buffer.new_compute_command_encoder();
+
+        // ---- Bit-reverse the input columns: cols -> out ----
+        // The Bowers-G butterfly network requires bit-reversed input and
+        // produces natural-order output. `bitrev_permutation` writes
+        // out[i] = cols[bitrev(i)].
+        enc.set_compute_pipeline_state(&pipeline_bitrev);
+        for col in 0..num_cols {
+            let offset = (col as usize * col_bytes) as u64;
+            enc.set_buffer(0, Some(cols), offset);
+            enc.set_buffer(1, Some(out), offset);
+            enc.dispatch_threads(full_grid, bitrev_tg);
+        }
 
         // ---- HEAD: stages 0..k in threadgroup memory (coset fold on load) ----
         if k > 0 {
