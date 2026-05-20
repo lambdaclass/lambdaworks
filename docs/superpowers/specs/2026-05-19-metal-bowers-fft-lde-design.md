@@ -1,9 +1,29 @@
 # Metal Bowers FFT + LDE → Merkle Commit Pipeline
 
-**Status:** FFT/LDE engine implemented (Tasks 1–12); stark-gpu integration (13–17) pending
+**Status:** Implemented — all 17 tasks complete
 **Branch:** `feat/metal-bowers-fft-lde` (based on `feat/gpu-stark-prover`)
 **Date:** 2026-05-19 (updated 2026-05-20)
 **Author:** diego
+
+## Results (measured 2026-05-20, Apple Silicon)
+
+`metal_bowers_lde` Goldilocks, fused Bowers-G NTT + coset LDE:
+
+| Shape | Time | Throughput |
+|-------|------|------------|
+| 2^20 × 64 cols | ~208 ms | ~322 Melem/s |
+| 2^20 × 256 cols | ~819 ms | ~328 Melem/s |
+
+Correctness: 39 `bowers` unit tests (golden vectors vs CPU Bowers at
+log_n ∈ {4,10,16,18,20}; coset LDE vs `evaluate_offset_fft`; determinism;
+64-column batched dispatch; Fp3 golden vectors). End-to-end:
+`commit_matrix_bowers` reproduces the CPU reference Merkle root and proof
+paths (`tests/commit_bowers_roundtrip.rs`).
+
+The ≥ 2× speedup target vs the existing Metal commit path is **not yet
+verified** — it needs a same-machine run of the baseline `gpu_evaluate_
+offset_fft` + commit path for comparison. The bench harness
+(`criterion_metal_bowers_lde`) is in place for that measurement.
 
 ## Implementation notes (corrections discovered during build)
 
