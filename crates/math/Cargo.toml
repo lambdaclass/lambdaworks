@@ -108,6 +108,11 @@ harness = false
 required-features = ["parallel"]
 
 [[bench]]
+name = "criterion_metal_bowers_lde"
+harness = false
+required-features = ["metal"]
+
+[[bench]]
 name = "criterion_fft"
 harness = false
 
