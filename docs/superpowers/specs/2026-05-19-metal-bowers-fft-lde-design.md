@@ -1,9 +1,32 @@
 # Metal Bowers FFT + LDE → Merkle Commit Pipeline
 
-**Status:** Draft (awaiting review)
-**Branch:** `feat/metal-bowers-fft-lde`
-**Date:** 2026-05-19
+**Status:** FFT/LDE engine implemented (Tasks 1–12); stark-gpu integration (13–17) pending
+**Branch:** `feat/metal-bowers-fft-lde` (based on `feat/gpu-stark-prover`)
+**Date:** 2026-05-19 (updated 2026-05-20)
 **Author:** diego
+
+## Implementation notes (corrections discovered during build)
+
+Three design assumptions in the original spec turned out to be wrong and were
+corrected in the implementation:
+
+1. **Fused HEAD, not tail.** Bowers-G iterates smallest-stride-first, so the
+   threadgroup-fused kernel processes the *first* K stages (a "head"), with the
+   coset multiply folded into the load. The "fused tail" framing only applies to
+   DIT FFTs.
+
+2. **Natural-order output, no `LeafOrder` flag.** The Bowers-G network requires
+   bit-reversed *input* and produces *natural-order* output. The dispatcher runs
+   a `bitrev_permutation` pass on the input columns; the LDE output then matches
+   `evaluate_offset_fft` element-for-element (verified by test). Consequently the
+   planned `LeafOrder { Natural, Bitrev }` commitment-config flag (Task 13) is
+   **unnecessary** — standard Merkle leaf layout works directly. `coset_powers`
+   must be supplied bit-reversed (cheap one-time precompute).
+
+3. **CPU reference bugs fixed.** The auto-generated `ntt_bowers_goldilocks.rs`
+   had an addition-overflow bug (`wrapping_add` dropped the carry); the
+   `ntt_bowers_fp3.rs` reference used a DIT butterfly instead of DIF. Both are
+   fixed so the references are trustworthy golden sources.
 
 ## Summary
 
