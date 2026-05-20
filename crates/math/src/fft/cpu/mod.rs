@@ -8,9 +8,9 @@ pub mod bit_reversing;
 /// `bowers_fft_opt_fused_parallel` for multi-threaded workloads.
 pub mod bowers_fft;
 pub mod fft;
+pub mod ntt_bowers_fp3;
+pub mod ntt_bowers_goldilocks;
 #[cfg(feature = "alloc")]
 pub mod ops;
 #[cfg(feature = "alloc")]
 pub mod roots_of_unity;
-pub mod ntt_bowers_goldilocks;
-pub mod ntt_bowers_fp3;

@@ -49,8 +49,8 @@
 //! let result = fft_extension::<Degree2GoldilocksExtensionField>(&fp2_input, &twiddles, &state)?;
 //! ```
 
-pub mod ops;
 pub mod bowers;
+pub mod ops;
 
 pub use ops::{
     bitrev_permutation, bitrev_permutation_extension, fft, fft_buffer_to_buffer, fft_extension,
