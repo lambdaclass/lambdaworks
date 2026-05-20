@@ -140,3 +140,90 @@ fn metal_bowers_lde_matches_cpu_log10() {
 fn metal_bowers_lde_matches_cpu_log16() {
     run_metal_bowers_lde_vs_cpu(16, 7);
 }
+
+/// The pipeline must be deterministic: identical inputs produce byte-equal
+/// output across independently constructed `MetalState`s.
+#[test]
+fn metal_bowers_lde_deterministic_across_states() {
+    let log_n = 12u32;
+    let n = 1usize << log_n;
+    let g = Fp::from(5u64);
+
+    let coeffs: Vec<u64> = (0..n as u64)
+        .map(|i| i.wrapping_mul(0xDEAD_BEEF_CAFE_F00D) % P)
+        .collect();
+    let twiddles = cached_bowers_twiddles_goldilocks(log_n);
+    let tw_u64: Vec<u64> = twiddles.iter().map(|x| *x.value()).collect();
+    let coset = cached_coset_powers_goldilocks(log_n, g);
+    let mut coset_u64: Vec<u64> = coset.iter().map(|x| *x.value()).collect();
+    bit_reverse(&mut coset_u64);
+
+    let mut outs: Vec<Vec<u64>> = Vec::new();
+    for _ in 0..2 {
+        let state = MetalState::new(None).expect("metal");
+        let in_buf = state.alloc_buffer_data(&coeffs);
+        let tw_buf = state.alloc_buffer_data(&tw_u64);
+        let coset_buf = state.alloc_buffer_data(&coset_u64);
+        let mut out_buf = state.alloc_buffer::<u64>(n);
+        metal_bowers_lde(&in_buf, &tw_buf, &coset_buf, &mut out_buf, log_n, 1, &state).unwrap();
+        outs.push(MetalState::retrieve_contents(&out_buf));
+    }
+    assert_eq!(outs[0], outs[1]);
+}
+
+/// Batched dispatch: 64 independent columns processed in one call must each
+/// match the per-column `evaluate_offset_fft`.
+#[test]
+fn metal_bowers_lde_multicol_64() {
+    let state = MetalState::new(None).expect("metal");
+    let log_n = 10u32;
+    let n = 1usize << log_n;
+    let num_cols = 64u32;
+    let g = Fp::from(7u64);
+
+    let twiddles = cached_bowers_twiddles_goldilocks(log_n);
+    let tw_u64: Vec<u64> = twiddles.iter().map(|x| *x.value()).collect();
+    let coset = cached_coset_powers_goldilocks(log_n, g);
+    let mut coset_u64: Vec<u64> = coset.iter().map(|x| *x.value()).collect();
+    bit_reverse(&mut coset_u64);
+
+    let mut all_in: Vec<u64> = Vec::with_capacity(n * num_cols as usize);
+    let mut cpu_outs: Vec<Vec<Fp>> = Vec::with_capacity(num_cols as usize);
+    for c in 0..num_cols {
+        let coeffs: Vec<Fp> = (0..n as u64)
+            .map(|i| Fp::from((i + c as u64 * 7919).wrapping_mul(0x9E37_79B9_7F4A_7C15) % P))
+            .collect();
+        all_in.extend(coeffs.iter().map(|x| *x.value()));
+        let poly = Polynomial::new(&coeffs);
+        cpu_outs.push(
+            Polynomial::evaluate_offset_fft::<Goldilocks64Field>(&poly, 1, None, &g)
+                .expect("evaluate_offset_fft"),
+        );
+    }
+
+    let in_buf = state.alloc_buffer_data(&all_in);
+    let tw_buf = state.alloc_buffer_data(&tw_u64);
+    let coset_buf = state.alloc_buffer_data(&coset_u64);
+    let mut out_buf = state.alloc_buffer::<u64>(n * num_cols as usize);
+    metal_bowers_lde(
+        &in_buf,
+        &tw_buf,
+        &coset_buf,
+        &mut out_buf,
+        log_n,
+        num_cols,
+        &state,
+    )
+    .unwrap();
+    let gpu_out: Vec<u64> = MetalState::retrieve_contents(&out_buf);
+
+    for c in 0..num_cols as usize {
+        for i in 0..n {
+            assert_eq!(
+                gpu_out[c * n + i],
+                *cpu_outs[c][i].value(),
+                "multicol mismatch at col={c} i={i}"
+            );
+        }
+    }
+}
