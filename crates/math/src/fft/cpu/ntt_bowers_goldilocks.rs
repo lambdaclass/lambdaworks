@@ -8,7 +8,7 @@
 //! `FieldElement`-based Bowers FFT. It bypasses the `FieldElement` abstraction
 //! to measure the overhead of the generic field layer.
 
-const P: u64 = 18446744069414584321;
+pub const P: u64 = 18446744069414584321;
 
 /// Goldilocks reduction — exploits p = 2^64 - 2^32 + 1.
 #[inline(always)]
@@ -37,8 +37,14 @@ fn goldilocks_reduce(x: u128) -> u64 {
 fn dif_butterfly(a: &mut u64, b: &mut u64, w: u64) {
     let va = *a;
     let vb = *b;
-    let sum = va.wrapping_add(vb);
-    *a = if sum >= P { sum - P } else { sum };
+    // Goldilocks modular addition: va + vb can reach 2P - 2 > 2^64, so the
+    // carry out of the u64 add must be folded back in.
+    let (sum, carry) = va.overflowing_add(vb);
+    *a = if carry || sum >= P {
+        sum.wrapping_sub(P)
+    } else {
+        sum
+    };
     *b = goldilocks_reduce((if va >= vb { va - vb } else { P - vb + va }) as u128 * w as u128);
 }
 

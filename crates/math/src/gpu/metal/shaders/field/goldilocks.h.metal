@@ -97,45 +97,45 @@ template [[ host_name("radix2_dit_butterfly_fused_Goldilocks") ]]
 // ---- Bowers-G NTT + fused LDE kernel instantiations ----
 #include "../fft/bowers_lde.h.metal"
 
+// Stage 0 (smallest stride) + coset fold. Used only when no fused head.
 [[ host_name("bowers_lde_stage0_Goldilocks") ]]
 [[kernel]] void bowers_lde_stage0_Goldilocks(
     device   FpGoldilocks* data            [[ buffer(0) ]],
     constant FpGoldilocks* twiddles_bitrev [[ buffer(1) ]],
     constant FpGoldilocks* coset_powers    [[ buffer(2) ]],
-    constant uint32_t&     n               [[ buffer(3) ]],
     uint32_t               thread_pos      [[ thread_position_in_grid ]]
 ) {
-    bowers_lde_stage0_body<FpGoldilocks, FpGoldilocks>(
-        data, twiddles_bitrev, coset_powers, n, thread_pos
+    bowers_lde_stage0_body<FpGoldilocks>(
+        data, twiddles_bitrev, coset_powers, thread_pos
     );
 }
 
+// Middle stages (arbitrary stage index).
 [[ host_name("bowers_lde_middle_Goldilocks") ]]
 [[kernel]] void bowers_lde_middle_Goldilocks(
     device   FpGoldilocks* data            [[ buffer(0) ]],
     constant FpGoldilocks* twiddles_bitrev [[ buffer(1) ]],
-    constant uint32_t&     n               [[ buffer(2) ]],
-    constant uint32_t&     stage           [[ buffer(3) ]],
+    constant uint32_t&     stage           [[ buffer(2) ]],
     uint32_t               thread_pos      [[ thread_position_in_grid ]]
 ) {
     bowers_lde_middle_body<FpGoldilocks, FpGoldilocks>(
-        data, twiddles_bitrev, n, stage, thread_pos
+        data, twiddles_bitrev, stage, thread_pos
     );
 }
 
-[[ host_name("bowers_lde_tail_Goldilocks") ]]
-[[kernel]] void bowers_lde_tail_Goldilocks(
+// Fused head: first num_stages stages in threadgroup memory with coset multiply on load.
+[[ host_name("bowers_lde_head_Goldilocks") ]]
+[[kernel]] void bowers_lde_head_Goldilocks(
     device   FpGoldilocks* data            [[ buffer(0) ]],
     constant FpGoldilocks* twiddles_bitrev [[ buffer(1) ]],
-    constant uint32_t&     n               [[ buffer(2) ]],
-    constant uint32_t&     start_stage     [[ buffer(3) ]],
-    constant uint32_t&     num_stages      [[ buffer(4) ]],
+    constant FpGoldilocks* coset_powers    [[ buffer(2) ]],
+    constant uint32_t&     num_stages      [[ buffer(3) ]],
     uint32_t               tg_id           [[ threadgroup_position_in_grid ]],
     uint32_t               tg_pos          [[ thread_position_in_threadgroup ]],
     uint32_t               tg_size         [[ threads_per_threadgroup ]],
     threadgroup FpGoldilocks* shared_data  [[ threadgroup(0) ]]
 ) {
-    bowers_lde_tail_body<FpGoldilocks, FpGoldilocks>(
-        data, twiddles_bitrev, n, start_stage, num_stages, tg_id, tg_pos, tg_size, shared_data
+    bowers_lde_head_body<FpGoldilocks, FpGoldilocks>(
+        data, twiddles_bitrev, coset_powers, num_stages, tg_id, tg_pos, tg_size, shared_data
     );
 }

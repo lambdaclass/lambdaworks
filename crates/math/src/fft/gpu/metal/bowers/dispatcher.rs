@@ -1,7 +1,22 @@
 //! Rust dispatcher for the Bowers-G fused LDE Metal kernels.
 //!
-//! Drives three kernel variants (stage0, middle, tail) over a multi-column
-//! NTT + LDE pipeline using a single command buffer per call.
+//! Stage convention matches the CPU reference `ntt_bowers_butterflies`:
+//!   stage 0   -> smallest stride (half = 1)
+//!   stage k   -> half = 2^k
+//!   stage log_n - 1 -> largest stride (half = n/2)
+//!
+//! Pipeline:
+//!   - Fused HEAD kernel covers the first K stages (smallest strides) in
+//!     threadgroup memory, applying the coset multiply on load.
+//!   - Per-stage MIDDLE dispatches handle stages K..log_n.
+//!
+//! No bit-reverse pass: DIF butterflies on natural-order input produce
+//! bit-reversed-order output (intentional; the Merkle leaf indexer absorbs
+//! the reordering via `LeafOrder::Bitrev`).
+//!
+//! If `K == 0` (very small log_n), the dispatcher falls back to a separate
+//! stage-0 dispatch (coset + butterfly with per-block twiddle) followed by
+//! middle stages.
 
 use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::*};
 use metal::{Buffer, MTLSize};
@@ -20,23 +35,19 @@ const BOWERS_MIN_LOG_N: u32 = 2;
 /// Bytes per Goldilocks field element (u64).
 const GOLDILOCKS_ELEM_SIZE: usize = 8;
 
-/// Computes the optimal number of fused tail stages.
-fn optimal_fused_stages_for_bowers(log_n: u32) -> u32 {
+/// Computes the optimal number of fused head stages.
+///
+/// Capped at `log_n - 1` so at least one middle dispatch remains (covering the
+/// largest-stride stage).
+fn optimal_fused_head_stages(log_n: u32) -> u32 {
     let max_block = FFT_TG_MEM_BUDGET / GOLDILOCKS_ELEM_SIZE;
-    let max_fused = max_block.ilog2();
-    max_fused.min(log_n).min(FFT_MAX_FUSED_STAGES)
+    let max_fused = max_block.ilog2(); // 12 for 32 KB / 8 bytes
+    max_fused
+        .min(log_n.saturating_sub(1))
+        .min(FFT_MAX_FUSED_STAGES)
 }
 
 /// Execute the Bowers-G NTT + fused LDE pipeline on the GPU for Goldilocks base field.
-///
-/// # Parameters
-/// - `cols`: GPU buffer holding `num_cols * n` Goldilocks field elements in column-major order.
-/// - `twiddles_bitrev`: GPU buffer holding `n` twiddle factors in bit-reversed Bowers layout.
-/// - `coset_powers`: GPU buffer holding `n` coset powers for the stage-0 LDE fold.
-/// - `out`: GPU buffer (same size as `cols`) that receives the NTT output.
-/// - `log_n`: Log2 of the column length; must be >= 2.
-/// - `num_cols`: Number of independent columns to process.
-/// - `state`: Metal state with device and compiled shader library.
 pub fn metal_bowers_lde(
     cols: &Buffer,
     twiddles_bitrev: &Buffer,
@@ -53,39 +64,14 @@ pub fn metal_bowers_lde(
     let n = 1u32 << log_n;
     let col_bytes = (n as usize) * GOLDILOCKS_ELEM_SIZE;
 
-    // Compute optimal fused tail stages.
-    let k = optimal_fused_stages_for_bowers(log_n);
-
-    // Stage 0 is always dispatched first (coset-fold + first DIF butterfly).
-    // Middle stages cover 1..(log_n - k) inclusive.
-    // Tail fuses the last k stages.
-    // When log_n <= k there are no middle stages; start_stage = log_n - k still holds.
-    let middle_stage_count = if log_n > k { log_n - k - 1 } else { 0 };
-
-    let pipeline_stage0 = state.get_pipeline("bowers_lde_stage0_Goldilocks")?;
-    let pipeline_middle = state.get_pipeline("bowers_lde_middle_Goldilocks")?;
-    let pipeline_tail = state.get_pipeline("bowers_lde_tail_Goldilocks")?;
-
-    // Half-sized grid: each thread processes one butterfly (n/2 butterflies per stage).
-    let half_grid = MTLSize::new(n as u64 / 2, 1, 1);
-    let half_tg = MTLSize::new(pipeline_stage0.thread_execution_width(), 1, 1);
-
-    // Tail dispatch: one threadgroup per block of (1 << k) elements.
-    let block_size = 1u32 << k;
-    let tail_groups = MTLSize::new(n as u64 / block_size as u64, 1, 1);
-    let tail_tg = MTLSize::new(
-        256u64.min(pipeline_tail.max_total_threads_per_threadgroup()),
-        1,
-        1,
-    );
-    let tail_shmem = (block_size as u64) * (GOLDILOCKS_ELEM_SIZE as u64);
-
-    // Scalar kernel parameters.
-    let n_val: u32 = n;
-    let start_stage: u32 = log_n - k;
+    let k = optimal_fused_head_stages(log_n);
     let k_val: u32 = k;
 
-    objc::rc::autoreleasepool(|| {
+    let pipeline_middle = state.get_pipeline("bowers_lde_middle_Goldilocks")?;
+    let middle_tg = MTLSize::new(pipeline_middle.thread_execution_width(), 1, 1);
+    let half_grid = MTLSize::new(n as u64 / 2, 1, 1);
+
+    objc::rc::autoreleasepool(|| -> Result<(), MetalError> {
         let command_buffer = state.queue.new_command_buffer();
 
         // Blit cols -> out so all NTT stages operate in-place on out.
@@ -95,33 +81,55 @@ pub fn metal_bowers_lde(
             blit.end_encoding();
         }
 
-        // Single compute encoder for all stages and all columns.
         let enc = command_buffer.new_compute_command_encoder();
 
-        // ---- Stage 0: coset-fold + first DIF butterfly ----
-        enc.set_compute_pipeline_state(&pipeline_stage0);
-        enc.set_buffer(1, Some(twiddles_bitrev), 0);
-        enc.set_buffer(2, Some(coset_powers), 0);
-        enc.set_bytes(3, mem::size_of::<u32>() as u64, void_ptr(&n_val));
+        // ---- HEAD: stages 0..k in threadgroup memory (coset fold on load) ----
+        if k > 0 {
+            let pipeline_head = state.get_pipeline("bowers_lde_head_Goldilocks")?;
+            let head_block_size = 1u32 << k;
+            let head_groups = MTLSize::new(n as u64 / head_block_size as u64, 1, 1);
+            let head_threads = 256u64
+                .min(pipeline_head.max_total_threads_per_threadgroup())
+                .min((head_block_size as u64 / 2).max(1));
+            let head_tg = MTLSize::new(head_threads, 1, 1);
+            let head_shmem = (head_block_size as u64) * (GOLDILOCKS_ELEM_SIZE as u64);
 
-        for col in 0..num_cols {
-            let offset = (col as usize * col_bytes) as u64;
-            enc.set_buffer(0, Some(out), offset);
-            enc.dispatch_threads(half_grid, half_tg);
+            enc.set_compute_pipeline_state(&pipeline_head);
+            enc.set_buffer(1, Some(twiddles_bitrev), 0);
+            enc.set_buffer(2, Some(coset_powers), 0);
+            enc.set_bytes(3, mem::size_of::<u32>() as u64, void_ptr(&k_val));
+            enc.set_threadgroup_memory_length(0, head_shmem);
+
+            for col in 0..num_cols {
+                let offset = (col as usize * col_bytes) as u64;
+                enc.set_buffer(0, Some(out), offset);
+                enc.dispatch_thread_groups(head_groups, head_tg);
+            }
+        } else {
+            // k == 0 path: standalone stage0 kernel (coset + stage-0 butterfly).
+            let pipeline_stage0 = state.get_pipeline("bowers_lde_stage0_Goldilocks")?;
+            let stage0_tg = MTLSize::new(pipeline_stage0.thread_execution_width(), 1, 1);
+
+            enc.set_compute_pipeline_state(&pipeline_stage0);
+            enc.set_buffer(1, Some(twiddles_bitrev), 0);
+            enc.set_buffer(2, Some(coset_powers), 0);
+
+            for col in 0..num_cols {
+                let offset = (col as usize * col_bytes) as u64;
+                enc.set_buffer(0, Some(out), offset);
+                enc.dispatch_threads(half_grid, stage0_tg);
+            }
         }
 
-        // ---- Middle stages: generic DIF butterfly ----
-        if middle_stage_count > 0 {
-            let middle_tg = MTLSize::new(pipeline_middle.thread_execution_width(), 1, 1);
-
+        // ---- MIDDLE stages: k..log_n (or 1..log_n if k==0 path was used) ----
+        let middle_start = if k == 0 { 1 } else { k };
+        if middle_start < log_n {
             enc.set_compute_pipeline_state(&pipeline_middle);
             enc.set_buffer(1, Some(twiddles_bitrev), 0);
-            enc.set_bytes(2, mem::size_of::<u32>() as u64, void_ptr(&n_val));
 
-            for stage in 1..=middle_stage_count {
+            for stage in middle_start..log_n {
                 let stage_val: u32 = stage;
-                enc.set_bytes(3, mem::size_of::<u32>() as u64, void_ptr(&stage_val));
-
+                enc.set_bytes(2, mem::size_of::<u32>() as u64, void_ptr(&stage_val));
                 for col in 0..num_cols {
                     let offset = (col as usize * col_bytes) as u64;
                     enc.set_buffer(0, Some(out), offset);
@@ -130,24 +138,11 @@ pub fn metal_bowers_lde(
             }
         }
 
-        // ---- Tail: last k stages fused in threadgroup memory ----
-        enc.set_compute_pipeline_state(&pipeline_tail);
-        enc.set_buffer(1, Some(twiddles_bitrev), 0);
-        enc.set_bytes(2, mem::size_of::<u32>() as u64, void_ptr(&n_val));
-        enc.set_bytes(3, mem::size_of::<u32>() as u64, void_ptr(&start_stage));
-        enc.set_bytes(4, mem::size_of::<u32>() as u64, void_ptr(&k_val));
-        enc.set_threadgroup_memory_length(0, tail_shmem);
-
-        for col in 0..num_cols {
-            let offset = (col as usize * col_bytes) as u64;
-            enc.set_buffer(0, Some(out), offset);
-            enc.dispatch_thread_groups(tail_groups, tail_tg);
-        }
-
         enc.end_encoding();
         command_buffer.commit();
         command_buffer.wait_until_completed();
-    });
+        Ok(())
+    })?;
 
     Ok(())
 }
@@ -165,4 +160,28 @@ pub fn metal_bowers_lde_fp3(
     _state: &MetalState,
 ) -> Result<(), MetalError> {
     unimplemented!("filled in by Task 12")
+}
+
+/// Test-only: run the Bowers-G NTT without coset multiply (identity coset).
+#[cfg(test)]
+pub(crate) fn metal_bowers_fft_no_coset(
+    cols: &Buffer,
+    twiddles_bitrev: &Buffer,
+    out: &mut Buffer,
+    log_n: u32,
+    num_cols: u32,
+    state: &MetalState,
+) -> Result<(), MetalError> {
+    let n = 1usize << log_n;
+    let ones: Vec<u64> = vec![1u64; n];
+    let ones_buf = state.alloc_buffer_data(&ones);
+    metal_bowers_lde(
+        cols,
+        twiddles_bitrev,
+        &ones_buf,
+        out,
+        log_n,
+        num_cols,
+        state,
+    )
 }
