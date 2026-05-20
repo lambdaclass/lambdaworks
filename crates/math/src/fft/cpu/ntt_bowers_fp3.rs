@@ -36,9 +36,10 @@ pub fn ntt_bowers_fp3(data: &mut [Fp3], twiddles: &[Fp]) {
                 let i1 = i0 + half;
                 let a = data[i0];
                 let bb = data[i1];
-                let wbb = w * bb;
-                data[i0] = a + wbb;
-                data[i1] = a - wbb;
+                // DIF butterfly (matches `ntt_bowers_butterflies` for the base
+                // field and the Metal GPU kernels): a' = a + b; b' = (a - b)*w.
+                data[i0] = a + bb;
+                data[i1] = w * (a - bb);
             }
         }
     }
@@ -46,11 +47,15 @@ pub fn ntt_bowers_fp3(data: &mut [Fp3], twiddles: &[Fp]) {
 
 fn bit_reverse<T: Clone>(data: &mut [T]) {
     let n = data.len();
-    if n <= 1 { return; }
+    if n <= 1 {
+        return;
+    }
     let log_n = n.trailing_zeros();
     for i in 0..n {
         let j = (i as u32).reverse_bits() >> (u32::BITS - log_n);
-        if i < j as usize { data.swap(i, j as usize); }
+        if i < j as usize {
+            data.swap(i, j as usize);
+        }
     }
 }
 

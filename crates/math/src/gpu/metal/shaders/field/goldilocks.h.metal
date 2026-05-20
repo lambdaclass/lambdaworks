@@ -97,19 +97,6 @@ template [[ host_name("radix2_dit_butterfly_fused_Goldilocks") ]]
 // ---- Bowers-G NTT + fused LDE kernel instantiations ----
 #include "../fft/bowers_lde.h.metal"
 
-// Stage 0 (smallest stride) + coset fold. Used only when no fused head.
-[[ host_name("bowers_lde_stage0_Goldilocks") ]]
-[[kernel]] void bowers_lde_stage0_Goldilocks(
-    device   FpGoldilocks* data            [[ buffer(0) ]],
-    constant FpGoldilocks* twiddles_bitrev [[ buffer(1) ]],
-    constant FpGoldilocks* coset_powers    [[ buffer(2) ]],
-    uint32_t               thread_pos      [[ thread_position_in_grid ]]
-) {
-    bowers_lde_stage0_body<FpGoldilocks>(
-        data, twiddles_bitrev, coset_powers, thread_pos
-    );
-}
-
 // Middle stages (arbitrary stage index).
 [[ host_name("bowers_lde_middle_Goldilocks") ]]
 [[kernel]] void bowers_lde_middle_Goldilocks(

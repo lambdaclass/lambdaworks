@@ -1,6 +1,6 @@
 //! Unit tests for the Bowers-G Metal pipeline.
 
-use super::dispatcher::{metal_bowers_fft_no_coset, metal_bowers_lde};
+use super::dispatcher::{metal_bowers_fft_no_coset, metal_bowers_lde, metal_bowers_lde_fp3};
 use super::twiddles::{cached_bowers_twiddles_goldilocks, cached_coset_powers_goldilocks};
 use crate::fft::cpu::ntt_bowers_goldilocks::{compute_bowers_twiddles, ntt_bowers, P};
 use crate::field::element::FieldElement;
@@ -226,4 +226,86 @@ fn metal_bowers_lde_multicol_64() {
             );
         }
     }
+}
+
+/// Fp3 golden vectors: the GPU extension-field Bowers NTT must match the CPU
+/// reference `ntt_bowers_fp3` element-for-element. With an all-ones coset this
+/// is a plain forward NTT over Fp3.
+fn run_metal_bowers_fp3_vs_cpu(log_n: u32) {
+    use crate::fft::cpu::ntt_bowers_fp3::ntt_bowers_fp3;
+    use crate::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+    use crate::field::traits::IsPrimeField;
+
+    type Fp3 = FieldElement<Degree3GoldilocksExtensionField>;
+
+    let state = MetalState::new(None).expect("metal");
+    let n = 1usize << log_n;
+
+    // Base-field twiddles, shared with the Goldilocks path.
+    let twiddles = cached_bowers_twiddles_goldilocks(log_n);
+    let tw_u64: Vec<u64> = twiddles.iter().map(|x| *x.value()).collect();
+    let tw_buf = state.alloc_buffer_data(&tw_u64);
+
+    // Identity coset (all ones), base-field, bit-reversed (still all ones).
+    let ones: Vec<u64> = vec![1u64; n];
+    let coset_buf = state.alloc_buffer_data(&ones);
+
+    // Fp3 input with all three limbs populated.
+    let coeffs: Vec<Fp3> = (0..n as u64)
+        .map(|i| {
+            let c0 = Fp::from(i.wrapping_mul(0x9E37_79B9_7F4A_7C15) % P);
+            let c1 = Fp::from(i.wrapping_mul(0xC2B2_AE3D_27D4_EB4F) % P);
+            let c2 = Fp::from(i.wrapping_mul(0x1656_67B1_9E37_79F9) % P);
+            FieldElement::new([c0, c1, c2])
+        })
+        .collect();
+
+    // Pack Fp3 -> [c0, c1, c2] u64 triples for the GPU buffer.
+    let mut packed: Vec<u64> = Vec::with_capacity(n * 3);
+    for e in &coeffs {
+        let limbs = e.value();
+        packed.push(*limbs[0].value());
+        packed.push(*limbs[1].value());
+        packed.push(*limbs[2].value());
+    }
+    let in_buf = state.alloc_buffer_data(&packed);
+    let mut out_buf = state.alloc_buffer::<u64>(n * 3);
+
+    metal_bowers_lde_fp3(&in_buf, &tw_buf, &coset_buf, &mut out_buf, log_n, 1, &state).unwrap();
+    let gpu_out: Vec<u64> = MetalState::retrieve_contents(&out_buf);
+
+    // CPU reference: bit-reverse + butterflies over Fp3.
+    let cpu_tw: Vec<Fp> = compute_bowers_twiddles(n, 7)
+        .iter()
+        .map(|&x| Fp::from(x))
+        .collect();
+    let mut cpu_data = coeffs.clone();
+    ntt_bowers_fp3(&mut cpu_data, &cpu_tw);
+
+    for i in 0..n {
+        let cpu_limbs = cpu_data[i].value();
+        for limb in 0..3 {
+            let gpu_v = Goldilocks64Field::canonical(&gpu_out[i * 3 + limb]);
+            let cpu_v = Goldilocks64Field::canonical(cpu_limbs[limb].value());
+            assert_eq!(
+                gpu_v, cpu_v,
+                "Fp3 mismatch at i={i} limb={limb}; log_n={log_n}"
+            );
+        }
+    }
+}
+
+#[test]
+fn metal_bowers_fp3_matches_cpu_log4() {
+    run_metal_bowers_fp3_vs_cpu(4);
+}
+
+#[test]
+fn metal_bowers_fp3_matches_cpu_log10() {
+    run_metal_bowers_fp3_vs_cpu(10);
+}
+
+#[test]
+fn metal_bowers_fp3_matches_cpu_log16() {
+    run_metal_bowers_fp3_vs_cpu(16);
 }

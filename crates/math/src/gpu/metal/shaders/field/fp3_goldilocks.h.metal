@@ -44,6 +44,12 @@ public:
         return Fp3Goldilocks(c0 * scalar, c1 * scalar, c2 * scalar);
     }
 
+    /// `operator*` overload for a base-field scalar, so templated kernels can
+    /// write `fp3_value * base_field_value` uniformly across Fp and Fp3.
+    Fp3Goldilocks operator*(const Fp64Goldilocks scalar) const {
+        return scalar_mul(scalar);
+    }
+
     /// Full extension field multiplication (for completeness):
     /// Uses w^3 = 2 for reduction
     ///
