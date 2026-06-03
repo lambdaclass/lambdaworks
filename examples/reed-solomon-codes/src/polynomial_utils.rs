@@ -812,42 +812,13 @@ fn find_univariate_roots_with_hints<F: IsField + Clone>(
 
     // Also try small field elements as fallback
     let max_search = 2000; // Increased to catch roots like 1002
-    let mut found_count = 0;
     for i in 0..max_search {
         let elem = FieldElement::<F>::from(i as u64);
-        if poly.evaluate(&elem) == FieldElement::<F>::zero() {
-            found_count += 1;
-            if !roots.contains(&elem) {
-                roots.push(elem.clone());
-                // Debug: print when we find roots around 1000
-                if std::env::var("RR_DEBUG").is_ok() && (1000..=1010).contains(&i) {
-                    eprintln!("  Found root at i={}", i);
-                }
-                if roots.len() >= max_roots {
-                    // Debug: check why we're returning early
-                    if std::env::var("RR_DEBUG").is_ok() && max_roots < 15 {
-                        eprintln!(
-                            "  Returning early: {} roots found, max_roots={}, last i={}",
-                            roots.len(),
-                            max_roots,
-                            i
-                        );
-                    }
-                    return roots;
-                }
+        if poly.evaluate(&elem) == FieldElement::<F>::zero() && !roots.contains(&elem) {
+            roots.push(elem);
+            if roots.len() >= max_roots {
+                return roots;
             }
-        }
-    }
-    // Debug: if we searched everything but didn't find 1002
-    if std::env::var("RR_DEBUG").is_ok() && found_count > 0 && poly.degree() > 5 {
-        let test_1002 = FieldElement::<F>::from(1002u64);
-        let is_root = poly.evaluate(&test_1002) == FieldElement::<F>::zero();
-        if is_root && !roots.contains(&test_1002) {
-            eprintln!(
-                "  WARNING: 1002 is a root but wasn't added! found_count={}, roots.len()={}",
-                found_count,
-                roots.len()
-            );
         }
     }
 
@@ -892,6 +863,9 @@ fn substitute_and_divide<F: IsField + Clone>(
     let mut result_coeffs: Vec<Vec<FieldElement<F>>> =
         vec![vec![FieldElement::<F>::zero(); max_x_deg + 2]; max_y_deg + 1];
 
+    // Binomial coefficients C(j, k) reduced into the field, overflow-free.
+    let binom_table = pascal_table_fe::<F>(y_deg);
+
     for (j, qj) in q.coeffs.iter().enumerate() {
         // Contribution of Qⱼ(x) * (c + xy)^j
         // (c + xy)^j = Σₖ C(j,k) c^{j-k} x^k y^k
@@ -899,10 +873,9 @@ fn substitute_and_divide<F: IsField + Clone>(
         let qj_coeffs = qj.coefficients();
 
         for (k, result_row) in result_coeffs.iter_mut().enumerate().take(j + 1) {
-            let binom = binomial(j, k);
             // c^{j-k}
             let c_power = c.pow(j - k);
-            let binom_c = &FieldElement::<F>::from(binom as u64) * &c_power;
+            let binom_c = &binom_table[j][k] * &c_power;
 
             // Multiply Qⱼ(x) by binom_c * x^k, add to coefficient of y^k
             for (i, qi_coeff) in qj_coeffs.iter().enumerate() {
@@ -941,14 +914,16 @@ fn shift_y<F: IsField + Clone>(
     let y_deg = q.y_degree();
     let mut result_coeffs: Vec<Polynomial<FieldElement<F>>> = vec![Polynomial::zero(); y_deg + 1];
 
+    // Binomial coefficients C(j, k) reduced into the field, overflow-free.
+    let binom_table = pascal_table_fe::<F>(y_deg);
+
     // Q(x, y + c) = Σⱼ Qⱼ(x) (y + c)^j
     // We need to expand (y + c)^j using binomial theorem
     for (j, qj) in q.coeffs.iter().enumerate() {
         // (y + c)^j = Σₖ C(j,k) y^k c^{j-k}
         let mut c_power = FieldElement::<F>::one();
         for (k, result_coeff) in result_coeffs.iter_mut().enumerate().take(j + 1) {
-            let binom = binomial(j, k);
-            let coeff = &c_power * &FieldElement::<F>::from(binom as u64);
+            let coeff = &c_power * &binom_table[j][k];
 
             // Add binom * c^{j-k} * Qⱼ(x) to coefficient of y^k
             let term: Vec<_> = qj.coefficients().iter().map(|x| x * &coeff).collect();
@@ -985,15 +960,30 @@ fn divide_by_x<F: IsField + Clone>(q: &BivariatePolynomial<F>) -> BivariatePolyn
     BivariatePolynomial::new(coeffs)
 }
 
-/// Computes binomial coefficient C(n, k).
-fn binomial(n: usize, k: usize) -> usize {
-    if k > n {
-        return 0;
+/// Builds Pascal's triangle up to row `max_n`, with each binomial coefficient
+/// reduced into the field `F`.
+///
+/// `table[n][k]` is C(n, k) for `0 <= k <= n <= max_n`.
+///
+/// Computing coefficients this way (additions only, via Pascal's rule) has two
+/// advantages over a direct integer computation:
+///
+/// * **No overflow.** C(n, k) exceeds `u64`/`usize` for the degrees these
+///   decoders reach, which would panic in debug builds and silently corrupt the
+///   result in release builds. Field additions never overflow.
+/// * **No exponential blowup.** The previous recursive `binomial` recomputed the
+///   same sub-coefficients repeatedly (O(2^n)); this is O(max_n^2) and cached.
+pub(crate) fn pascal_table_fe<F: IsField + Clone>(max_n: usize) -> Vec<Vec<FieldElement<F>>> {
+    let mut table: Vec<Vec<FieldElement<F>>> = Vec::with_capacity(max_n + 1);
+    for n in 0..=max_n {
+        // C(n, 0) = C(n, n) = 1; interior entries come from Pascal's rule.
+        let mut row = vec![FieldElement::<F>::one(); n + 1];
+        for k in 1..n {
+            row[k] = &table[n - 1][k - 1] + &table[n - 1][k];
+        }
+        table.push(row);
     }
-    if k == 0 || k == n {
-        return 1;
-    }
-    binomial(n - 1, k - 1) + binomial(n - 1, k)
+    table
 }
 
 /// Lagrange interpolation to find f(0) given points (x_i, y_i).
@@ -1182,12 +1172,16 @@ mod tests {
     }
 
     #[test]
-    fn test_binomial() {
-        assert_eq!(binomial(5, 0), 1);
-        assert_eq!(binomial(5, 1), 5);
-        assert_eq!(binomial(5, 2), 10);
-        assert_eq!(binomial(5, 3), 10);
-        assert_eq!(binomial(5, 4), 5);
-        assert_eq!(binomial(5, 5), 1);
+    fn test_pascal_table() {
+        let table = pascal_table_fe::<Babybear31PrimeField>(5);
+        // Row 5 of Pascal's triangle: 1 5 10 10 5 1
+        assert_eq!(table[5][0], FE::one());
+        assert_eq!(table[5][1], FE::from(5u64));
+        assert_eq!(table[5][2], FE::from(10u64));
+        assert_eq!(table[5][3], FE::from(10u64));
+        assert_eq!(table[5][4], FE::from(5u64));
+        assert_eq!(table[5][5], FE::one());
+        // Spot-check a smaller row.
+        assert_eq!(table[3][1], FE::from(3u64));
     }
 }
