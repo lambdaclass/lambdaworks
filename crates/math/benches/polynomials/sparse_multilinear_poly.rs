@@ -12,7 +12,7 @@ pub fn sparse_multilinear_polynomial_benchmarks(c: &mut Criterion) {
 
     for num_var in num_vars.iter() {
         group.bench_with_input(
-            format!("evaluate {:?}", &num_var),
+            format!("evaluate {:?}", num_var),
             num_var,
             |bench, num_var| {
                 let poly = rand_sparse_multilinear_poly(*num_var, order);
@@ -24,7 +24,7 @@ pub fn sparse_multilinear_polynomial_benchmarks(c: &mut Criterion) {
 
     for num_var in num_vars.iter() {
         group.bench_with_input(
-            format!("evaluate_with {:?}", &num_var),
+            format!("evaluate_with {:?}", num_var),
             num_var,
             |bench, num_var| {
                 let evals = rand_field_elements(order)
