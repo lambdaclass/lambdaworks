@@ -77,7 +77,7 @@ pub fn babybear_ops_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("BabyBear operations using Lambdaworks");
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Addition {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Addition {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) + black_box(y));
@@ -87,7 +87,7 @@ pub fn babybear_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Multiplication {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Multiplication {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) * black_box(y));
@@ -97,7 +97,7 @@ pub fn babybear_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Square {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Square {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).square());
@@ -107,7 +107,7 @@ pub fn babybear_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Inverse {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Inverse {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).inv().unwrap());
@@ -117,7 +117,7 @@ pub fn babybear_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Division {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Division {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) / black_box(y)).unwrap();
@@ -136,7 +136,7 @@ pub fn babybear_extension_ops_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("BabyBear Fp4 operations using Lambdaworks");
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Addition of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Addition of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) + black_box(y));
@@ -147,7 +147,7 @@ pub fn babybear_extension_ops_benchmarks(c: &mut Criterion) {
 
     for i in input.clone().into_iter() {
         group.bench_with_input(
-            format!("Multiplication of Fp4 {:?}", &i.len()),
+            format!("Multiplication of Fp4 {:?}", i.len()),
             &i,
             |bench, i| {
                 bench.iter(|| {
@@ -160,7 +160,7 @@ pub fn babybear_extension_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Square of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Square of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).square());
@@ -170,7 +170,7 @@ pub fn babybear_extension_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Inverse of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Inverse of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) / black_box(y)).unwrap();
@@ -180,7 +180,7 @@ pub fn babybear_extension_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Division of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Division of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).inv().unwrap());
@@ -199,7 +199,7 @@ pub fn babybear_p3_ops_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("BabyBear operations using Plonky3");
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Addition {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Addition {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     let _ = black_box(black_box(*x) + black_box(*y));
@@ -209,7 +209,7 @@ pub fn babybear_p3_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Multiplication {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Multiplication {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     let _ = black_box(black_box(*x) * black_box(*y));
@@ -219,7 +219,7 @@ pub fn babybear_p3_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Square {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Square {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     let _ = black_box(black_box(x).square());
@@ -228,7 +228,7 @@ pub fn babybear_p3_ops_benchmarks(c: &mut Criterion) {
         });
     }
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Inverse {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Inverse {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     let _ = black_box(black_box(x).inverse());
@@ -238,7 +238,7 @@ pub fn babybear_p3_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Division {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Division {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     let _ = black_box(black_box(*x) / black_box(*y));
@@ -258,7 +258,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
     let mut group = c.benchmark_group("BabyBear Fp4 operations using Plonky3");
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Addition of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Addition of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     let _ = black_box(black_box(*x) + black_box(*y));
@@ -268,7 +268,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
     }
     for i in input.clone().into_iter() {
         group.bench_with_input(
-            format!("Multiplication of Fp4 {:?}", &i.len()),
+            format!("Multiplication of Fp4 {:?}", i.len()),
             &i,
             |bench, i| {
                 bench.iter(|| {
@@ -280,7 +280,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
         );
     }
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Square of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Square of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     let _ = black_box(black_box(x).square());
@@ -290,7 +290,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Inverse of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Inverse of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     let _ = black_box(black_box(x).inverse());
@@ -300,7 +300,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Division of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Division of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     let _ = black_box(black_box(*x) / black_box(*y));

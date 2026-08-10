@@ -48,7 +48,7 @@ pub fn mersenne31_extension_ops_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Mersenne31 Fp4 operations");
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Mul of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Mul of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) * black_box(y));
@@ -58,7 +58,7 @@ pub fn mersenne31_extension_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Square of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Square of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).square());
@@ -68,7 +68,7 @@ pub fn mersenne31_extension_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("Inv of Fp4 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("Inv of Fp4 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).inv().unwrap());
@@ -86,7 +86,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Mersenne31 operations");
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("add {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("add {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) + black_box(y));
@@ -96,7 +96,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("mul {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("mul {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) * black_box(y));
@@ -106,7 +106,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("pow by 1 {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("pow by 1 {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).pow(1_u64));
@@ -116,7 +116,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("square {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("square {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).square());
@@ -126,7 +126,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("square with pow {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("square with pow {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).pow(2_u64));
@@ -136,7 +136,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("square with mul {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("square with mul {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x) * black_box(x));
@@ -146,21 +146,17 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(
-            format!("pow {:?}", &i.len()),
-            &(i, 5u64),
-            |bench, (i, a)| {
-                bench.iter(|| {
-                    for (x, _) in i {
-                        black_box(black_box(x).pow(*a));
-                    }
-                });
-            },
-        );
+        group.bench_with_input(format!("pow {:?}", i.len()), &(i, 5u64), |bench, (i, a)| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x).pow(*a));
+                }
+            });
+        });
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("sub {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("sub {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) - black_box(y));
@@ -170,7 +166,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("inv {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("inv {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).inv().unwrap());
@@ -180,7 +176,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("div {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("div {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) / black_box(y)).unwrap();
@@ -190,7 +186,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("eq {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("eq {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) == black_box(y));
@@ -200,7 +196,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("sqrt {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("sqrt {:?}", i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).sqrt());
@@ -210,7 +206,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("sqrt squared {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("sqrt squared {:?}", i.len()), &i, |bench, i| {
             let i: Vec<F> = i.iter().map(|(x, _)| x * x).collect();
             bench.iter(|| {
                 for x in &i {
@@ -221,7 +217,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("bitand {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("bitand {:?}", i.len()), &i, |bench, i| {
             // Note: we should strive to have the number of limbs be generic... ideally this benchmark group itself should have a generic type that we call into from the main runner.
             let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
             bench.iter(|| {
@@ -233,7 +229,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("bitor {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("bitor {:?}", i.len()), &i, |bench, i| {
             let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
             bench.iter(|| {
                 for (x, y) in &i {
@@ -244,7 +240,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("bitxor {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("bitxor {:?}", i.len()), &i, |bench, i| {
             let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
             bench.iter(|| {
                 for (x, y) in &i {
