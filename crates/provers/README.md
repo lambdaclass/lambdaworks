@@ -6,12 +6,14 @@ This folder contains the different provers currently supported by lambdaworks:
 - [Groth 16](./groth16/)
 - [Plonk](./plonk/)
 - [STARKs](./stark/)
+- [Spartan](./spartan/)
 - [Cairo](https://github.com/lambdaclass/lambdaworks/tree/a591186e6c4dd53301b03b4ddd69369abe99f960/provers/cairo) - This is only for learning purposes and no longer supported. The [docs](../docs/src/starks/) still contain information that could be useful to understand and learn how Cairo works.
 
 The reference papers for each of the provers is given below:
 - [Groth 16](https://eprint.iacr.org/2016/260)
 - [Plonk](https://eprint.iacr.org/2019/953)
 - [STARKs](https://eprint.iacr.org/2018/046.pdf)
+- [Spartan](https://eprint.iacr.org/2019/550)
 
 A brief description of the Plonk and STARKs provers can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/docs/src)
 
@@ -19,6 +21,7 @@ Using one prover or another depends on usecase and other desired properties. We 
 - Groth 16: Shortest proof length. Security depends on pairing-friendly elliptic curves. Needs a new trusted setup for every program you want to prove.
 - Plonk (using KZG as commitment scheme): Short proof length. Security depends on pairing-friendly elliptic curves. Universal trusted setup.
 - STARKs: longer proof length. Security depends on collision-resistant hash functions. Conjectured to be post-quantum secure. Transparent (no trusted setup).
+- Spartan: Transparent (no trusted setup). Proves R1CS satisfiability directly using two rounds of the Sumcheck Protocol and a multilinear PCS. $O(n)$ prover work.
 
 ## Using provers
 

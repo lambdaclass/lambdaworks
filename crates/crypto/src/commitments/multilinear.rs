@@ -1,0 +1,76 @@
+//! Multilinear polynomial commitment scheme (PCS) trait.
+//!
+//! Defines the interface for committing to a multilinear polynomial,
+//! opening it at a point, and verifying the opening.
+
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
+
+/// Error type for multilinear PCS operations.
+#[derive(Debug)]
+pub struct PcsError(pub String);
+
+impl std::fmt::Display for PcsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PCS error: {}", self.0)
+    }
+}
+
+impl std::error::Error for PcsError {}
+
+/// Trait for multilinear polynomial commitment schemes.
+///
+/// Defines the interface for committing to a multilinear polynomial,
+/// opening it at a point, and verifying the opening.
+///
+/// All implementations must also implement `serialize_commitment` so that
+/// the Fiat-Shamir transcript can absorb the commitment before challenges
+/// are drawn — a requirement for protocol soundness.
+pub trait IsMultilinearPCS<F: IsField>
+where
+    F::BaseType: Send + Sync,
+{
+    type Commitment: Clone;
+    type Proof: Clone;
+    type Error: std::error::Error;
+
+    /// Commit to a multilinear polynomial.
+    fn commit(&self, poly: &DenseMultilinearPolynomial<F>)
+        -> Result<Self::Commitment, Self::Error>;
+
+    /// Open the polynomial at a point, returning the value and a proof.
+    fn open(
+        &self,
+        poly: &DenseMultilinearPolynomial<F>,
+        point: &[FieldElement<F>],
+    ) -> Result<(FieldElement<F>, Self::Proof), Self::Error>;
+
+    /// Open with a precomputed commitment, avoiding redundant commitment recomputation.
+    ///
+    /// Default implementation ignores the commitment and delegates to `open()`.
+    /// PCS implementations that need the commitment for Fiat-Shamir (e.g., Zeromorph)
+    /// should override this to avoid the redundant MSM.
+    fn open_with_commitment(
+        &self,
+        poly: &DenseMultilinearPolynomial<F>,
+        point: &[FieldElement<F>],
+        _commitment: &Self::Commitment,
+    ) -> Result<(FieldElement<F>, Self::Proof), Self::Error> {
+        self.open(poly, point)
+    }
+
+    /// Verify an opening proof.
+    fn verify(
+        &self,
+        commitment: &Self::Commitment,
+        point: &[FieldElement<F>],
+        value: &FieldElement<F>,
+        proof: &Self::Proof,
+    ) -> Result<bool, Self::Error>;
+
+    /// Serialize a commitment to bytes for Fiat-Shamir transcript absorption.
+    ///
+    /// Must be implemented so that the prover and verifier can both absorb the
+    /// commitment into the transcript before drawing challenges.
+    fn serialize_commitment(commitment: &Self::Commitment) -> Vec<u8>;
+}
