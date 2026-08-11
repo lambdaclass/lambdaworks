@@ -117,11 +117,11 @@ proptest! {
         let lw_ap = lw_p.operate_with_self(a).to_affine();
         let lw_bq = lw_q.operate_with_self(b).to_affine();
 
-        let lw_result = BLS12381AtePairing::compute_batch(&[(&lw_ap, &lw_bq)])
+        let lw_result = BLS12381AtePairing::compute_batch(&[(lw_ap.clone(), lw_bq.clone())])
             .expect("pairing should not fail for valid subgroup points");
 
         let lw_base = BLS12381AtePairing::compute_batch(&[
-            (&lw_p.to_affine(), &lw_q.to_affine()),
+            (lw_p.to_affine(), lw_q.to_affine()),
         ]).expect("pairing should not fail for generator points");
 
         let lw_base_ab = lw_base.pow(a * b);
@@ -133,7 +133,7 @@ proptest! {
         // Test that e(sP, Q) matches between lambdaworks and arkworks
         let lw_p = BLS12381Curve::generator().operate_with_self(s).to_affine();
         let lw_q = BLS12381TwistCurve::generator().to_affine();
-        let lw_result = BLS12381AtePairing::compute_batch(&[(&lw_p, &lw_q)])
+        let lw_result = BLS12381AtePairing::compute_batch(&[(lw_p.clone(), lw_q.clone())])
             .expect("pairing should not fail for valid subgroup points");
 
         let ark_p = (ArkG1::generator() * <ark_bls12_381::Fr as From<u64>>::from(s)).into_affine();

@@ -44,9 +44,9 @@ pub fn verify(
     let neg_pi3 = proof.pi3.neg();
 
     let lhs = Pairing::compute_batch(&[
-        (&proof.pi1, &proof.pi2),
-        (&neg_k_tau_g1, &vk.gamma_g2),
-        (&neg_pi3, &vk.delta_g2),
+        (proof.pi1.clone(), proof.pi2.clone()),
+        (neg_k_tau_g1, vk.gamma_g2.clone()),
+        (neg_pi3, vk.delta_g2.clone()),
     ])
     .map_err(Groth16Error::pairing)?;
 

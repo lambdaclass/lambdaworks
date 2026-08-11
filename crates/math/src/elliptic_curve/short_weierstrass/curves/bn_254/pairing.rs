@@ -16,6 +16,7 @@ use crate::{
     },
     errors::PairingError,
 };
+use core::borrow::Borrow;
 use crate::{
     elliptic_curve::short_weierstrass::{
         curves::bn_254::field_extension::Degree6ExtensionField,
@@ -157,11 +158,13 @@ impl IsPairing for BN254AtePairing {
     /// Computes the product of the ate pairing for a list of point pairs.
     /// Uses multi-Miller loop optimization: shares squarings across all pairs.
     fn compute_batch(
-        pairs: &[(&Self::G1Point, &Self::G2Point)],
+        pairs: &[(impl Borrow<Self::G1Point>, impl Borrow<Self::G2Point>)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         // Validate and prepare pairs
         let mut valid_pairs: Vec<(G1Point, G2Point)> = Vec::new();
         for (p, q) in pairs {
+            let p = p.borrow();
+            let q = q.borrow();
             if !q.is_in_subgroup() {
                 return Err(PairingError::PointNotInSubgroup);
             }
@@ -188,10 +191,12 @@ impl IsPairing for BN254AtePairing {
 
     /// Computes the product of the ate pairing for a list of point pairs.
     fn compute_batch(
-        pairs: &[(&Self::G1Point, &Self::G2Point)],
+        pairs: &[(impl Borrow<Self::G1Point>, impl Borrow<Self::G2Point>)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         let mut result = Fp12E::one();
         for (p, q) in pairs {
+            let p = p.borrow();
+            let q = q.borrow();
             if !q.is_in_subgroup() {
                 return Err(PairingError::PointNotInSubgroup);
             }
@@ -692,39 +697,39 @@ mod tests {
         let b = U384::from_u64(93);
 
         let result_1 = BN254AtePairing::compute_batch(&[
-            (&p.operate_with_self(a), &q.operate_with_self(b)),
-            (&p.operate_with_self(a * b), &q.neg()),
+            (p.operate_with_self(a), q.operate_with_self(b)),
+            (p.operate_with_self(a * b), q.neg()),
         ])
         .unwrap();
         assert_eq!(result_1, Fp12E::one());
 
         let result_2 = BN254AtePairing::compute_batch(&[
-            (&p.operate_with_self(a), &q.operate_with_self(b)),
-            (&p.neg(), &q.operate_with_self(a * b)),
+            (p.operate_with_self(a), q.operate_with_self(b)),
+            (p.neg(), q.operate_with_self(a * b)),
         ])
         .unwrap();
         assert_eq!(result_2, Fp12E::one());
 
         let result_3 = BN254AtePairing::compute_batch(&[
-            (&p.operate_with_self(a), &q.operate_with_self(b)),
-            (&p.operate_with_self(b), &q.operate_with_self(a).neg()),
+            (p.operate_with_self(a), q.operate_with_self(b)),
+            (p.operate_with_self(b), q.operate_with_self(a).neg()),
         ])
         .unwrap();
         assert_eq!(result_3, Fp12E::one());
 
         let result_4 = BN254AtePairing::compute_batch(&[
-            (&p.operate_with_self(a), &q.operate_with_self(b).neg()),
-            (&p.operate_with_self(b), &q),
-            (&p.operate_with_self(b), &q),
-            (&p.operate_with_self(b), &q),
-            (&p.operate_with_self(b), &q),
-            (&p.operate_with_self(b), &q),
-            (&p.operate_with_self(b), &q),
-            (&p.operate_with_self(b), &q),
-            (&p.operate_with_self(b), &q),
-            (&p.operate_with_self(b), &q),
-            (&p.operate_with_self(b), &q),
-            (&p.operate_with_self(b), &q),
+            (p.operate_with_self(a), q.operate_with_self(b).neg()),
+            (p.operate_with_self(b), q.clone()),
+            (p.operate_with_self(b), q.clone()),
+            (p.operate_with_self(b), q.clone()),
+            (p.operate_with_self(b), q.clone()),
+            (p.operate_with_self(b), q.clone()),
+            (p.operate_with_self(b), q.clone()),
+            (p.operate_with_self(b), q.clone()),
+            (p.operate_with_self(b), q.clone()),
+            (p.operate_with_self(b), q.clone()),
+            (p.operate_with_self(b), q.clone()),
+            (p.operate_with_self(b), q.clone()),
         ])
         .unwrap();
         assert_eq!(result_4, Fp12E::one());
@@ -734,15 +739,15 @@ mod tests {
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p1 = BN254Curve::generator();
         let q1 = G2Point::neutral_element();
-        let result_1 = BN254AtePairing::compute_batch(&[(&p1, &q1)]).unwrap();
+        let result_1 = BN254AtePairing::compute_batch(&[(p1.clone(), q1.clone())]).unwrap();
         assert_eq!(result_1, Fp12E::one());
 
         let p2 = G1Point::neutral_element();
         let q2 = BN254TwistCurve::generator();
-        let result_2 = BN254AtePairing::compute_batch(&[(&p2, &q2)]).unwrap();
+        let result_2 = BN254AtePairing::compute_batch(&[(p2.clone(), q2.clone())]).unwrap();
         assert_eq!(result_2, Fp12E::one());
 
-        let result_3 = BN254AtePairing::compute_batch(&[(&p2, &q1)]).unwrap();
+        let result_3 = BN254AtePairing::compute_batch(&[(p2.clone(), q1.clone())]).unwrap();
         assert_eq!(result_3, Fp12E::one());
     }
 
@@ -769,7 +774,7 @@ mod tests {
             Fp2E::one(),
         ])
         .unwrap();
-        let result = BN254AtePairing::compute_batch(&[(&p, &q)]);
+        let result = BN254AtePairing::compute_batch(&[(p.clone(), q.clone())]);
         assert!(result.is_err())
     }
 
@@ -871,7 +876,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = BN254AtePairing::compute_batch(&[(&p1, &q1), (&p2, &q2)]).unwrap();
+        let result = BN254AtePairing::compute_batch(&[(p1.clone(), q1.clone()), (p2.clone(), q2.clone())]).unwrap();
 
         assert_eq!(result, Fp12E::one());
     }
@@ -938,7 +943,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = BN254AtePairing::compute_batch(&[(&p1, &q1), (&p2, &q2)]).unwrap();
+        let result = BN254AtePairing::compute_batch(&[(p1.clone(), q1.clone()), (p2.clone(), q2.clone())]).unwrap();
         assert_eq!(result, Fp12E::one());
     }
 
@@ -1004,7 +1009,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = BN254AtePairing::compute_batch(&[(&p1, &q1), (&p2, &q2)]).unwrap();
+        let result = BN254AtePairing::compute_batch(&[(p1.clone(), q1.clone()), (p2.clone(), q2.clone())]).unwrap();
         assert!(result != Fp12E::one());
     }
 
@@ -1100,7 +1105,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = BN254AtePairing::compute_batch(&[(&p1, &q1), (&p2, &q2), (&p3, &q3)]).unwrap();
+        let result = BN254AtePairing::compute_batch(&[(p1.clone(), q1.clone()), (p2.clone(), q2.clone()), (p3.clone(), q3.clone())]).unwrap();
         assert!(result != Fp12E::one());
     }
 
@@ -1112,7 +1117,7 @@ mod tests {
     fn pairing_result_pow_r_is_one() {
         let p = BN254Curve::generator();
         let q = BN254TwistCurve::generator();
-        let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
+        let pairing_result = BN254AtePairing::compute_batch(&[(p.clone(), q.clone())]).unwrap();
         assert_eq!(pairing_result.pow(R), Fp12E::one());
     }
 
@@ -1120,7 +1125,7 @@ mod tests {
     fn pairing_is_non_degenerate() {
         let p = BN254Curve::generator();
         let q = BN254TwistCurve::generator();
-        let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
+        let pairing_result = BN254AtePairing::compute_batch(&[(p.clone(), q.clone())]).unwrap();
         assert_ne!(pairing_result, Fp12E::one());
     }
 
