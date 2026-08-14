@@ -146,11 +146,17 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
         let [px, py, pz] = self.coordinates();
         let [qx, qy, _qz] = other.coordinates();
+        // `other` is affine, so comparing it against `self` means comparing
+        // `(qx * pz, qy * pz)` against `(px, py)`.
         let u = qy * pz;
         let v = qx * pz;
 
-        if u == *py {
-            if v != *px || *py == FieldElement::zero() {
+        // Both points share the `x` coordinate, so they are either equal or opposite.
+        // Distinct points sharing only the `y` coordinate are *not* special: they must
+        // go through the general addition formula below.
+        if v == *px {
+            if u != *py || *py == FieldElement::zero() {
+                // Either `self == -other`, or `self == other` is a two-torsion point.
                 // SAFETY: The point (0, 1, 0) is defined as the point at infinity.
                 return Self::new_unchecked([
                     FieldElement::zero(),
@@ -1192,6 +1198,8 @@ where
 mod tests {
     use super::*;
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
+    use crate::elliptic_curve::short_weierstrass::curves::stark_curve::StarkCurve;
+    use crate::field::fields::u64_prime_field::U64PrimeField;
 
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::{
         CURVE_COFACTOR, SUBGROUP_ORDER,
@@ -1600,5 +1608,170 @@ mod tests {
             alloc::vec::Vec::new();
         let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::batch_to_affine(&points);
         assert!(result.is_empty());
+    }
+
+    /// Tiny curve `y^2 = x^3 + x + 2` over `F_97`. It has 104 points, a two-torsion
+    /// point `(96, 0)`, and 22 groups of distinct points sharing their `y` coordinate,
+    /// which makes it small enough to check every addition exhaustively.
+    #[derive(Clone, Debug)]
+    struct SmallCurve;
+
+    type SmallField = U64PrimeField<97>;
+
+    impl IsEllipticCurve for SmallCurve {
+        type BaseField = SmallField;
+        type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
+
+        fn generator() -> Self::PointRepresentation {
+            // SAFETY: `(4, 19)` is on the curve and generates the whole group of order 104.
+            Self::PointRepresentation::new_unchecked([
+                FieldElement::from(4),
+                FieldElement::from(19),
+                FieldElement::one(),
+            ])
+        }
+    }
+
+    impl IsShortWeierstrass for SmallCurve {
+        fn a() -> FieldElement<Self::BaseField> {
+            FieldElement::from(1)
+        }
+
+        fn b() -> FieldElement<Self::BaseField> {
+            FieldElement::from(2)
+        }
+    }
+
+    /// Every affine point of `SmallCurve`, preceded by the point at infinity.
+    #[cfg(feature = "alloc")]
+    fn small_curve_points() -> Vec<ShortWeierstrassProjectivePoint<SmallCurve>> {
+        let mut points = Vec::new();
+        points.push(ShortWeierstrassProjectivePoint::<SmallCurve>::neutral_element());
+        for x in 0..97u64 {
+            for y in 0..97u64 {
+                if let Ok(point) = ShortWeierstrassProjectivePoint::<SmallCurve>::from_affine(
+                    FieldElement::from(x),
+                    FieldElement::from(y),
+                ) {
+                    points.push(point);
+                }
+            }
+        }
+        points
+    }
+
+    /// `operate_with_affine` is an optimization of `operate_with` for an affine right-hand
+    /// side, so the two must agree on every pair of points, including the special cases
+    /// (infinity, doubling, `P + (-P)`, two-torsion, and distinct points sharing `y`).
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn projective_operate_with_affine_agrees_with_operate_with_on_all_pairs() {
+        let points = small_curve_points();
+        assert_eq!(points.len(), 104);
+
+        // A representative of `p` with `z != 1`, so the mixed-addition formula is also
+        // exercised with a non-normalized left-hand side.
+        let scale = FieldElement::<SmallField>::from(7);
+
+        for p in &points {
+            let [px, py, pz] = p.coordinates();
+            // SAFETY: scaling all projective coordinates by a non-zero factor yields the same point.
+            let p_scaled = ShortWeierstrassProjectivePoint::<SmallCurve>::new_unchecked([
+                px * scale,
+                py * scale,
+                pz * scale,
+            ]);
+
+            for q in &points {
+                let expected = p.operate_with(q);
+                assert_eq!(
+                    p.operate_with_affine(q),
+                    expected,
+                    "mismatch for p = {:?}, q = {:?}",
+                    p.to_affine().coordinates(),
+                    q.to_affine().coordinates()
+                );
+                assert_eq!(
+                    p_scaled.operate_with_affine(q),
+                    expected,
+                    "mismatch for scaled p = {:?}, q = {:?}",
+                    p.to_affine().coordinates(),
+                    q.to_affine().coordinates()
+                );
+            }
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn jacobian_operate_with_affine_agrees_with_operate_with_on_all_pairs() {
+        let points = small_curve_points();
+        let scale = FieldElement::<SmallField>::from(7);
+
+        for p in &points {
+            let [px, py, _pz] = *p.to_affine().coordinates();
+            let p_jacobian = if p.is_neutral_element() {
+                ShortWeierstrassJacobianPoint::<SmallCurve>::neutral_element()
+            } else {
+                ShortWeierstrassJacobianPoint::<SmallCurve>::from_affine(px, py).unwrap()
+            };
+            // Jacobian coordinates scale as (l^2 x, l^3 y, l z).
+            let [jx, jy, jz] = p_jacobian.coordinates();
+            // SAFETY: the Jacobian scaling above leaves the represented point unchanged.
+            let p_scaled = ShortWeierstrassJacobianPoint::<SmallCurve>::new_unchecked([
+                jx * scale.square(),
+                jy * scale.square() * scale,
+                jz * scale,
+            ]);
+
+            for q in &points {
+                let [qx, qy, _qz] = *q.to_affine().coordinates();
+                let q_jacobian = if q.is_neutral_element() {
+                    ShortWeierstrassJacobianPoint::<SmallCurve>::neutral_element()
+                } else {
+                    ShortWeierstrassJacobianPoint::<SmallCurve>::from_affine(qx, qy).unwrap()
+                };
+
+                let expected = p_jacobian.operate_with(&q_jacobian);
+                assert_eq!(p_jacobian.operate_with_affine(&q_jacobian), expected);
+                assert_eq!(p_scaled.operate_with_affine(&q_jacobian), expected);
+            }
+        }
+    }
+
+    /// Reported against `starknet-types-core`: adding the STARK curve generator to the
+    /// other curve point that shares its `y` coordinate wrongly returned the point at
+    /// infinity. The two points are distinct, so their sum is an ordinary point.
+    #[test]
+    fn stark_curve_operate_with_affine_adds_distinct_points_sharing_y_coordinate() {
+        let p = StarkCurve::generator();
+        // The three points with a given `y` have `x` equal to the roots of
+        // `x^3 + a*x + (b - y^2)`; this is the second root for the generator's `y`.
+        let q = ShortWeierstrassProjectivePoint::<StarkCurve>::from_affine(
+            FieldElement::from_hex_unchecked(
+                "24047d2a52a369940278af7d7950e8b7f85aa41688881ee0845d1787bc17173",
+            ),
+            FieldElement::from_hex_unchecked(
+                "5668060aa49730b7be4801df46ec62de53ecd11abe43a32873000c36e8dc1f",
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(p.y(), q.y());
+        assert_ne!(p.x(), q.x());
+
+        let expected = ShortWeierstrassProjectivePoint::<StarkCurve>::from_affine(
+            FieldElement::from_hex_unchecked(
+                "3d0a26bd53c325c43eb87c6ce2a00aca1cd58238a5f6431ba47f0fbbafabec4",
+            ),
+            FieldElement::from_hex_unchecked(
+                "7a997f9f55b68e04841b7fe20b9139d21ac132ee541bc5cd78cfff3c91723e2",
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(p.operate_with(&q), expected);
+        assert!(!p.operate_with_affine(&q).is_neutral_element());
+        assert_eq!(p.operate_with_affine(&q), expected);
     }
 }
