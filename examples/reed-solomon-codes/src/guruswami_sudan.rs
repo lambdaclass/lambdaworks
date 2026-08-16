@@ -43,7 +43,9 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::polynomial::Polynomial;
 
-use crate::polynomial_utils::{find_polynomial_roots_with_domain, BivariatePolynomial};
+use crate::polynomial_utils::{
+    find_polynomial_roots_with_domain, pascal_table_fe, BivariatePolynomial,
+};
 use crate::reed_solomon::ReedSolomonCode;
 
 /// Result of Guruswami-Sudan list decoding.
@@ -139,6 +141,13 @@ fn choose_parameters(n: usize, k: usize) -> (usize, usize) {
 
 /// Counts monomials x^i y^j with (1, w)-weighted degree i + w*j < D.
 fn count_monomials(d: usize, w: usize) -> usize {
+    // With w == 0 the weighted degree i + w*j = i is independent of j, so there
+    // are infinitely many monomials below any bound. Callers must use
+    // w = k - 1 >= 1 (i.e. k >= 2); guard here so we never divide by zero.
+    if w == 0 {
+        return 0;
+    }
+
     let mut count = 0;
     let max_j = d / w + 1;
 
@@ -173,6 +182,11 @@ pub fn gs_list_decode<F: IsField + Clone>(
         received.len(),
         n,
         "Received word length must equal code length"
+    );
+    assert!(
+        k >= 2,
+        "Guruswami-Sudan decoding requires dimension k >= 2 (got k = {k}); \
+         the (1, k-1)-weighted degree is undefined for k < 2"
     );
 
     let (m, d) = choose_parameters(n, k);
@@ -223,6 +237,17 @@ pub fn gs_list_decode_with_multiplicity<F: IsField + Clone>(
     let n = code.code_length();
     let k = code.dimension();
     let domain = code.domain();
+
+    assert_eq!(
+        received.len(),
+        n,
+        "Received word length must equal code length"
+    );
+    assert!(
+        k >= 2,
+        "Guruswami-Sudan decoding requires dimension k >= 2 (got k = {k}); \
+         the (1, k-1)-weighted degree is undefined for k < 2"
+    );
 
     let m = multiplicity;
 
@@ -288,6 +313,19 @@ fn interpolate_with_multiplicity<F: IsField + Clone>(
 
     let num_monomials = monomials.len();
 
+    // Largest x- and y-exponents appearing in any monomial. Used to size the
+    // precomputed power tables and the binomial-coefficient table. The 0 default
+    // is only hit when `monomials` is empty (degenerate d), in which case the
+    // matrix below is empty too and the bound is irrelevant.
+    let max_i_exp = monomials.iter().map(|(i, _)| *i).max().unwrap_or(0);
+    let max_j_exp = monomials.iter().map(|(_, j)| *j).max().unwrap_or(0);
+
+    // Binomial coefficients C(i, a) and C(j, b) reduced into the field. Built via
+    // Pascal's rule (additions only), so it never overflows — unlike computing
+    // C(i, a) as a machine integer, where C(d, m) blows past u64 for the degree
+    // bounds this algorithm produces.
+    let binom_table = pascal_table_fe::<F>(max_i_exp.max(max_j_exp));
+
     // Build constraint matrix
     // Each point contributes m*(m+1)/2 constraints (all partial derivatives)
     let constraints_per_point = m * (m + 1) / 2;
@@ -296,6 +334,11 @@ fn interpolate_with_multiplicity<F: IsField + Clone>(
     let mut matrix: Vec<Vec<FieldElement<F>>> = Vec::with_capacity(total_constraints);
 
     for (alpha, y) in domain.iter().zip(received.iter()) {
+        // Precompute α^e and y^e once per point, rather than recomputing them
+        // for every (monomial, constraint) cell as `alpha.pow(..)` did before.
+        let alpha_powers = power_table(alpha, max_i_exp);
+        let y_powers = power_table(y, max_j_exp);
+
         // For multiplicity m, we need the (a, b)-th partial derivative to vanish
         // for all a + b < m, i.e., a + b ∈ {0, 1, ..., m-1}
         for total_order in 0..m {
@@ -312,16 +355,9 @@ fn interpolate_with_multiplicity<F: IsField + Clone>(
                         // Derivative is zero
                         row.push(FieldElement::<F>::zero());
                     } else {
-                        let binom_i_a = binomial(i, a);
-                        let binom_j_b = binomial(j, b);
-                        let coeff_scalar = (binom_i_a * binom_j_b) as u64;
-
+                        let binom = &binom_table[i][a] * &binom_table[j][b];
                         // α^{i-a} * y^{j-b}
-                        let alpha_power = alpha.pow(i - a);
-                        let y_power = y.pow(j - b);
-
-                        let coeff =
-                            &FieldElement::<F>::from(coeff_scalar) * &(&alpha_power * &y_power);
+                        let coeff = &binom * &(&alpha_powers[i - a] * &y_powers[j - b]);
                         row.push(coeff);
                     }
                 }
@@ -420,7 +456,13 @@ fn find_kernel_vector<F: IsField + Clone>(
         pivot_cols.push(col);
 
         let pivot = mat[pivot_row][col].clone();
-        let pivot_inv = pivot.inv().unwrap_or_else(|_| FieldElement::<F>::one());
+        // `pivot` is the first non-zero entry found in this column, and every
+        // non-zero element of a field is invertible, so this never fails. Use
+        // `expect` rather than a silent `unwrap_or(one())` fallback, which would
+        // mask a logic error by producing a wrong kernel vector instead.
+        let pivot_inv = pivot
+            .inv()
+            .expect("non-zero pivot is invertible in a field");
         for elem in &mut mat[pivot_row][col..n] {
             *elem = &*elem * &pivot_inv;
         }
@@ -440,13 +482,13 @@ fn find_kernel_vector<F: IsField + Clone>(
         pivot_row += 1;
     }
 
-    let mut free_col = None;
-    for col in 0..n {
-        if !pivot_cols.contains(&col) {
-            free_col = Some(col);
-            break;
-        }
+    // Mark pivot columns so the free-column lookup is O(n) instead of scanning
+    // `pivot_cols` for every column.
+    let mut is_pivot = vec![false; n];
+    for &pc in &pivot_cols {
+        is_pivot[pc] = true;
     }
+    let free_col = (0..n).find(|&col| !is_pivot[col]);
 
     let mut kernel = vec![FieldElement::<F>::zero(); n];
 
@@ -464,21 +506,16 @@ fn find_kernel_vector<F: IsField + Clone>(
     kernel
 }
 
-/// Computes binomial coefficient C(n, k).
-fn binomial(n: usize, k: usize) -> usize {
-    if k > n {
-        return 0;
+/// Returns `[base^0, base^1, ..., base^max_exp]` so callers can index powers
+/// instead of recomputing `base.pow(e)` repeatedly.
+fn power_table<F: IsField + Clone>(base: &FieldElement<F>, max_exp: usize) -> Vec<FieldElement<F>> {
+    let mut powers = Vec::with_capacity(max_exp + 1);
+    let mut current = FieldElement::<F>::one();
+    for _ in 0..=max_exp {
+        powers.push(current.clone());
+        current = &current * base;
     }
-    if k == 0 || k == n {
-        return 1;
-    }
-
-    let k = k.min(n - k);
-    let mut result = 1;
-    for i in 0..k {
-        result = result * (n - i) / (i + 1);
-    }
-    result
+    powers
 }
 
 #[cfg(test)]
