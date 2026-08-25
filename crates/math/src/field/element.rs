@@ -1034,6 +1034,41 @@ mod tests {
         assert!(sqrt.is_none());
     }
 
+    // Tests targeting the fast sqrt path (p ≡ 3 mod 4).
+    // BN254 base field satisfies p ≡ 3 (mod 4), so these exercise the
+    // direct-exponentiation branch rather than Tonelli-Shanks.
+
+    #[test]
+    fn sqrt_fast_path_known_qr_bn254() {
+        type FE = FieldElement<BN254PrimeField>;
+        let a = FE::from(4);
+        let (r1, r2) = a.sqrt().unwrap();
+        assert_eq!(r1.square(), a);
+        assert_eq!(r2.square(), a);
+        assert_ne!(r1, r2);
+    }
+
+    #[test]
+    fn sqrt_fast_path_non_residue_bn254() {
+        type FE = FieldElement<BN254PrimeField>;
+        // 3 is a non-residue mod BN254 base field prime
+        let a = FE::from(3);
+        assert!(a.sqrt().is_none());
+    }
+
+    #[test]
+    fn sqrt_fast_path_roundtrip_bn254() {
+        type FE = FieldElement<BN254PrimeField>;
+        for v in [2u64, 7, 13, 100, 9999] {
+            let x = FE::from(v);
+            let a = x.square();
+            let (r1, r2) = a.sqrt().unwrap();
+            assert_eq!(r1.square(), a);
+            assert_eq!(r2.square(), a);
+            assert!(r1 == x || r2 == x);
+        }
+    }
+
     #[test]
     fn from_hex_1a_is_26_for_stark252_prime_field_element() {
         type F = Stark252PrimeField;
