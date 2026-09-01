@@ -6,7 +6,8 @@ use super::{
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::short_weierstrass::utils::{
-    glv_decompose_babai, jac_to_proj, proj_to_jac, shamir_two_scalar_mul, GlvDecompConstants,
+    glv_decompose_babai, jac_to_proj, proj_to_jac, shamir_four_scalar_mul, shamir_two_scalar_mul,
+    GlvDecompConstants,
 };
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
@@ -212,13 +213,13 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
         self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT)
     }
 
-    /// GLS scalar multiplication: computes [k]P using the Frobenius endomorphism.
+    /// Four-dimensional GLS scalar multiplication using the Frobenius endomorphism.
     ///
-    /// Decomposes k = k₁ + k₂·u where u is the curve seed (64-bit), then uses
-    /// Shamir's trick: [k]P = [k₁]P + [k₂]ψ(P).
+    /// Decomposes `k` in the eigenvalue basis `(1, u, u², u³)` of
+    /// `(P, ψ(P), ψ²(P), ψ³(P))`. The four components are at most 64 bits
+    /// and are evaluated together with a 16-entry joint binary Shamir table.
     ///
-    /// Since u is 64 bits, k₂ ≈ 192 bits and k₁ ≤ 64 bits.
-    /// Measured speedup: ~1.3x for 192-bit scalars, ~1.5x for 253-bit scalars.
+    /// `self` must be in the r-torsion subgroup.
     ///
     /// # Security Note
     ///
@@ -230,23 +231,24 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
             return self.clone();
         }
 
-        let zero = U256::from_u64(0);
-        if *k == zero {
+        if *k == U256::from_u64(0) {
             return Self::neutral_element();
         }
 
-        let (k1_neg, k1, k2_neg, k2) = gls_decompose_377(k);
+        let scalars = gls_decompose_4d_377(k);
         let psi_p = self.psi();
-
-        // [k]P = [k₁]P + [k₂]ψ(P)
-        // Since ψ(P) = [u]P, we have [k₂]ψ(P) = [k₂·u]P (positive, no sign flip)
-        let p1 = if k1_neg { self.neg() } else { self.clone() };
-        let p2 = if k2_neg { psi_p.neg() } else { psi_p };
-
-        // Use Jacobian coordinates for faster doubling (2M+5S vs 7M+5S in projective)
-        let p1_jac = proj_to_jac(&p1);
-        let p2_jac = proj_to_jac(&p2);
-        let result_jac = shamir_two_scalar_mul(&p1_jac, &k1, &p2_jac, &k2);
+        let psi2_p = psi_p.psi();
+        let base_points = [self.clone(), psi_p, psi2_p.clone(), psi2_p.psi()];
+        let jacobian_points = base_points.map(|point| proj_to_jac(&point));
+        let result_jac = shamir_four_scalar_mul(
+            [
+                &jacobian_points[0],
+                &jacobian_points[1],
+                &jacobian_points[2],
+                &jacobian_points[3],
+            ],
+            [&scalars[0], &scalars[1], &scalars[2], &scalars[3]],
+        );
         jac_to_proj(result_jac)
     }
 }
@@ -254,25 +256,21 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
 /// The curve seed u as U256 for GLS division operations.
 const GLS_X_377: U256 = U256::from_u64(MILLER_LOOP_CONSTANT);
 
-/// Decomposes scalar k for GLS: k = k₁ + k₂·u (mod r)
+/// Radix-`u` decomposition `k = k0 + k1*u + k2*u^2 + k3*u^3 (mod r)`.
 ///
-/// BLS12-377: ψ(P) = [+u]P, so [k]P = [k₁]P + [k₂]ψ(P) directly (no sign flip).
-///
-/// See Galbraith-Lin-Scott (GLS), <https://eprint.iacr.org/2008/194>.
-///
-/// Since u is 64 bits:
-/// - k₂ = k / u (approximately 192 bits)
-/// - k₁ = k mod u (at most 64 bits)
-fn gls_decompose_377(k: &U256) -> (bool, U256, bool, U256) {
-    let zero = U256::from_u64(0);
-
-    if *k < GLS_X_377 {
-        return (false, *k, false, zero);
-    }
-
-    let (k2, k1) = k.div_rem(&GLS_X_377);
-    // ψ(P) = [+u]P, so [k]P = [k₁ + k₂·u]P = [k₁]P + [k₂]ψ(P)
-    (false, k1, false, k2)
+/// The scalar is reduced modulo the subgroup order first. All four components are then
+/// smaller than `u` because the BLS12-377 subgroup order is `u^4 - u^2 + 1`.
+fn gls_decompose_4d_377(k: &U256) -> [U256; 4] {
+    let mut quotient = if *k >= SUBGROUP_ORDER {
+        k.div_rem(&SUBGROUP_ORDER).1
+    } else {
+        *k
+    };
+    core::array::from_fn(|_| {
+        let (next_quotient, remainder) = quotient.div_rem(&GLS_X_377);
+        quotient = next_quotient;
+        remainder
+    })
 }
 
 #[cfg(test)]
@@ -579,5 +577,74 @@ mod tests {
         let u_g = g.operate_with_self(MILLER_LOOP_CONSTANT);
         assert_eq!(psi_g.to_affine().x(), u_g.to_affine().x());
         assert_eq!(psi_g.to_affine().y(), u_g.to_affine().y());
+    }
+
+    #[test]
+    fn gls_mul_components_are_small() {
+        let scalars = [
+            U256::from_u64(0),
+            U256::from_u64(1),
+            U256::from_u64(MILLER_LOOP_CONSTANT),
+            U256::from_hex_unchecked(
+                "12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000000",
+            ),
+            U256::from_hex_unchecked(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            ),
+        ];
+
+        for scalar in scalars {
+            let components = gls_decompose_4d_377(&scalar);
+            assert!(
+                components.iter().all(|component| component.bits_le() <= 64),
+                "4D components should fit in 64 bits for {scalar}"
+            );
+        }
+    }
+
+    #[test]
+    fn gls_mul_matches_existing_scalar_mul() {
+        let g = BLS12377TwistCurve::generator();
+        let scalars = [
+            U256::from_u64(0),
+            U256::from_u64(1),
+            U256::from_u64(2),
+            U256::from_u64(12345),
+            U256::from_u64(MILLER_LOOP_CONSTANT),
+            U256::from_hex_unchecked("123456789abcdef0123456789abcdef0"),
+            U256::from_hex_unchecked("123456789abcdef0123456789abcdef0123456789abcdef0"),
+            U256::from_hex_unchecked(
+                "12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000000",
+            ),
+            SUBGROUP_ORDER,
+            U256::add(&SUBGROUP_ORDER, &U256::from_u64(1)).0,
+            U256::from_hex_unchecked(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            ),
+        ];
+
+        for scalar in scalars {
+            assert_eq!(
+                g.gls_mul(&scalar),
+                g.operate_with_self(scalar),
+                "4D GLS mismatch for scalar {scalar}"
+            );
+        }
+    }
+
+    #[test]
+    fn gls_mul_matches_existing_scalar_mul_for_derived_point() {
+        let point = BLS12377TwistCurve::generator()
+            .operate_with_self(U256::from_hex_unchecked("123456789abcdef0123456789abcdef"));
+        let scalars = [
+            U256::from_hex_unchecked("fedcba98765432100123456789abcdef"),
+            U256::from_hex_unchecked(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            ),
+        ];
+
+        for scalar in scalars {
+            assert_eq!(point.gls_mul(&scalar), point.operate_with_self(scalar));
+        }
     }
 }
