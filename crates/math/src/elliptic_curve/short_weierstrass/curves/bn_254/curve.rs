@@ -111,7 +111,6 @@ const BN254_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
 /// (1, λ, γ, γλ), where λ is the eigenvalue of the cheap cube-root endomorphism and γ that of φ³.
 /// These values come from saturating the lattice of matrix B in Example 5 of Section 6
 /// of <https://eprint.iacr.org/2008/117.pdf> and expressing the result in the eigenvalue basis.
-
 /// Short lattice basis for the kernel of (1, λ, γ, γλ) modulo r.
 const GLS_4D_LATTICE_BASIS: [[i128; 4]; 4] = [
     [14896984101578546644, -1, -14896984101578546643, 0],
