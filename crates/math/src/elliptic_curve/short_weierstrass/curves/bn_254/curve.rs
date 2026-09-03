@@ -118,16 +118,6 @@ const GLS_X_BN254: U256 = U256::from_hex_unchecked("6f4d8248eeb859fbf83e9682e87c
 // These values are ported from Voltaire's GLS-only BN254 implementation:
 // https://github.com/evmts/voltaire/blob/b5cd01186905104322decd6fd1bb94b787541035/packages/voltaire-zig/src/crypto/bn254/curve_parameters.zig
 
-/// Eigenvalue of φ³ on the r-torsion subgroup.
-#[cfg(test)]
-const GLS_GAMMA_BN254: U256 =
-    U256::from_hex_unchecked("30644e72e131a029048b6e193fd841045cea24f6fd736bec231204708f703636");
-
-/// Eigenvalue of the composition φ³ ∘ ψ on the r-torsion subgroup.
-#[cfg(test)]
-const GLS_GAMMA_LAMBDA_BN254: U256 =
-    U256::from_hex_unchecked("30644e72e131a029b85045b68181585cb8e665ff8b0116954ba35f11078302bb");
-
 /// Short lattice basis for the kernel of (1, λ, γ, γλ) modulo r.
 const GLS_4D_LATTICE_BASIS: [[i128; 4]; 4] = [
     [14896984101578546644, -1, -14896984101578546643, 0],
@@ -417,6 +407,16 @@ mod tests {
     #[allow(clippy::upper_case_acronyms)]
     type FpE = FieldElement<BN254PrimeField>;
     type Fp2E = FieldElement<Degree2ExtensionField>;
+
+    /// Eigenvalue of φ³ on the r-torsion subgroup.
+    const GLS_GAMMA_BN254: U256 = U256::from_hex_unchecked(
+        "30644e72e131a029048b6e193fd841045cea24f6fd736bec231204708f703636",
+    );
+
+    /// Eigenvalue of the composition φ³ ∘ ψ on the r-torsion subgroup.
+    const GLS_GAMMA_LAMBDA_BN254: U256 = U256::from_hex_unchecked(
+        "30644e72e131a029b85045b68181585cb8e665ff8b0116954ba35f11078302bb",
+    );
 
     /*
     Sage script:
