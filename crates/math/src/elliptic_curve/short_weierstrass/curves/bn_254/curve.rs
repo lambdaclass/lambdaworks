@@ -1,15 +1,16 @@
 use super::{
     field_extension::{BN254PrimeField, Degree2ExtensionField},
-    pairing::{GAMMA_12, GAMMA_13, X},
+    pairing::{GAMMA_12, GAMMA_13, GAMMA_24, X},
     twist::BN254TwistCurve,
 };
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::short_weierstrass::utils::{
-    glv_decompose_babai, jac_to_proj, proj_to_jac, shamir_two_scalar_mul, GlvDecompConstants,
+    glv_decompose_babai, jac_to_proj, proj_to_jac, shamir_four_scalar_mul, shamir_two_scalar_mul,
+    signed_add, GlvDecompConstants,
 };
 use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::unsigned_integer::element::U256;
+use crate::unsigned_integer::element::{UnsignedInteger, U256};
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -106,11 +107,53 @@ const BN254_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
     q2_is_neg: false,
 };
 
-/// Frobenius eigenvalue for GLS on G2: φ(Q) = [p mod r]Q.
-/// p mod r = t - 1 = 6x² where x is the BN254 seed.
+/// 4D GLS decomposition constants for G2. The scalar is decomposed in the eigenvalue basis
+/// (1, λ, γ, γλ), where λ is the eigenvalue of the cheap cube-root endomorphism and γ that of φ³.
+/// These values come from saturating the lattice of matrix B in Example 5 of Section 6
+/// of <https://eprint.iacr.org/2008/117.pdf> and expressing the result in the eigenvalue basis.
+/// Short lattice basis for the kernel of (1, λ, γ, γλ) modulo r.
+const GLS_4D_LATTICE_BASIS: [[i128; 4]; 4] = [
+    [14896984101578546644, -1, -14896984101578546643, 0],
+    [
+        24828306835964244406,
+        4965661367192848880,
+        -4965661367192848880,
+        4965661367192848881,
+    ],
+    [14896984101578546643, 0, 14896984101578546644, -1],
+    [
+        4965661367192848880,
+        -4965661367192848881,
+        24828306835964244406,
+        4965661367192848880,
+    ],
+];
+
+/// Signed projection coefficients used to project a scalar onto `GLS_4D_LATTICE_BASIS`.
+/// Each tuple is `(is_negative, magnitude)`.
 ///
-/// See Galbraith-Lin-Scott (GLS), <https://eprint.iacr.org/2008/194>.
-const GLS_X_BN254: U256 = U256::from_hex_unchecked("6f4d8248eeb859fbf83e9682e87cfd46");
+/// This vector corresponds to the precomputable part of the wB^-1 vector in
+/// Example 5 of Section 6 of <https://eprint.iacr.org/2008/117.pdf>, except with our modified matrix.
+/// That is, the vector without the n/r part, this will be multiplied back in during scalar decomposition.
+///
+const GLS_4D_PROJECTION_COEFFICIENTS: [(bool, U256); 4] = [
+    (
+        false,
+        U256::from_hex_unchecked("1df623ef8af183e3d7adf45cf590c4c7cc52a3b2cb75d104"),
+    ),
+    (
+        false,
+        U256::from_hex_unchecked("6f4d8248eeb859fcc6fb4e9fc7b81b19"),
+    ),
+    (
+        false,
+        U256::from_hex_unchecked("1df623ef8af183e3d7adf45cf590c4c8dff8ee83f519f8c9"),
+    ),
+    (true, U256::from_hex_unchecked("cebcb81cdf3b1dd4")),
+];
+
+/// The widest projection product is 445 bits, so seven limbs suffice without allocation.
+type U448 = UnsignedInteger<7>;
 
 impl ShortWeierstrassProjectivePoint<BN254Curve> {
     pub fn is_in_subgroup(&self) -> bool {
@@ -178,6 +221,15 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
         ])
     }
 
+    /// Applies the efficient cube-root endomorphism ψ(X:Y:Z) = (βX:Y:Z) on G2.
+    ///
+    /// On the r-torsion subgroup, `ψ(Q) = [GLV_LAMBDA]Q`. `GAMMA_24` is the same
+    /// base-field cube root used by the reference implementation's `lambdaEndomorphism`.
+    pub fn psi(&self) -> Self {
+        let [x, y, z] = self.coordinates();
+        Self::new_unchecked([GAMMA_24 * x, y.clone(), z.clone()])
+    }
+
     // Checks if a G2 point is in the subgroup of the twisted curve.
     pub fn is_in_subgroup(&self) -> bool {
         let q_times_x = &self.operate_with_self(X);
@@ -191,11 +243,16 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
             == q_times_2x.phi().phi().phi()
     }
 
-    /// GLS scalar multiplication: computes [k]P using the Frobenius endomorphism φ.
+    /// Four-dimensional GLS scalar multiplication using the independent φ³ and ψ
+    /// endomorphisms.
     ///
-    /// φ(Q) = [p mod r]Q where p is the base field prime (~127 bits).
-    /// Decomposes k = k₁ + k₂·(p mod r), so [k]Q = [k₁]Q + [k₂]φ(Q).
-    /// Measured speedup: ~1.4x for 192-bit scalars, ~1.6x for 254-bit scalars.
+    /// Decomposes `k` into four signed components of at most about 66 bits in the
+    /// eigenvalue basis `(1, λ, γ, γλ)`, then evaluates the four scalar products
+    /// with a joint binary Shamir multiplication.
+    ///
+    /// `self` must be in the r-torsion G2 subgroup. The decomposition uses
+    /// endomorphism eigenvalues modulo r and is not valid for arbitrary points on
+    /// the twist curve.
     ///
     /// # Security Note
     ///
@@ -212,34 +269,130 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
             return Self::neutral_element();
         }
 
-        let (k1_neg, k1, k2_neg, k2) = gls_decompose_bn254(k);
-        let phi_p = self.phi();
+        let decomposition = gls_decompose_4d_bn254(k);
 
-        // φ(Q) = [p mod r]Q (positive eigenvalue)
-        let p1 = if k1_neg { self.neg() } else { self.clone() };
-        let p2 = if k2_neg { phi_p.neg() } else { phi_p };
+        // The reference basis is (P, ψ(P), φ³(P), ψ(φ³(P))).
+        let gamma_p = self.phi().phi().phi();
+        let base_points = [self.clone(), self.psi(), gamma_p.clone(), gamma_p.psi()];
+        let signed_points: [Self; 4] = core::array::from_fn(|i| {
+            if decomposition[i].0 {
+                base_points[i].neg()
+            } else {
+                base_points[i].clone()
+            }
+        });
+        let jacobian_points = signed_points.map(|point| proj_to_jac(&point));
 
-        // Use Jacobian coordinates for faster doubling (2M+5S vs 7M+5S in projective)
-        let p1_jac = proj_to_jac(&p1);
-        let p2_jac = proj_to_jac(&p2);
-        let result_jac = shamir_two_scalar_mul(&p1_jac, &k1, &p2_jac, &k2);
+        let result_jac = shamir_four_scalar_mul(
+            [
+                &jacobian_points[0],
+                &jacobian_points[1],
+                &jacobian_points[2],
+                &jacobian_points[3],
+            ],
+            [
+                &decomposition[0].1,
+                &decomposition[1].1,
+                &decomposition[2].1,
+                &decomposition[3].1,
+            ],
+        );
         jac_to_proj(result_jac)
     }
 }
 
-/// Decomposes scalar k for GLS: k = k₁ + k₂·(p mod r) (mod r).
-///
-/// φ(Q) = [p mod r]Q (positive eigenvalue, ~127 bits), giving ~50% speedup.
-fn gls_decompose_bn254(k: &U256) -> (bool, U256, bool, U256) {
-    let zero = U256::from_u64(0);
+/// Widens a U256 into the low limbs of a U448.
+#[inline(always)]
+fn widen_u256(value: &U256) -> U448 {
+    U448::from_limbs([
+        0,
+        0,
+        0,
+        value.limbs[0],
+        value.limbs[1],
+        value.limbs[2],
+        value.limbs[3],
+    ])
+}
 
-    if *k < GLS_X_BN254 {
-        return (false, *k, false, zero);
+/// Narrows a U448 known to fit in 256 bits.
+#[inline(always)]
+fn narrow_u448(value: &U448) -> U256 {
+    debug_assert_eq!(value.limbs[..3], [0; 3]);
+    U256::from_limbs([
+        value.limbs[3],
+        value.limbs[4],
+        value.limbs[5],
+        value.limbs[6],
+    ])
+}
+
+/// Computes an exact U256 × U256 product in U448. All products used by the 4D
+/// decomposition are at most 445 bits.
+#[inline(always)]
+fn mul_u256_to_u448(lhs: &U256, rhs: &U256) -> U448 {
+    let (high, low) = U256::mul(lhs, rhs);
+    debug_assert_eq!(high.limbs[0], 0);
+    U448::from_limbs([
+        high.limbs[1],
+        high.limbs[2],
+        high.limbs[3],
+        low.limbs[0],
+        low.limbs[1],
+        low.limbs[2],
+        low.limbs[3],
+    ])
+}
+
+/// Decomposes k into four signed scalars `(k₁, k₂, k₃, k₄)` such that
+/// `k = k₁ + k₂λ + k₃γ + k₄γλ (mod r)`.
+/// See <https://eprint.iacr.org/2008/117.pdf> Example 5 of Section 6.
+/// We compute vB, the closest lattice point to (k, 0, 0, 0) and subtract it to get the decomposition.
+fn gls_decompose_4d_bn254(k: &U256) -> [(bool, U256); 4] {
+    let modulus = widen_u256(&BN254_SUBGROUP_ORDER);
+    let k_wide = widen_u256(k);
+    let zero = U448::from_u64(0);
+
+    // bi = trunc(projection_coefficient_i * k / r), retaining the coefficient sign.
+    let mut projections = [(false, U256::from_u64(0)); 4];
+    for (i, (is_negative, coefficient)) in GLS_4D_PROJECTION_COEFFICIENTS.iter().enumerate() {
+        let product = mul_u256_to_u448(coefficient, k);
+        let (quotient, _) = product.div_rem(&modulus);
+        projections[i] = (*is_negative, narrow_u448(&quotient));
     }
 
-    let (k2, k1) = k.div_rem(&GLS_X_BN254);
-    // φ(Q) = [p mod r]Q (positive), so [k]Q = [k₁]Q + [k₂]φ(Q)
-    (false, k1, false, k2)
+    let mut decomposition = [(false, U256::from_u64(0)); 4];
+    for component in 0..4 {
+        let mut accumulator = if component == 0 {
+            (false, k_wide)
+        } else {
+            (false, zero)
+        };
+
+        for basis_vector in 0..4 {
+            let basis_component = GLS_4D_LATTICE_BASIS[basis_vector][component];
+            let basis_is_negative = basis_component < 0;
+            let basis_magnitude = if basis_is_negative {
+                (-basis_component) as u128
+            } else {
+                basis_component as u128
+            };
+            let product = mul_u256_to_u448(
+                &projections[basis_vector].1,
+                &U256::from_u128(basis_magnitude),
+            );
+            let product_is_negative = projections[basis_vector].0 ^ basis_is_negative;
+
+            // component = (k for component zero, otherwise 0) - Σ bi * basis_i[component]
+            accumulator = signed_add(accumulator.0, accumulator.1, !product_is_negative, product);
+        }
+
+        let magnitude = narrow_u448(&accumulator.1);
+        let is_negative = accumulator.0 && magnitude != U256::from_u64(0);
+        decomposition[component] = (is_negative, magnitude);
+    }
+
+    decomposition
 }
 
 #[cfg(test)]
@@ -255,6 +408,22 @@ mod tests {
     #[allow(clippy::upper_case_acronyms)]
     type FpE = FieldElement<BN254PrimeField>;
     type Fp2E = FieldElement<Degree2ExtensionField>;
+
+    /// Eigenvalue of φ³ on the r-torsion subgroup.
+    const GLS_GAMMA_BN254: U256 = U256::from_hex_unchecked(
+        "30644e72e131a029048b6e193fd841045cea24f6fd736bec231204708f703636",
+    );
+
+    /// Eigenvalue of the composition φ³ ∘ ψ on the r-torsion subgroup.
+    const GLS_GAMMA_LAMBDA_BN254: U256 = U256::from_hex_unchecked(
+        "30644e72e131a029b85045b68181585cb8e665ff8b0116954ba35f11078302bb",
+    );
+
+    /// Frobenius eigenvalue for GLS on G2: φ(Q) = [p mod r]Q.
+    /// p mod r = t - 1 = 6x² where x is the BN254 seed.
+    ///
+    /// See Galbraith-Lin-Scott (GLS), <https://eprint.iacr.org/2008/194>.
+    const GLS_X_BN254: U256 = U256::from_hex_unchecked("6f4d8248eeb859fbf83e9682e87cfd46");
 
     /*
     Sage script:
@@ -635,5 +804,116 @@ mod tests {
         let eigenval_g = g.operate_with_self(GLS_X_BN254);
         assert_eq!(phi_g.to_affine().x(), eigenval_g.to_affine().x());
         assert_eq!(phi_g.to_affine().y(), eigenval_g.to_affine().y());
+    }
+
+    #[test]
+    fn gls_mul_decomposition_recomposes_scalars() {
+        use crate::elliptic_curve::short_weierstrass::curves::bn_254::default_types::FrElement;
+
+        let scalars = [
+            U256::from_u64(0),
+            U256::from_u64(1),
+            U256::from_u64(56789),
+            U256::from_hex_unchecked("123456789abcdef0123456789abcdef0"),
+            U256::from_hex_unchecked(
+                "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
+            ),
+            BN254_SUBGROUP_ORDER,
+            U256::add(&BN254_SUBGROUP_ORDER, &U256::from_u64(1)).0,
+            U256::from_hex_unchecked(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            ),
+        ];
+        let eigenvalues = [
+            U256::from_u64(1),
+            GLV_LAMBDA,
+            GLS_GAMMA_BN254,
+            GLS_GAMMA_LAMBDA_BN254,
+        ];
+
+        for scalar in scalars {
+            let decomposition = gls_decompose_4d_bn254(&scalar);
+            let mut recomposed = FrElement::zero();
+
+            for ((is_negative, magnitude), eigenvalue) in
+                decomposition.iter().zip(eigenvalues.iter())
+            {
+                assert!(
+                    magnitude.bits_le() <= 70,
+                    "4D component should fit in 70 bits, got {} for {scalar}",
+                    magnitude.bits_le()
+                );
+
+                let mut term = FrElement::new(*magnitude) * FrElement::new(*eigenvalue);
+                if *is_negative {
+                    term = -term;
+                }
+                recomposed += term;
+            }
+
+            let reduced = if scalar >= BN254_SUBGROUP_ORDER {
+                scalar.div_rem(&BN254_SUBGROUP_ORDER).1
+            } else {
+                scalar
+            };
+            assert_eq!(recomposed, FrElement::new(reduced));
+        }
+    }
+
+    #[test]
+    fn gls_mul_matches_existing_scalar_mul() {
+        let g = BN254TwistCurve::generator();
+        let scalars = [
+            U256::from_u64(0),
+            U256::from_u64(1),
+            U256::from_u64(2),
+            U256::from_u64(12345),
+            U256::from_hex_unchecked("6f4d8248eeb859fbf83e9682e87cfd46"),
+            U256::from_hex_unchecked("123456789abcdef0123456789abcdef0"),
+            U256::from_hex_unchecked("123456789abcdef0123456789abcdef0123456789abcdef0"),
+            U256::from_hex_unchecked(
+                "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000",
+            ),
+            BN254_SUBGROUP_ORDER,
+            U256::add(&BN254_SUBGROUP_ORDER, &U256::from_u64(1)).0,
+            U256::from_hex_unchecked(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            ),
+        ];
+
+        for scalar in scalars {
+            assert_eq!(
+                g.gls_mul(&scalar),
+                g.operate_with_self(scalar),
+                "4D GLS mismatch for scalar {scalar}"
+            );
+        }
+    }
+
+    #[test]
+    fn gls_mul_matches_existing_scalar_mul_for_derived_point() {
+        let point = BN254TwistCurve::generator()
+            .operate_with_self(U256::from_hex_unchecked("123456789abcdef0123456789abcdef"));
+        let scalars = [
+            U256::from_hex_unchecked("fedcba98765432100123456789abcdef"),
+            U256::from_hex_unchecked(
+                "2fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            ),
+        ];
+
+        for scalar in scalars {
+            assert_eq!(point.gls_mul(&scalar), point.operate_with_self(scalar));
+        }
+    }
+
+    #[test]
+    fn gls_mul_endomorphism_eigenvalues() {
+        let g = BN254TwistCurve::generator();
+        let gamma_g = g.phi().phi().phi();
+
+        assert_eq!(g.psi(), g.operate_with_self(GLV_LAMBDA));
+        assert_eq!(gamma_g, g.operate_with_self(GLS_GAMMA_BN254));
+        assert_eq!(gamma_g.psi(), g.operate_with_self(GLS_GAMMA_LAMBDA_BN254));
+        assert_eq!(g.psi().phi().phi().phi(), gamma_g.psi());
     }
 }

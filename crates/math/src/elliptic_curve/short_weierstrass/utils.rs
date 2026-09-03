@@ -4,7 +4,7 @@ use crate::elliptic_curve::short_weierstrass::point::{
 };
 use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
 use crate::field::element::FieldElement;
-use crate::unsigned_integer::element::U256;
+use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
 /// Precomputed constants for Babai-rounding GLV scalar decomposition.
 ///
@@ -52,16 +52,21 @@ pub(crate) struct GlvDecompConstants {
 /// Signed addition: computes (acc_neg, acc) += (term_neg, term) using unsigned arithmetic.
 /// Returns the new (is_negative, magnitude).
 #[inline(always)]
-fn signed_add(acc_neg: bool, acc: U256, term_neg: bool, term: U256) -> (bool, U256) {
+pub(crate) fn signed_add<const NUM_LIMBS: usize>(
+    acc_neg: bool,
+    acc: UnsignedInteger<NUM_LIMBS>,
+    term_neg: bool,
+    term: UnsignedInteger<NUM_LIMBS>,
+) -> (bool, UnsignedInteger<NUM_LIMBS>) {
     if acc_neg == term_neg {
         // Same sign: add magnitudes, keep sign
-        (acc_neg, U256::add(&acc, &term).0)
+        (acc_neg, UnsignedInteger::<NUM_LIMBS>::add(&acc, &term).0)
     } else {
         // Different signs: subtract smaller from larger
         if acc >= term {
-            (acc_neg, U256::sub(&acc, &term).0)
+            (acc_neg, UnsignedInteger::<NUM_LIMBS>::sub(&acc, &term).0)
         } else {
-            (term_neg, U256::sub(&term, &acc).0)
+            (term_neg, UnsignedInteger::<NUM_LIMBS>::sub(&term, &acc).0)
         }
     }
 }
@@ -154,6 +159,52 @@ pub(crate) fn shamir_two_scalar_mul<C: IsShortWeierstrass>(
             (true, false) => result = result.operate_with(p1),
             (false, true) => result = result.operate_with(p2),
             (true, true) => result = result.operate_with(&p1_plus_p2),
+        }
+    }
+
+    result
+}
+
+/// Four-way Shamir multiplication: computes Σ `[ki]Pi` with one doubling and at most one
+/// addition per bit.
+///
+/// The 16-entry table contains every subset sum of the four input points.
+pub(crate) fn shamir_four_scalar_mul<C: IsShortWeierstrass>(
+    points: [&ShortWeierstrassJacobianPoint<C>; 4],
+    scalars: [&U256; 4],
+) -> ShortWeierstrassJacobianPoint<C> {
+    let mut table: [ShortWeierstrassJacobianPoint<C>; 16] =
+        core::array::from_fn(|_| ShortWeierstrassJacobianPoint::neutral_element());
+
+    // we construct a table such that the binary representation of each index
+    // corresponds to which of the four input points are included in the subset sum.
+    for (point_index, point) in points.iter().enumerate() {
+        let current_size = 1 << point_index;
+        for subset in 0..current_size {
+            table[current_size + subset] = table[subset].operate_with(point);
+        }
+    }
+
+    let mut max_len = 0;
+    for scalar in scalars {
+        max_len = core::cmp::max(max_len, scalar.bits_le());
+    }
+
+    if max_len == 0 {
+        return ShortWeierstrassJacobianPoint::neutral_element();
+    }
+
+    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
+    for bit in (0..max_len).rev() {
+        result = result.double();
+
+        let mut table_index = 0;
+        for (scalar_index, scalar) in scalars.iter().enumerate() {
+            table_index |= (get_bit(scalar, bit) as usize) << scalar_index;
+        }
+
+        if table_index != 0 {
+            result = result.operate_with(&table[table_index]);
         }
     }
 
