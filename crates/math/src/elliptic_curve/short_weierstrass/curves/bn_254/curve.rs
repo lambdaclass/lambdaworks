@@ -1,3 +1,5 @@
+use rand_chacha::rand_core::le;
+
 use super::{
     field_extension::{BN254PrimeField, Degree2ExtensionField},
     pairing::{GAMMA_12, GAMMA_13, GAMMA_24, X},
@@ -113,10 +115,10 @@ const BN254_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
 /// See Galbraith-Lin-Scott (GLS), <https://eprint.iacr.org/2008/194>.
 const GLS_X_BN254: U256 = U256::from_hex_unchecked("6f4d8248eeb859fbf83e9682e87cfd46");
 
-// 4D GLS decomposition constants for G2. The scalar is decomposed in the eigenvalue basis
-// (1, λ, γ, γλ), where λ belongs to the cheap cube-root endomorphism and γ belongs to φ³.
-// These values are ported from Voltaire's GLS-only BN254 implementation:
-// https://github.com/evmts/voltaire/blob/b5cd01186905104322decd6fd1bb94b787541035/packages/voltaire-zig/src/crypto/bn254/curve_parameters.zig
+/// 4D GLS decomposition constants for G2. The scalar is decomposed in the eigenvalue basis
+/// (1, λ, γ, γλ), where λ is the eigenvalue of the cheap cube-root endomorphism and γ that of φ³.
+/// These values come from saturating the lattice of matrix B in Example 5 of Section 6
+/// of <https://eprint.iacr.org/2008/117.pdf> and expressing the result in the eigenvalue basis.
 
 /// Short lattice basis for the kernel of (1, λ, γ, γλ) modulo r.
 const GLS_4D_LATTICE_BASIS: [[i128; 4]; 4] = [
@@ -138,6 +140,11 @@ const GLS_4D_LATTICE_BASIS: [[i128; 4]; 4] = [
 
 /// Signed projection coefficients used to project a scalar onto `GLS_4D_LATTICE_BASIS`.
 /// Each tuple is `(is_negative, magnitude)`.
+///
+/// This vector corresponds to the precomputable part of the wB^-1 vector in
+/// Example 5 of Section 6 of <https://eprint.iacr.org/2008/117.pdf>, except with our modified matrix.
+/// That is, the vector without the n/r part, this will be multiplied back in during scalar decomposition.
+///
 const GLS_4D_PROJECTION_COEFFICIENTS: [(bool, U256); 4] = [
     (
         false,
@@ -266,7 +273,8 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
             return self.clone();
         }
 
-        if *k == U256::from_u64(0) {
+        let zero = U256::from_u64(0);
+        if *k == zero {
             return Self::neutral_element();
         }
 
@@ -347,6 +355,8 @@ fn mul_u256_to_u448(lhs: &U256, rhs: &U256) -> U448 {
 
 /// Decomposes k into four signed scalars `(k₁, k₂, k₃, k₄)` such that
 /// `k = k₁ + k₂λ + k₃γ + k₄γλ (mod r)`.
+/// See <https://eprint.iacr.org/2008/117.pdf> Example 5 of Section 6.
+/// We compute vB, the closest lattice point to (k, 0, 0, 0) and subtract it to get the decomposition.
 fn gls_decompose_4d_bn254(k: &U256) -> [(bool, U256); 4] {
     let modulus = widen_u256(&BN254_SUBGROUP_ORDER);
     let k_wide = widen_u256(k);

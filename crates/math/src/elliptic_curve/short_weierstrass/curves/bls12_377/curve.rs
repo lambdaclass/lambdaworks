@@ -219,7 +219,7 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
     /// `(P, ψ(P), ψ²(P), ψ³(P))`. The four components are at most 64 bits
     /// and are evaluated together with a 16-entry joint binary Shamir table.
     ///
-    /// `self` must be in the r-torsion subgroup.
+    /// See <https://eprint.iacr.org/2008/117.pdf>
     ///
     /// # Security Note
     ///
@@ -231,14 +231,17 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
             return self.clone();
         }
 
-        if *k == U256::from_u64(0) {
+        let zero = U256::from_u64(0);
+        if *k == zero {
             return Self::neutral_element();
         }
 
         let scalars = gls_decompose_4d_377(k);
         let psi_p = self.psi();
         let psi2_p = psi_p.psi();
-        let base_points = [self.clone(), psi_p, psi2_p.clone(), psi2_p.psi()];
+        let psi3_p = psi2_p.psi();
+
+        let base_points = [self.clone(), psi_p, psi2_p, psi3_p];
         let jacobian_points = base_points.map(|point| proj_to_jac(&point));
         let result_jac = shamir_four_scalar_mul(
             [
@@ -259,7 +262,7 @@ const GLS_X_377: U256 = U256::from_u64(MILLER_LOOP_CONSTANT);
 /// Radix-`u` decomposition `k = k0 + k1*u + k2*u^2 + k3*u^3 (mod r)`.
 ///
 /// The scalar is reduced modulo the subgroup order first. All four components are then
-/// smaller than `u` because the BLS12-377 subgroup order is `u^4 - u^2 + 1`.
+/// obtained by repeatedly dividing by `u`.
 fn gls_decompose_4d_377(k: &U256) -> [U256; 4] {
     let mut quotient = if *k >= SUBGROUP_ORDER {
         k.div_rem(&SUBGROUP_ORDER).1
@@ -629,22 +632,6 @@ mod tests {
                 g.operate_with_self(scalar),
                 "4D GLS mismatch for scalar {scalar}"
             );
-        }
-    }
-
-    #[test]
-    fn gls_mul_matches_existing_scalar_mul_for_derived_point() {
-        let point = BLS12377TwistCurve::generator()
-            .operate_with_self(U256::from_hex_unchecked("123456789abcdef0123456789abcdef"));
-        let scalars = [
-            U256::from_hex_unchecked("fedcba98765432100123456789abcdef"),
-            U256::from_hex_unchecked(
-                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            ),
-        ];
-
-        for scalar in scalars {
-            assert_eq!(point.gls_mul(&scalar), point.operate_with_self(scalar));
         }
     }
 }

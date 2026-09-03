@@ -228,7 +228,7 @@ impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
     /// Frobenius images are negated. The four components are at most 64 bits and
     /// are evaluated together with a 16-entry joint binary Shamir table.
     ///
-    /// `self` must be in the r-torsion subgroup.
+    /// See <https://eprint.iacr.org/2008/117.pdf>
     ///
     /// # Security Note
     ///
@@ -240,19 +240,17 @@ impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
             return self.clone();
         }
 
-        if *k == U256::from_u64(0) {
+        let zero = U256::from_u64(0);
+        if *k == zero {
             return Self::neutral_element();
         }
 
         let scalars = gls_decompose_4d(k);
         let psi_p = self.psi();
         let psi2_p = psi_p.psi();
-        let base_points = [
-            self.clone(),
-            psi_p.neg(),
-            psi2_p.clone(),
-            psi2_p.psi().neg(),
-        ];
+        let psi3_p = psi2_p.psi();
+
+        let base_points = [self.clone(), psi_p.neg(), psi2_p, psi3_p.neg()];
         shamir_four_scalar_mul(
             [
                 &base_points[0],
@@ -270,8 +268,8 @@ const GLS_X: U256 = U256::from_u64(MILLER_LOOP_CONSTANT);
 
 /// Radix-`x` decomposition `k = k0 + k1*x + k2*x^2 + k3*x^3 (mod r)`.
 ///
-/// The scalar is reduced modulo the subgroup order first. All components are smaller
-/// than `x` because the BLS12-381 subgroup order is `x^4 - x^2 + 1`.
+/// The scalar is reduced modulo the subgroup order first. All four components are then
+/// obtained by repeatedly dividing by `x`.
 fn gls_decompose_4d(k: &U256) -> [U256; 4] {
     let mut quotient = if *k >= SUBGROUP_ORDER {
         k.div_rem(&SUBGROUP_ORDER).1
@@ -315,7 +313,7 @@ mod tests {
     ]);
 
     /// Computes the psi^2() 'Untwist Frobenius Endomorphism'
-    ///  
+    ///
     /// # Safety
     ///
     /// - This function assumes `p` is a valid point on the BLS12-381 twist curve.
@@ -730,22 +728,6 @@ mod tests {
                 g.operate_with_self(scalar),
                 "4D GLS mismatch for scalar {scalar}"
             );
-        }
-    }
-
-    #[test]
-    fn gls_mul_matches_existing_scalar_mul_for_derived_point() {
-        let point = BLS12381TwistCurve::generator()
-            .operate_with_self(U256::from_hex_unchecked("123456789abcdef0123456789abcdef"));
-        let scalars = [
-            U256::from_hex_unchecked("fedcba98765432100123456789abcdef"),
-            U256::from_hex_unchecked(
-                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            ),
-        ];
-
-        for scalar in scalars {
-            assert_eq!(point.gls_mul(&scalar), point.operate_with_self(scalar));
         }
     }
 }

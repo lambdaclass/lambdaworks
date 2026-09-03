@@ -176,7 +176,8 @@ pub(crate) fn shamir_four_scalar_mul<C: IsShortWeierstrass>(
     let mut table: [ShortWeierstrassJacobianPoint<C>; 16] =
         core::array::from_fn(|_| ShortWeierstrassJacobianPoint::neutral_element());
 
-    // table[index] = sum(points[j]) for every set bit j in index.
+    // we construct a table such that the binary representation of each index
+    // corresponds to which of the four input points are included in the subset sum.
     for (point_index, point) in points.iter().enumerate() {
         let current_size = 1 << point_index;
         for subset in 0..current_size {
