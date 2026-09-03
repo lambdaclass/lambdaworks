@@ -160,6 +160,202 @@ pub(crate) fn shamir_two_scalar_mul<C: IsShortWeierstrass>(
     result
 }
 
+// A 2D GLV component is at most 130 bits including a signed-recoding carry.
+const MAX_WNAF_DIGITS: usize = 131;
+const MIN_WNAF_WINDOW_SIZE: usize = 2;
+const MAX_WNAF_WINDOW_SIZE: usize = 8;
+
+/// Recodes a scalar as width-w non-adjacent form, least-significant digit first.
+fn recode_wnaf(mut scalar: U256, window_size: usize) -> ([i16; MAX_WNAF_DIGITS], usize) {
+    let mut digits = [0; MAX_WNAF_DIGITS];
+    let mut len = 0;
+    let zero = U256::from_u64(0);
+    let full_window = 1_u64 << window_size;
+    let half_window = full_window >> 1;
+    let window_mask = full_window - 1;
+
+    while scalar != zero {
+        if scalar.limbs[3] & 1 == 1 {
+            let residue = scalar.limbs[3] & window_mask;
+            if residue < half_window {
+                digits[len] = residue as i16;
+                scalar = (scalar - U256::from_u64(residue)) >> 1;
+            } else {
+                let magnitude = full_window - residue;
+                digits[len] = -(magnitude as i16);
+
+                // Avoid overflowing U256 when the signed recoding carries out of bit 255.
+                scalar = (scalar >> 1) + U256::from_u64((magnitude >> 1) + 1);
+            }
+        } else {
+            scalar >>= 1;
+        }
+        len += 1;
+    }
+
+    (digits, len)
+}
+
+/// Joint NAF evaluation for two scalars. The signed combination table preserves Shamir's
+/// one-addition-per-digit property while reducing the joint non-zero density.
+fn shamir_two_scalar_mul_naf<C: IsShortWeierstrass>(
+    p1: &ShortWeierstrassJacobianPoint<C>,
+    k1: &U256,
+    p2: &ShortWeierstrassJacobianPoint<C>,
+    k2: &U256,
+) -> ShortWeierstrassJacobianPoint<C> {
+    let (digits1, len1) = recode_wnaf(*k1, MIN_WNAF_WINDOW_SIZE);
+    let (digits2, len2) = recode_wnaf(*k2, MIN_WNAF_WINDOW_SIZE);
+    let max_len = core::cmp::max(len1, len2);
+    if max_len == 0 {
+        return ShortWeierstrassJacobianPoint::neutral_element();
+    }
+
+    let neg_p1 = p1.neg();
+    let neg_p2 = p2.neg();
+    let p1_plus_p2 = p1.operate_with(p2);
+    let p1_minus_p2 = p1.operate_with(&neg_p2);
+    let neg_p1_plus_p2 = p1_minus_p2.neg();
+    let neg_p1_minus_p2 = p1_plus_p2.neg();
+
+    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
+    let mut started = false;
+    for bit in (0..max_len).rev() {
+        if started {
+            result = result.double();
+        }
+
+        let digit1 = digits1[bit];
+        let digit2 = digits2[bit];
+        let addend = match (digit1, digit2) {
+            (0, 0) => None,
+            (1, 0) => Some(p1),
+            (-1, 0) => Some(&neg_p1),
+            (0, 1) => Some(p2),
+            (0, -1) => Some(&neg_p2),
+            (1, 1) => Some(&p1_plus_p2),
+            (1, -1) => Some(&p1_minus_p2),
+            (-1, 1) => Some(&neg_p1_plus_p2),
+            (-1, -1) => Some(&neg_p1_minus_p2),
+            _ => unreachable!("width-2 WNAF only contains -1, 0, and 1"),
+        };
+
+        if let Some(addend) = addend {
+            if started {
+                result = result.operate_with(addend);
+            } else {
+                result = addend.clone();
+                started = true;
+            }
+        }
+    }
+
+    result
+}
+
+/// Interleaved two-scalar width-w NAF multiplication.
+///
+/// Both signed scalar streams share one doubling loop. Odd multiples of each point are
+/// precomputed independently, so a digit position needs zero, one, or two additions.
+pub(crate) fn shamir_two_scalar_mul_wnaf<C: IsShortWeierstrass>(
+    p1: &ShortWeierstrassJacobianPoint<C>,
+    k1: &U256,
+    p2: &ShortWeierstrassJacobianPoint<C>,
+    k2: &U256,
+    window_size: usize,
+) -> ShortWeierstrassJacobianPoint<C> {
+    let window_size = window_size.clamp(MIN_WNAF_WINDOW_SIZE, MAX_WNAF_WINDOW_SIZE);
+    match window_size {
+        2 => shamir_two_scalar_mul_naf(p1, k1, p2, k2),
+        3 => shamir_two_scalar_mul_wnaf_impl::<C, 2>(p1, k1, p2, k2, window_size),
+        4 => shamir_two_scalar_mul_wnaf_impl::<C, 4>(p1, k1, p2, k2, window_size),
+        5 => shamir_two_scalar_mul_wnaf_impl::<C, 8>(p1, k1, p2, k2, window_size),
+        6 => shamir_two_scalar_mul_wnaf_impl::<C, 16>(p1, k1, p2, k2, window_size),
+        7 => shamir_two_scalar_mul_wnaf_impl::<C, 32>(p1, k1, p2, k2, window_size),
+        8 => shamir_two_scalar_mul_wnaf_impl::<C, 64>(p1, k1, p2, k2, window_size),
+        _ => unreachable!("window size is clamped to 2..=8"),
+    }
+}
+
+fn shamir_two_scalar_mul_wnaf_impl<C: IsShortWeierstrass, const TABLE_LEN: usize>(
+    p1: &ShortWeierstrassJacobianPoint<C>,
+    k1: &U256,
+    p2: &ShortWeierstrassJacobianPoint<C>,
+    k2: &U256,
+    window_size: usize,
+) -> ShortWeierstrassJacobianPoint<C> {
+    let (digits1, len1) = recode_wnaf(*k1, window_size);
+    let (digits2, len2) = recode_wnaf(*k2, window_size);
+    let max_len = core::cmp::max(len1, len2);
+    if max_len == 0 {
+        return ShortWeierstrassJacobianPoint::neutral_element();
+    }
+
+    let mut odd_multiples1: [Option<ShortWeierstrassJacobianPoint<C>>; TABLE_LEN] =
+        core::array::from_fn(|_| None);
+    let mut odd_multiples2: [Option<ShortWeierstrassJacobianPoint<C>>; TABLE_LEN] =
+        core::array::from_fn(|_| None);
+    odd_multiples1[0] = Some(p1.clone());
+    odd_multiples2[0] = Some(p2.clone());
+
+    let two_p1 = p1.double();
+    let two_p2 = p2.double();
+    for index in 1..TABLE_LEN {
+        odd_multiples1[index] = Some(
+            odd_multiples1[index - 1]
+                .as_ref()
+                .expect("the preceding odd multiple is initialized")
+                .operate_with(&two_p1),
+        );
+        odd_multiples2[index] = Some(
+            odd_multiples2[index - 1]
+                .as_ref()
+                .expect("the preceding odd multiple is initialized")
+                .operate_with(&two_p2),
+        );
+    }
+
+    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
+    let mut started = false;
+    for bit in (0..max_len).rev() {
+        if started {
+            result = result.double();
+        }
+
+        for (digit, table) in [
+            (digits1[bit], &odd_multiples1),
+            (digits2[bit], &odd_multiples2),
+        ] {
+            if digit == 0 {
+                continue;
+            }
+
+            let table_index = ((digit.unsigned_abs() as usize) - 1) >> 1;
+            let multiple = table[table_index]
+                .as_ref()
+                .expect("the selected odd multiple is initialized");
+            if digit > 0 {
+                if started {
+                    result = result.operate_with(multiple);
+                } else {
+                    result = multiple.clone();
+                    started = true;
+                }
+            } else {
+                let neg_multiple = multiple.neg();
+                if started {
+                    result = result.operate_with(&neg_multiple);
+                } else {
+                    result = neg_multiple;
+                    started = true;
+                }
+            }
+        }
+    }
+
+    result
+}
+
 /// Converts a projective G1/G2 point to Jacobian for efficient doubling.
 /// Projective (X:Y:Z) where affine=(X/Z, Y/Z) → Jacobian (X·Z : Y·Z² : Z).
 /// Cost: 2M + 1S.

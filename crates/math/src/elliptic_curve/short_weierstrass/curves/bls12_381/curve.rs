@@ -5,7 +5,7 @@ use super::{
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
 use crate::elliptic_curve::short_weierstrass::utils::{
-    glv_decompose_babai, shamir_two_scalar_mul, GlvDecompConstants,
+    glv_decompose_babai, shamir_two_scalar_mul, shamir_two_scalar_mul_wnaf, GlvDecompConstants,
 };
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
@@ -180,6 +180,30 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let p2 = if k2_neg { phi_p.neg() } else { phi_p };
 
         shamir_two_scalar_mul(&p1, &k1, &p2, &k2)
+    }
+
+    /// GLV scalar multiplication with interleaved width-w NAF evaluation after decomposition.
+    ///
+    /// This method is not constant-time and requires `self` to be in the r-torsion subgroup.
+    pub fn glv_mul_wnaf(&self, k: &U256, window_size: usize) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+        if *k == U256::from_u64(0) {
+            return Self::neutral_element();
+        }
+
+        let k_reduced = if *k >= SUBGROUP_ORDER {
+            k.div_rem(&SUBGROUP_ORDER).1
+        } else {
+            *k
+        };
+        let (k1_neg, k1, k2_neg, k2) = glv_decompose_babai(&k_reduced, &BLS12_381_GLV_CONSTANTS);
+        let phi_p = self.phi();
+        let p1 = if k1_neg { self.neg() } else { self.clone() };
+        let p2 = if k2_neg { phi_p.neg() } else { phi_p };
+
+        shamir_two_scalar_mul_wnaf(&p1, &k1, &p2, &k2, window_size)
     }
 }
 
@@ -577,6 +601,30 @@ mod tests {
         let k = U256::from_u64(0);
         let result = g.glv_mul(&k);
         assert!(result.is_neutral_element());
+    }
+
+    #[test]
+    fn glv_mul_wnaf_matches_glv() {
+        let g = BLS12381Curve::generator();
+        let scalars = [
+            U256::from_u64(0),
+            U256::from_u64(12345),
+            U256::from_hex_unchecked("123456789abcdef0123456789abcdef0"),
+            U256::from_hex_unchecked(
+                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            ),
+        ];
+
+        for scalar in scalars {
+            for window_size in 2..=8 {
+                assert_eq!(g.glv_mul_wnaf(&scalar, window_size), g.glv_mul(&scalar));
+            }
+        }
+
+        let neutral = ShortWeierstrassJacobianPoint::<BLS12381Curve>::neutral_element();
+        assert!(neutral
+            .glv_mul_wnaf(&U256::from_u64(12345), 4)
+            .is_neutral_element());
     }
 
     #[test]
