@@ -1,5 +1,3 @@
-use rand_chacha::rand_core::le;
-
 use super::{
     field_extension::{BN254PrimeField, Degree2ExtensionField},
     pairing::{GAMMA_12, GAMMA_13, GAMMA_24, X},
@@ -108,12 +106,6 @@ const BN254_GLV_CONSTANTS: GlvDecompConstants = GlvDecompConstants {
     q1_is_neg: false,
     q2_is_neg: false,
 };
-
-/// Frobenius eigenvalue for GLS on G2: φ(Q) = [p mod r]Q.
-/// p mod r = t - 1 = 6x² where x is the BN254 seed.
-///
-/// See Galbraith-Lin-Scott (GLS), <https://eprint.iacr.org/2008/194>.
-const GLS_X_BN254: U256 = U256::from_hex_unchecked("6f4d8248eeb859fbf83e9682e87cfd46");
 
 /// 4D GLS decomposition constants for G2. The scalar is decomposed in the eigenvalue basis
 /// (1, λ, γ, γλ), where λ is the eigenvalue of the cheap cube-root endomorphism and γ that of φ³.
@@ -427,6 +419,12 @@ mod tests {
     const GLS_GAMMA_LAMBDA_BN254: U256 = U256::from_hex_unchecked(
         "30644e72e131a029b85045b68181585cb8e665ff8b0116954ba35f11078302bb",
     );
+
+    /// Frobenius eigenvalue for GLS on G2: φ(Q) = [p mod r]Q.
+    /// p mod r = t - 1 = 6x² where x is the BN254 seed.
+    ///
+    /// See Galbraith-Lin-Scott (GLS), <https://eprint.iacr.org/2008/194>.
+    const GLS_X_BN254: U256 = U256::from_hex_unchecked("6f4d8248eeb859fbf83e9682e87cfd46");
 
     /*
     Sage script:
