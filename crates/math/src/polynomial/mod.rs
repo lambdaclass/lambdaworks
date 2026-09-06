@@ -242,12 +242,9 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 .expect("Leading coefficient should be non-zero for non-zero polynomial");
             while !n.is_zero() && n.degree() >= divisor.degree() {
                 let new_coefficient = n.leading_coefficient() * &denominator;
-                q[n.degree() - divisor.degree()] = new_coefficient.clone();
-                let d = divisor.mul_with_ref(&Polynomial::new_monomial(
-                    new_coefficient,
-                    n.degree() - divisor.degree(),
-                ));
-                n -= d;
+                let shift = n.degree() - divisor.degree();
+                q[shift] = new_coefficient.clone();
+                n.sub_scaled_shifted_assign(divisor, &new_coefficient, shift);
             }
             Ok((Polynomial::new(&q), n))
         }
@@ -314,6 +311,39 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     pub fn div_with_ref(self, divisor: &Self) -> Result<Self, PolynomialError> {
         let (quotient, _remainder) = self.long_division_with_remainder(divisor)?;
         Ok(quotient)
+    }
+
+    fn sub_scaled_shifted_assign(&mut self, other: &Self, scale: &FieldElement<F>, shift: usize) {
+        if other.coefficients.is_empty() {
+            return;
+        }
+
+        let required_len = shift + other.coefficients.len();
+        debug_assert!(
+            required_len <= self.coefficients.len(),
+            "sub_scaled_shifted_assign: required_len ({required_len}) exceeds self.len ({}); \
+             caller invariant violated",
+            self.coefficients.len()
+        );
+        if required_len > self.coefficients.len() {
+            self.coefficients.resize(required_len, FieldElement::zero());
+        }
+
+        for (target, coeff) in self.coefficients[shift..required_len]
+            .iter_mut()
+            .zip(other.coefficients.iter())
+        {
+            let scaled_coeff = coeff * scale;
+            *target = &*target - &scaled_coeff;
+        }
+
+        while self
+            .coefficients
+            .last()
+            .is_some_and(|c| *c == FieldElement::zero())
+        {
+            self.coefficients.pop();
+        }
     }
 
     pub fn mul_with_ref(&self, factor: &Self) -> Self {
@@ -1241,6 +1271,43 @@ mod tests {
         let p2 = Polynomial::new(&[FE::new(1), FE::new(3)]);
         let p3 = p1.mul_with_ref(&p2);
         assert_eq!(p3 / p2, p1);
+    }
+
+    #[test]
+    fn long_division_reconstructs_dividend_with_remainder() {
+        let dividend =
+            Polynomial::new(&[FE::new(5), FE::new(0), FE::new(3), FE::new(4), FE::new(2)]);
+        let divisor = Polynomial::new(&[FE::new(3), FE::new(1), FE::new(1)]);
+
+        let (quotient, remainder) = dividend
+            .clone()
+            .long_division_with_remainder(&divisor)
+            .unwrap();
+
+        assert!(remainder.is_zero() || remainder.degree() < divisor.degree());
+        assert_eq!(quotient.mul_with_ref(&divisor) + remainder, dividend);
+    }
+
+    #[test]
+    fn long_division_reconstructs_dividend_for_wide_degree_gap() {
+        let dividend = Polynomial::new(&[
+            FE::new(7),
+            FE::new(0),
+            FE::new(0),
+            FE::new(2),
+            FE::new(0),
+            FE::new(0),
+            FE::new(4),
+        ]);
+        let divisor = Polynomial::new(&[FE::new(5), FE::new(1)]);
+
+        let (quotient, remainder) = dividend
+            .clone()
+            .long_division_with_remainder(&divisor)
+            .unwrap();
+
+        assert!(remainder.is_zero() || remainder.degree() < divisor.degree());
+        assert_eq!(quotient.mul_with_ref(&divisor) + remainder, dividend);
     }
 
     #[test]
