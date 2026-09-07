@@ -6,7 +6,8 @@ use super::{
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::short_weierstrass::utils::{
-    glv_decompose_babai, jac_to_proj, proj_to_jac, shamir_two_scalar_mul, GlvDecompConstants,
+    glv_decompose_babai, jac_to_proj, proj_to_jac, shamir_two_scalar_mul,
+    shamir_two_scalar_mul_wnaf, GlvDecompConstants,
 };
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
@@ -92,6 +93,9 @@ pub const CUBE_ROOT_OF_UNITY_G1: BLS12377FieldElement = FieldElement::from_hex_u
 pub const GLV_LAMBDA: U256 =
     U256::from_hex_unchecked("12ab655e9a2ca55660b44d1e5c37b00114885f32400000000000000000000000");
 
+/// Best G1 wNAF window in the mixed full-width scalar benchmarks.
+const GLV_WNAF_WINDOW_SIZE: usize = 5;
+
 /// Babai-rounding GLV decomposition constants for BLS12-377.
 ///
 /// Lattice basis (from LLL on the GLV lattice {(a,b) : a + b·λ ≡ 0 mod r}):
@@ -140,7 +144,7 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
     /// GLV scalar multiplication: computes [k]P using the endomorphism.
     ///
     /// Uses Babai nearest-plane decomposition: k = k1 + k2·λ (mod r) with |k1|, |k2| ~ √r
-    /// (~127 bits), then Shamir's trick for joint scalar multiplication.
+    /// (~127 bits), then Shamir's trick, combined with width-w NAF for joint scalar multiplication.
     ///
     /// # Security Note
     ///
@@ -172,7 +176,11 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
         // Use Jacobian coordinates for faster doubling (2M+5S vs 7M+5S in projective)
         let p1_jac = proj_to_jac(&p1);
         let p2_jac = proj_to_jac(&p2);
-        let result_jac = shamir_two_scalar_mul(&p1_jac, &k1, &p2_jac, &k2);
+        let result_jac = shamir_two_scalar_mul_wnaf::<
+            _,
+            GLV_WNAF_WINDOW_SIZE,
+            { 1 << (GLV_WNAF_WINDOW_SIZE - 2) },
+        >(&p1_jac, &k1, &p2_jac, &k2);
         jac_to_proj(result_jac)
     }
 }

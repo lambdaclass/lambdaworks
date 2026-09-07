@@ -5,7 +5,7 @@ use super::{
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
 use crate::elliptic_curve::short_weierstrass::utils::{
-    glv_decompose_babai, shamir_two_scalar_mul, GlvDecompConstants,
+    glv_decompose_babai, shamir_two_scalar_mul, shamir_two_scalar_mul_wnaf, GlvDecompConstants,
 };
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
@@ -89,6 +89,9 @@ pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_u
 pub const GLV_LAMBDA: U256 =
     U256::from_hex_unchecked("73eda753299d7d483339d80809a1d804a7780001fffcb7fcfffffffe00000001");
 
+/// Best G1 wNAF window in the mixed full-width scalar benchmarks.
+const GLV_WNAF_WINDOW_SIZE: usize = 5;
+
 /// Babai-rounding GLV decomposition constants for BLS12-381.
 ///
 /// Lattice basis (from LLL on the GLV lattice {(a,b) : a + b·λ ≡ 0 mod r}):
@@ -156,7 +159,7 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
     /// GLV scalar multiplication: computes [k]P using the endomorphism for ~2x speedup.
     ///
     /// Uses Babai nearest-plane decomposition: k = k1 + k2·λ (mod r) with |k1|, |k2| ~ √r
-    /// (~128 bits), then Shamir's trick for joint scalar multiplication.
+    /// (~128 bits), then Shamir's trick, combined with width-w NAF for joint scalar multiplication.
     pub fn glv_mul(&self, k: &U256) -> Self {
         if self.is_neutral_element() {
             return self.clone();
@@ -179,7 +182,9 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let p1 = if k1_neg { self.neg() } else { self.clone() };
         let p2 = if k2_neg { phi_p.neg() } else { phi_p };
 
-        shamir_two_scalar_mul(&p1, &k1, &p2, &k2)
+        shamir_two_scalar_mul_wnaf::<_, GLV_WNAF_WINDOW_SIZE, { 1 << (GLV_WNAF_WINDOW_SIZE - 2) }>(
+            &p1, &k1, &p2, &k2,
+        )
     }
 }
 
@@ -328,7 +333,7 @@ mod tests {
     ]);
 
     /// Computes the psi^2() 'Untwist Frobenius Endomorphism'
-    ///  
+    ///
     /// # Safety
     ///
     /// - This function assumes `p` is a valid point on the BLS12-381 twist curve.

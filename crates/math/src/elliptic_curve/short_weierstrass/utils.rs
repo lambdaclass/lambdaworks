@@ -160,6 +160,115 @@ pub(crate) fn shamir_two_scalar_mul<C: IsShortWeierstrass>(
     result
 }
 
+// A 2D GLV component is at most 128 bits including a signed-recoding carry.
+const MAX_WNAF_DIGITS: usize = 129;
+
+/// Recodes a scalar as width-w non-adjacent form, least-significant digit first.
+/// Only the returned length is used; interior zeros encode doublings between nonzero digits.
+fn recode_wnaf<const WINDOW_SIZE: usize>(mut scalar: U256) -> ([i8; MAX_WNAF_DIGITS], usize) {
+    let mut digits = [0; MAX_WNAF_DIGITS];
+    let mut len = 0;
+    let zero = U256::from_u64(0);
+    let full_window = 1_u64 << WINDOW_SIZE;
+    let half_window = full_window >> 1;
+    let window_mask = full_window - 1;
+
+    while scalar != zero {
+        if scalar.limbs[3] & 1 == 1 {
+            // Choose a signed odd digit so the next WINDOW_SIZE - 1 digits are zero.
+            let residue = scalar.limbs[3] & window_mask;
+            if residue < half_window {
+                digits[len] = residue as i8;
+                scalar = (scalar - U256::from_u64(residue)) >> 1;
+            } else {
+                let magnitude = full_window - residue;
+                digits[len] = -(magnitude as i8);
+
+                // Compute (scalar + magnitude) / 2 without overflowing.
+                scalar = (scalar >> 1) + U256::from_u64((magnitude >> 1) + 1);
+            }
+        } else {
+            scalar >>= 1;
+        }
+        len += 1;
+    }
+
+    (digits, len)
+}
+
+/// Computes [k1]P1 + [k2]P2 with wNAF digits sharing one doubling loop.
+pub(crate) fn shamir_two_scalar_mul_wnaf<
+    C: IsShortWeierstrass,
+    const WINDOW_SIZE: usize,
+    const TABLE_LEN: usize,
+>(
+    p1: &ShortWeierstrassJacobianPoint<C>,
+    k1: &U256,
+    p2: &ShortWeierstrassJacobianPoint<C>,
+    k2: &U256,
+) -> ShortWeierstrassJacobianPoint<C> {
+    // Stable Rust requires the derived array length as a separate const parameter.
+    const {
+        assert!(WINDOW_SIZE >= 2 && WINDOW_SIZE <= 8);
+        assert!(TABLE_LEN == 1 << (WINDOW_SIZE - 2));
+    }
+    let (digits1, len1) = recode_wnaf::<WINDOW_SIZE>(*k1);
+    let (digits2, len2) = recode_wnaf::<WINDOW_SIZE>(*k2);
+    let max_len = core::cmp::max(len1, len2);
+    if max_len == 0 {
+        return ShortWeierstrassJacobianPoint::neutral_element();
+    }
+
+    // Build P, 3P, 5P, ... for each point by repeatedly adding 2P.
+    let tables: [[ShortWeierstrassJacobianPoint<C>; TABLE_LEN]; 2] = [p1, p2].map(|point| {
+        let twice = point.double();
+        let mut multiple = point.clone();
+        core::array::from_fn(|index| {
+            if index != 0 {
+                multiple = multiple.operate_with(&twice);
+            }
+            multiple.clone()
+        })
+    });
+
+    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
+    let mut started = false; //we use a started flag to not call double on the leading zeros
+
+    // Scan the used digits from high to low; zero digits still require a doubling.
+    for bit in (0..max_len).rev() {
+        if started {
+            result = result.double();
+        }
+
+        for (digit, table) in [(digits1[bit], &tables[0]), (digits2[bit], &tables[1])] {
+            if digit == 0 {
+                continue;
+            }
+
+            let table_index = ((digit.unsigned_abs() as usize) - 1) >> 1;
+            let multiple = &table[table_index];
+            if digit > 0 {
+                if started {
+                    result = result.operate_with(multiple);
+                } else {
+                    result = multiple.clone();
+                    started = true;
+                }
+            } else {
+                let neg_multiple = multiple.neg();
+                if started {
+                    result = result.operate_with(&neg_multiple);
+                } else {
+                    result = neg_multiple;
+                    started = true;
+                }
+            }
+        }
+    }
+
+    result
+}
+
 /// Converts a projective G1/G2 point to Jacobian for efficient doubling.
 /// Projective (X:Y:Z) where affine=(X/Z, Y/Z) → Jacobian (X·Z : Y·Z² : Z).
 /// Cost: 2M + 1S.
