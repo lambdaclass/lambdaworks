@@ -80,6 +80,9 @@ pub const GLV_LAMBDA: U256 =
 const BN254_SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
 
+/// Best G1 wNAF window in the mixed full-width scalar benchmarks.
+const GLV_WNAF_WINDOW_SIZE: usize = 4;
+
 /// Babai-rounding GLV decomposition constants for BN254.
 ///
 /// Lattice basis (from LLL on the GLV lattice {(a,b) : a + b·λ ≡ 0 mod r}):
@@ -128,7 +131,8 @@ impl ShortWeierstrassProjectivePoint<BN254Curve> {
     /// GLV scalar multiplication: computes [k]P using the endomorphism.
     ///
     /// Uses Babai nearest-plane decomposition: k = k1 + k2·λ (mod r) with |k1|, |k2| ~ √r
-    /// (~128 bits), then Shamir's trick. Reduces iterations from 254 to ~128 bits.
+    /// (~128 bits), then Shamir's trick combined with width-w NAF for joint scalar multiplication.
+    /// Reduces iterations from 254 to ~128 bits.
     ///
     /// # Security Note
     ///
@@ -160,33 +164,11 @@ impl ShortWeierstrassProjectivePoint<BN254Curve> {
         // Use Jacobian coordinates for faster doubling (2M+5S vs 7M+5S in projective)
         let p1_jac = proj_to_jac(&p1);
         let p2_jac = proj_to_jac(&p2);
-        let result_jac = shamir_two_scalar_mul(&p1_jac, &k1, &p2_jac, &k2);
-        jac_to_proj(result_jac)
-    }
-
-    /// GLV scalar multiplication with interleaved width-w NAF evaluation after decomposition.
-    ///
-    /// This method is not constant-time and requires `self` to be in the r-torsion subgroup.
-    pub fn glv_mul_wnaf(&self, k: &U256, window_size: usize) -> Self {
-        if self.is_neutral_element() {
-            return self.clone();
-        }
-        if *k == U256::from_u64(0) {
-            return Self::neutral_element();
-        }
-
-        let k_reduced = if *k >= BN254_SUBGROUP_ORDER {
-            k.div_rem(&BN254_SUBGROUP_ORDER).1
-        } else {
-            *k
-        };
-        let (k1_neg, k1, k2_neg, k2) = glv_decompose_babai(&k_reduced, &BN254_GLV_CONSTANTS);
-        let phi_p = self.phi();
-        let p1 = if k1_neg { self.neg() } else { self.clone() };
-        let p2 = if k2_neg { phi_p.neg() } else { phi_p };
-        let p1_jac = proj_to_jac(&p1);
-        let p2_jac = proj_to_jac(&p2);
-        let result_jac = shamir_two_scalar_mul_wnaf(&p1_jac, &k1, &p2_jac, &k2, window_size);
+        let result_jac = shamir_two_scalar_mul_wnaf::<
+            _,
+            GLV_WNAF_WINDOW_SIZE,
+            { 1 << (GLV_WNAF_WINDOW_SIZE - 2) },
+        >(&p1_jac, &k1, &p2_jac, &k2);
         jac_to_proj(result_jac)
     }
 }
@@ -581,30 +563,6 @@ mod tests {
         let g = BN254Curve::generator();
         let k = U256::from_u64(0);
         assert!(g.glv_mul(&k).is_neutral_element());
-    }
-
-    #[test]
-    fn glv_mul_wnaf_g1_matches_glv() {
-        let g = BN254Curve::generator();
-        let scalars = [
-            U256::from_u64(0),
-            U256::from_u64(12345),
-            U256::from_hex_unchecked("123456789abcdef0123456789abcdef0"),
-            U256::from_hex_unchecked(
-                "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-            ),
-        ];
-
-        for scalar in scalars {
-            for window_size in 2..=8 {
-                assert_eq!(g.glv_mul_wnaf(&scalar, window_size), g.glv_mul(&scalar));
-            }
-        }
-
-        let neutral = ShortWeierstrassProjectivePoint::<BN254Curve>::neutral_element();
-        assert!(neutral
-            .glv_mul_wnaf(&U256::from_u64(12345), 4)
-            .is_neutral_element());
     }
 
     #[test]
