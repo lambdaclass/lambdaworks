@@ -142,6 +142,11 @@ impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
             phantom: PhantomData,
         }
     }
+
+    /// Returns the number of powers in the SRS (maximum polynomial degree + 1 supported).
+    pub fn srs_size(&self) -> usize {
+        self.srs.powers_main_group.len()
+    }
 }
 
 impl<const N: usize, F: IsPrimeField<CanonicalType = UnsignedInteger<N>>, P: IsPairing>

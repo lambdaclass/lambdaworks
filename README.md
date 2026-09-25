@@ -135,6 +135,7 @@ For more examples, see the [examples directory](./examples/) and the [math crate
 - [STARK Prover](./crates/provers/stark/)
 - [Plonk Prover](./crates/provers/plonk/)
 - [Groth 16](./crates/provers/groth16/)
+- [Spartan](./crates/provers/spartan/)
 
 ### Crypto
 
@@ -211,6 +212,7 @@ List of symbols:
 | Groth16    | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :x:             | :x:                |
 | Plonk      | 🏗️                 | :heavy_check_mark: | :x:         | :heavy_check_mark: | :x:             | :heavy_check_mark: |
 | GKR        | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :x:             | :x:                |
+| Spartan    | :heavy_check_mark: | :x:                | :x:         | :x:                | :x:             | :x:                |
 | **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Plonky3**        | **gnark**          | **Constantine**    | **Halo2**          |
 | KZG10                             | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | 
 | FRI                               | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                |
