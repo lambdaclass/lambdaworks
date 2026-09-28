@@ -33,11 +33,10 @@ impl Mersenne31Field {
 
     #[inline(always)]
     fn as_canonical(n: &u32) -> u32 {
-        if *n == MERSENNE_31_PRIME_FIELD_ORDER {
-            0
-        } else {
-            *n
-        }
+        // Branchless canonicalization. The only non-canonical value is p (representing 0).
+        // n + 1 overflows into bit 31 iff n == p, giving is_p = 1.
+        let is_p = n.wrapping_add(1) >> 31;
+        n & is_p.wrapping_sub(1)
     }
 
     #[inline]
@@ -522,6 +521,11 @@ mod tests {
             FE::from(&F::two_square_minus_one(a.value())),
             a.square().double() - FE::one()
         )
+    }
+
+    #[test]
+    fn canonical_of_prime_is_zero() {
+        assert_eq!(F::canonical(&MERSENNE_31_PRIME_FIELD_ORDER), 0u32);
     }
 
     #[test]
