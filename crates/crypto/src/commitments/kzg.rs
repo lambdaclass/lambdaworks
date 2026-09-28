@@ -197,12 +197,12 @@ impl<const N: usize, F: IsPrimeField<CanonicalType = UnsignedInteger<N>>, P: IsP
 
         let e = P::compute_batch(&[
             (
-                &p_commitment.operate_with(&(g1.operate_with_self(y.canonical())).neg()),
-                g2,
+                p_commitment.operate_with(&(g1.operate_with_self(y.canonical())).neg()),
+                g2.clone(),
             ),
             (
-                &proof.neg(),
-                &(alpha_g2.operate_with(&(g2.operate_with_self(x.canonical())).neg())),
+                proof.neg(),
+                alpha_g2.operate_with(&(g2.operate_with_self(x.canonical())).neg()),
             ),
         ]);
         e == Ok(FieldElement::one())

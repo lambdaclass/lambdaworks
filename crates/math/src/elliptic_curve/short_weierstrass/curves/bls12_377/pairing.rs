@@ -7,6 +7,7 @@ use super::{
     twist::BLS12377TwistCurve,
 };
 use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
+use core::borrow::Borrow;
 
 use crate::{
     elliptic_curve::short_weierstrass::{
@@ -106,10 +107,12 @@ impl IsPairing for BLS12377AtePairing {
 
     /// Compute the product of the ate pairings for a list of point pairs.
     fn compute_batch(
-        pairs: &[(&Self::G1Point, &Self::G2Point)],
+        pairs: &[(impl Borrow<Self::G1Point>, impl Borrow<Self::G2Point>)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
+            let p = p.borrow();
+            let q = q.borrow();
             if !p.is_in_subgroup() || !q.is_in_subgroup() {
                 return Err(PairingError::PointNotInSubgroup);
             }
@@ -540,12 +543,12 @@ mod tests {
 
         let result = BLS12377AtePairing::compute_batch(&[
             (
-                &p.operate_with_self(a).to_affine(),
-                &q.operate_with_self(b).to_affine(),
+                p.operate_with_self(a).to_affine(),
+                q.operate_with_self(b).to_affine(),
             ),
             (
-                &p.operate_with_self(a * b).to_affine(),
-                &q.neg().to_affine(),
+                p.operate_with_self(a * b).to_affine(),
+                q.neg().to_affine(),
             ),
         ])
         .unwrap();
@@ -556,12 +559,12 @@ mod tests {
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p = BLS12377Curve::generator().to_affine();
         let q = ShortWeierstrassProjectivePoint::neutral_element();
-        let result = BLS12377AtePairing::compute_batch(&[(&p.to_affine(), &q)]).unwrap();
+        let result = BLS12377AtePairing::compute_batch(&[(p.to_affine(), q.clone())]).unwrap();
         assert_eq!(result, FieldElement::one());
 
         let p = ShortWeierstrassProjectivePoint::neutral_element();
         let q = BLS12377TwistCurve::generator();
-        let result = BLS12377AtePairing::compute_batch(&[(&p, &q.to_affine())]).unwrap();
+        let result = BLS12377AtePairing::compute_batch(&[(p.clone(), q.to_affine())]).unwrap();
         assert_eq!(result, FieldElement::one());
     }
 
@@ -576,7 +579,7 @@ mod tests {
         ])
         .unwrap();
         let q = ShortWeierstrassProjectivePoint::neutral_element();
-        let result = BLS12377AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
+        let result = BLS12377AtePairing::compute_batch(&[(p.to_affine(), q.clone())]);
         assert!(result.is_err())
     }
 
