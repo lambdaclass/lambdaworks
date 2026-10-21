@@ -1,5 +1,6 @@
 pub mod backends;
 pub mod merkle;
+pub mod multiproof;
 pub mod proof;
 #[cfg(test)]
 pub mod test_merkle;

@@ -2,7 +2,7 @@ use core::fmt::Display;
 
 use alloc::vec::Vec;
 
-use super::{proof::Proof, traits::IsMerkleTreeBackend, utils::*};
+use super::{multiproof::MultiProof, proof::Proof, traits::IsMerkleTreeBackend, utils::*};
 
 #[derive(Debug)]
 pub enum Error {
@@ -75,6 +75,93 @@ where
         };
 
         self.create_proof(merkle_path)
+    }
+
+    /// Returns a batched inclusion proof for the elements at the given positions,
+    /// using the Octopus technique to remove redundancies between the individual
+    /// authentication paths.
+    ///
+    /// The returned proof is never larger than the concatenation of the
+    /// individual proofs for the same positions, and is usually smaller: sibling
+    /// nodes shared between two proven paths, as well as nodes that the verifier
+    /// can recompute from other values in the proof, are not included.
+    ///
+    /// Positions are sorted and deduplicated, so the caller does not need to
+    /// pre-process them. Returns `None` if no positions are given or if any
+    /// position is out of the bounds of the tree.
+    pub fn get_multiproof_by_positions(&self, positions: &[usize]) -> Option<MultiProof<B::Node>> {
+        if positions.is_empty() {
+            return None;
+        }
+
+        // `nodes` holds `2 * leaves_len - 1` entries: the first `leaves_len - 1`
+        // are internal nodes and the rest are the (padded) leaves.
+        let leaves_len = self.nodes.len().div_ceil(2);
+        debug_assert!(leaves_len.is_power_of_two());
+
+        // Unpadded leaf positions, sorted and without repetitions.
+        let mut sorted_positions = positions.to_vec();
+        sorted_positions.sort_unstable();
+        sorted_positions.dedup();
+
+        if sorted_positions
+            .iter()
+            .any(|position| *position >= leaves_len)
+        {
+            return None;
+        }
+
+        // We work with canonical heap indices over the complete tree, matching
+        // the layout of `self.nodes`: the root is index 0, the children of a node
+        // `j` are `2j + 1` and `2j + 2`, and the leaves occupy the indices
+        // `[leaves_len - 1, 2 * leaves_len - 1)`. `sibling_index` and
+        // `parent_index` operate on this indexing.
+        //
+        // `current` holds the proven node indices at the current level, sorted in
+        // increasing order (which is also left-to-right order within a level).
+        let mut current: Vec<usize> = sorted_positions
+            .iter()
+            .map(|position| position + leaves_len - 1)
+            .collect();
+
+        let mut nodes = Vec::new();
+
+        // Walk up level by level until the root (canonical index 0) is the only
+        // remaining node. The parent of a pair of proven siblings is derived by
+        // the verifier, so it remains in the proven set and no hash is emitted
+        // for it. Any node whose sibling is *not* proven needs that sibling hash
+        // to be transmitted.
+        while current.first() != Some(&0) {
+            let mut next = Vec::new();
+
+            let mut i = 0;
+            while i < current.len() {
+                if i + 1 < current.len() && current[i + 1] == sibling_index(current[i]) {
+                    // Both siblings are proven: no hash needed.
+                    i += 2;
+                } else {
+                    // The sibling is not proven, so it must be provided.
+                    nodes.push(self.nodes[sibling_index(current[i])].clone());
+                    i += 1;
+                }
+
+                let parent = parent_index(current[i - 1]);
+                // `next` stays sorted and free of repetitions: the proven
+                // indices are sorted, and the only way two consecutive proven
+                // nodes share a parent is the sibling pair handled above.
+                if next.last() != Some(&parent) {
+                    next.push(parent);
+                }
+            }
+
+            current = next;
+        }
+
+        Some(MultiProof {
+            leaves_len,
+            positions: sorted_positions,
+            nodes,
+        })
     }
 
     /// Creates a proof from a Merkle pasth

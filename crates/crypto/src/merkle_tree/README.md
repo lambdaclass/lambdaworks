@@ -33,6 +33,8 @@ The implementation in this codebase includes:
 
 - `MerkleTree`: The main Merkle tree data structure
 - `Proof`: Represents a Merkle proof for verifying inclusion of data
+- `MultiProof`: Represents a batched Merkle proof for verifying inclusion of
+  several leaves at once (Octopus)
 - `IsMerkleTreeBackend`: A trait for implementing different backend strategies
 - Several backend implementations:
   - `FieldElementBackend`: For hashing field elements using various hash functions
@@ -144,6 +146,53 @@ let is_valid = proof.verify::<FieldElementBackend<F, Keccak256, 32>>(
 assert!(is_valid, "Proof verification failed");
 ```
 
+### Batched Proofs (Octopus multiproofs)
+
+When several leaves of the same tree need to be proven, generating one `Proof`
+per leaf is wasteful: the individual authentication paths overlap, and some
+sibling nodes can be recomputed from values already included in the proof. The
+`MultiProof` type removes this redundancy using the Octopus technique from
+[Aumasson and Endignoux, *Improving Stateless Hash-Based Signatures*](https://eprint.iacr.org/2017/933)
+(the same compression used by Gravity-SPHINCS).
+
+A batched proof is never larger than the concatenation of the individual proofs
+for the same positions, and is usually much smaller.
+
+```rust
+use lambdaworks_crypto::merkle_tree::{
+    merkle::MerkleTree,
+    backends::field_element::FieldElementBackend,
+};
+use lambdaworks_math::field::{
+    element::FieldElement,
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+};
+use sha3::Keccak256;
+
+type F = Stark252PrimeField;
+type FE = FieldElement<F>;
+type Backend = FieldElementBackend<F, Keccak256, 32>;
+
+let values: Vec<FE> = (1..=32u64).map(FE::from).collect();
+let merkle_tree = MerkleTree::<Backend>::build(&values).unwrap();
+
+// Generate a single proof covering several leaves.
+let positions = [0usize, 5, 15, 31];
+let multiproof = merkle_tree.get_multiproof_by_positions(&positions).unwrap();
+
+// The proven values, aligned with `multiproof.positions`.
+let proven_values: Vec<FE> = positions.iter().map(|position| values[*position]).collect();
+
+// Verify them all at once against the root.
+assert!(multiproof.verify::<Backend>(&merkle_tree.root, &proven_values));
+```
+
+`get_multiproof_by_positions` sorts and deduplicates the positions, so the
+caller does not need to pre-process them. It returns `None` if the slice is empty
+or if any position is out of bounds. `MultiProof::verify` returns `false` if the
+values do not match the stored positions, if a position is out of range, or if
+the recomputed root does not match.
+
 ### Working with Vectors of Field Elements
 
 If you need to hash vectors of field elements:
@@ -229,3 +278,4 @@ Note: The serialization example assumes that the type used for the Merkle tree n
 
 - [Merkle Tree - Wikipedia](https://en.wikipedia.org/wiki/Merkle_tree)
 - [What is a Merkle Tree?](https://decentralizedthoughts.github.io/2020-12-22-what-is-a-merkle-tree/) - A comprehensive explanation of Merkle trees, proofs, and applications
+- [Improving Stateless Hash-Based Signatures](https://eprint.iacr.org/2017/933) - Introduces Octopus, the technique used for batched proofs (`MultiProof`)
