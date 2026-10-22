@@ -8,6 +8,7 @@ use crate::{
     field::element::FieldElement,
     traits::{ByteConversion, Deserializable},
 };
+use core::fmt;
 
 use super::traits::IsShortWeierstrass;
 
@@ -16,7 +17,7 @@ use crate::traits::AsBytes;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
 
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
@@ -191,6 +192,39 @@ impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassProjectivePoint<E> {
 }
 
 impl<E: IsEllipticCurve> Eq for ShortWeierstrassProjectivePoint<E> {}
+
+impl<E: IsEllipticCurve> fmt::Display for ShortWeierstrassProjectivePoint<E> {
+    /// Displays the affine coordinates of the point, e.g. `(0x1a2b, 0x3c4d)`.
+    ///
+    /// The point at infinity is displayed as `infinity`.
+    ///
+    /// Note that this computes the affine representation of the point, which
+    /// requires a field inversion.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if *self.0.z() == FieldElement::zero() {
+            return write!(f, "infinity");
+        }
+        let affine = self.0.to_affine();
+        write!(f, "({}, {})", affine.x(), affine.y())
+    }
+}
+
+impl<E: IsEllipticCurve> fmt::Debug for ShortWeierstrassProjectivePoint<E> {
+    /// Displays the type of the point followed by its affine coordinates,
+    /// e.g. `ShortWeierstrassProjectivePoint(x: 0x1a2b, y: 0x3c4d)`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if *self.0.z() == FieldElement::zero() {
+            return write!(f, "ShortWeierstrassProjectivePoint(infinity)");
+        }
+        let affine = self.0.to_affine();
+        write!(
+            f,
+            "ShortWeierstrassProjectivePoint(x: {}, y: {})",
+            affine.x(),
+            affine.y()
+        )
+    }
+}
 
 impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProjectivePoint<E> {
     fn from_affine(
@@ -651,7 +685,7 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(JacobianPoint<E>);
 
 impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
@@ -851,6 +885,39 @@ impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassJacobianPoint<E> {
 }
 
 impl<E: IsEllipticCurve> Eq for ShortWeierstrassJacobianPoint<E> {}
+
+impl<E: IsEllipticCurve> fmt::Display for ShortWeierstrassJacobianPoint<E> {
+    /// Displays the affine coordinates of the point, e.g. `(0x1a2b, 0x3c4d)`.
+    ///
+    /// The point at infinity is displayed as `infinity`.
+    ///
+    /// Note that this computes the affine representation of the point, which
+    /// requires a field inversion.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if *self.0.z() == FieldElement::zero() {
+            return write!(f, "infinity");
+        }
+        let affine = self.0.to_affine();
+        write!(f, "({}, {})", affine.x(), affine.y())
+    }
+}
+
+impl<E: IsEllipticCurve> fmt::Debug for ShortWeierstrassJacobianPoint<E> {
+    /// Displays the type of the point followed by its affine coordinates,
+    /// e.g. `ShortWeierstrassJacobianPoint(x: 0x1a2b, y: 0x3c4d)`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if *self.0.z() == FieldElement::zero() {
+            return write!(f, "ShortWeierstrassJacobianPoint(infinity)");
+        }
+        let affine = self.0.to_affine();
+        write!(
+            f,
+            "ShortWeierstrassJacobianPoint(x: {}, y: {})",
+            affine.x(),
+            affine.y()
+        )
+    }
+}
 
 impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassJacobianPoint<E> {
     fn from_affine(
@@ -1600,5 +1667,94 @@ mod tests {
             alloc::vec::Vec::new();
         let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::batch_to_affine(&points);
         assert!(result.is_empty());
+    }
+
+    #[cfg(feature = "alloc")]
+    fn generator_affine_coordinates() -> (FEE, FEE) {
+        (
+            FEE::new_base("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
+            FEE::new_base("8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1"),
+        )
+    }
+
+    #[cfg(feature = "alloc")]
+    const GENERATOR_X: &str = "0x17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb";
+    #[cfg(feature = "alloc")]
+    const GENERATOR_Y: &str = "0x8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1";
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_display_projective_point() {
+        use alloc::format;
+
+        let (x, y) = generator_affine_coordinates();
+        let point = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(x, y).unwrap();
+
+        assert_eq!(
+            format!("{point}"),
+            format!("({GENERATOR_X}, {GENERATOR_Y})")
+        );
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_debug_projective_point() {
+        use alloc::format;
+
+        let (x, y) = generator_affine_coordinates();
+        let point = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(x, y).unwrap();
+
+        assert_eq!(
+            format!("{point:?}"),
+            format!("ShortWeierstrassProjectivePoint(x: {GENERATOR_X}, y: {GENERATOR_Y})")
+        );
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_display_jacobian_point() {
+        use alloc::format;
+
+        let (x, y) = generator_affine_coordinates();
+        let point = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(x, y).unwrap();
+
+        assert_eq!(
+            format!("{point}"),
+            format!("({GENERATOR_X}, {GENERATOR_Y})")
+        );
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_debug_jacobian_point() {
+        use alloc::format;
+
+        let (x, y) = generator_affine_coordinates();
+        let point = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(x, y).unwrap();
+
+        assert_eq!(
+            format!("{point:?}"),
+            format!("ShortWeierstrassJacobianPoint(x: {GENERATOR_X}, y: {GENERATOR_Y})")
+        );
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_display_neutral_element() {
+        use alloc::format;
+
+        let projective = ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element();
+        assert_eq!(format!("{projective}"), "infinity");
+        assert_eq!(
+            format!("{projective:?}"),
+            "ShortWeierstrassProjectivePoint(infinity)"
+        );
+
+        let jacobian = ShortWeierstrassJacobianPoint::<BLS12381Curve>::neutral_element();
+        assert_eq!(format!("{jacobian}"), "infinity");
+        assert_eq!(
+            format!("{jacobian:?}"),
+            "ShortWeierstrassJacobianPoint(infinity)"
+        );
     }
 }

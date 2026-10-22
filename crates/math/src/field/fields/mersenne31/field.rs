@@ -9,7 +9,7 @@ use crate::{
     },
     traits::ByteConversion,
 };
-use core::fmt::{self, Display};
+use core::fmt;
 
 /// Represents a 31 bit integer value
 /// Invariants:
@@ -171,6 +171,11 @@ impl IsField for Mersenne31Field {
     fn double(a: &u32) -> u32 {
         Self::weak_reduce(a << 1)
     }
+
+    /// Displays the canonical value of the element in hexadecimal.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "0x{:x}", <Self as IsPrimeField>::canonical(a))
+    }
 }
 
 impl IsPrimeField for Mersenne31Field {
@@ -253,12 +258,6 @@ impl HasDefaultTranscript for Mersenne31Field {
 impl crate::circle::traits::IsCircleFriField for Mersenne31Field {
     /// The circle group over Mersenne31 has order 2^31.
     const LOG_MAX_SUBGROUP_ORDER: u32 = 31;
-}
-
-impl Display for FieldElement<Mersenne31Field> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:x}", self.canonical())
-    }
 }
 
 #[cfg(test)]

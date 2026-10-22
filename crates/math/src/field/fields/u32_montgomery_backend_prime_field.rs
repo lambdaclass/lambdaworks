@@ -7,7 +7,7 @@ use crate::field::traits::IsPrimeField;
 use crate::traits::AsBytes;
 use crate::traits::ByteConversion;
 
-use core::fmt::Debug;
+use core::fmt::{self, Debug};
 #[cfg_attr(
     any(
         feature = "lambdaworks-serde-binary",
@@ -180,6 +180,14 @@ impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
     #[inline(always)]
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::mul(&x, &Self::R2, &MODULUS, &Self::MU)
+    }
+
+    /// Displays the canonical value of the element in hexadecimal.
+    ///
+    /// The internal representation of the element is in Montgomery form, so it is
+    /// converted back before being displayed.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "0x{:x}", <Self as IsPrimeField>::canonical(a))
     }
 }
 

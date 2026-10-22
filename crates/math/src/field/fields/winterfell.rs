@@ -1,3 +1,4 @@
+use core::fmt;
 use core::ops::Add;
 
 use crate::{
@@ -88,6 +89,11 @@ impl IsField for Felt {
 
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
+    }
+
+    /// Displays the value of the element.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{a}")
     }
 }
 
@@ -235,6 +241,11 @@ impl IsField for QuadFelt {
 
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
+    }
+
+    /// Displays the value of the element.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{a}")
     }
 }
 

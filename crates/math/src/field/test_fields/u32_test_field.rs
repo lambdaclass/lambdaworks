@@ -5,6 +5,7 @@ use crate::{
 };
 
 use crate::traits::ByteConversion;
+use core::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 
@@ -85,6 +86,11 @@ impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
 
     fn from_base_type(x: u32) -> u32 {
         x % MODULUS
+    }
+
+    /// Displays the canonical value of the element in hexadecimal.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "0x{:x}", a)
     }
 }
 

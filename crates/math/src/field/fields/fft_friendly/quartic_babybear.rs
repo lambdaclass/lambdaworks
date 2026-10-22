@@ -2,10 +2,11 @@ use crate::field::{
     element::FieldElement,
     errors::FieldError,
     fields::fft_friendly::babybear::Babybear31PrimeField,
-    traits::{HasDefaultTranscript, IsFFTField, IsField, IsSubFieldOf},
+    traits::{fmt_extension_elements, HasDefaultTranscript, IsFFTField, IsField, IsSubFieldOf},
 };
 
 use crate::traits::ByteConversion;
+use core::fmt;
 
 #[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
@@ -121,6 +122,11 @@ impl IsField for Degree4BabyBearExtensionField {
     /// already have correct representations.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
+    }
+
+    /// Displays the element as the components it is built on.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_extension_elements(a, f)
     }
 }
 

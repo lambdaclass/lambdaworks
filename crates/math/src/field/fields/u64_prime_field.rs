@@ -6,6 +6,7 @@ use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::{HasDefaultTranscript, IsFFTField, IsField, IsPrimeField};
 use crate::traits::{ByteConversion, Deserializable};
+use core::fmt;
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -73,6 +74,11 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
 
     fn from_base_type(x: u64) -> u64 {
         Self::from_u64(x)
+    }
+
+    /// Displays the canonical value of the element in hexadecimal.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "0x{:x}", a)
     }
 }
 

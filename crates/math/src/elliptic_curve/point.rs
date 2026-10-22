@@ -1,6 +1,6 @@
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
-use core::fmt::Debug;
+use core::fmt::{self, Debug};
 /// Represents an elliptic curve point using the projective short Weierstrass form:
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,
 /// where `x`, `y` and `z` variables are field elements.
@@ -66,6 +66,19 @@ impl<E: IsEllipticCurve> PartialEq for ProjectivePoint<E> {
 }
 
 impl<E: IsEllipticCurve> Eq for ProjectivePoint<E> {}
+
+impl<E: IsEllipticCurve> fmt::Display for ProjectivePoint<E> {
+    /// Displays the affine coordinates of the point, e.g. `(0x1a2b, 0x3c4d)`.
+    ///
+    /// The point at infinity is displayed as `infinity`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if *self.z() == FieldElement::zero() {
+            return write!(f, "infinity");
+        }
+        let affine = self.to_affine();
+        write!(f, "({}, {})", affine.x(), affine.y())
+    }
+}
 #[derive(Debug, Clone)]
 
 pub struct JacobianPoint<E: IsEllipticCurve> {
@@ -143,6 +156,19 @@ impl<E: IsEllipticCurve> PartialEq for JacobianPoint<E> {
     }
 }
 impl<E: IsEllipticCurve> Eq for JacobianPoint<E> {}
+
+impl<E: IsEllipticCurve> fmt::Display for JacobianPoint<E> {
+    /// Displays the affine coordinates of the point, e.g. `(0x1a2b, 0x3c4d)`.
+    ///
+    /// The point at infinity is displayed as `infinity`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if *self.z() == FieldElement::zero() {
+            return write!(f, "infinity");
+        }
+        let affine = self.to_affine();
+        write!(f, "({}, {})", affine.x(), affine.y())
+    }
+}
 #[cfg(test)]
 mod tests {
     use crate::cyclic_group::IsGroup;

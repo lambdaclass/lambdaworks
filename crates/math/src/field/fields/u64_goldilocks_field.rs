@@ -8,12 +8,14 @@
 //! All implementations use direct u64 representation (no Montgomery form) and
 //! exploit the special structure of the Goldilocks prime for fast reduction.
 
-use core::fmt::{self, Display};
+use core::fmt;
 use core::hint::unreachable_unchecked;
 
 use crate::errors::CreationError;
 use crate::field::traits::HasDefaultTranscript;
-use crate::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
+use crate::field::traits::{
+    fmt_extension_elements, IsFFTField, IsField, IsPrimeField, IsSubFieldOf,
+};
 use crate::field::{element::FieldElement, errors::FieldError};
 #[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
@@ -258,6 +260,11 @@ impl IsField for Goldilocks64Field {
     fn double(a: &u64) -> u64 {
         <Self as IsField>::add(a, a)
     }
+
+    /// Displays the canonical value of the element in hexadecimal.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "0x{:x}", <Self as IsPrimeField>::canonical(a))
+    }
 }
 
 impl IsPrimeField for Goldilocks64Field {
@@ -297,12 +304,6 @@ impl IsFFTField for Goldilocks64Field {
 
     fn field_name() -> &'static str {
         "Goldilocks"
-    }
-}
-
-impl Display for FieldElement<Goldilocks64Field> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:x}", self.canonical())
     }
 }
 
@@ -808,6 +809,11 @@ impl IsField for Degree2GoldilocksExtensionField {
     fn double(a: &Self::BaseType) -> Self::BaseType {
         [a[0].double(), a[1].double()]
     }
+
+    /// Displays the element as the components it is built on.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_extension_elements(a, f)
+    }
 }
 
 impl IsSubFieldOf<Degree2GoldilocksExtensionField> for Goldilocks64Field {
@@ -1026,6 +1032,11 @@ impl IsField for Degree3GoldilocksExtensionField {
 
     fn double(a: &Self::BaseType) -> Self::BaseType {
         [a[0].double(), a[1].double(), a[2].double()]
+    }
+
+    /// Displays the element as the components it is built on.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_extension_elements(a, f)
     }
 }
 

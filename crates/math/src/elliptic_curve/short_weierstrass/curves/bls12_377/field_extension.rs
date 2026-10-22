@@ -6,10 +6,11 @@ use crate::field::{
         quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
     fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-    traits::{IsField, IsSubFieldOf},
+    traits::{fmt_extension_elements, IsField, IsSubFieldOf},
 };
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::U384;
+use core::fmt;
 
 pub const BLS12377_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001");
 pub const FP2_RESIDUE: FieldElement<BLS12377PrimeField> =FieldElement::from_hex_unchecked("0x1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508bffffffffffc");
@@ -113,6 +114,11 @@ impl IsField for Degree2ExtensionField {
     #[inline]
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
+    }
+
+    /// Displays the element as the components it is built on.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_extension_elements(a, f)
     }
 }
 

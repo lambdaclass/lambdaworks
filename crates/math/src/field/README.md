@@ -336,6 +336,19 @@ impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
 }
 ```
 
+Field elements are printed with the `Display` trait, which delegates to the `fmt_element` method of the `IsField` trait. By default it falls back to the `Debug` representation of the underlying type, but you can override it to show a human readable value (for example the canonical value in hexadecimal for fields that keep their elements in Montgomery form). Extension fields usually display their components:
+
+```rust
+impl IsField for Degree2ExtensionField {
+    // ... the rest of the operations ...
+
+    /// Displays the element as the components it is built on.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_extension_elements(a, f)
+    }
+}
+```
+
 Once you have the quadratic extension, you can build another extension (tower approach). For example, to define a degree 3 extension field over the quadratic extension of the BLS12-381 scalar field, we have
 
 ```rust

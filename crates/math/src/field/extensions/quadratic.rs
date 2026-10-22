@@ -1,8 +1,8 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
-use crate::field::traits::{IsField, IsSubFieldOf};
+use crate::field::traits::{fmt_extension_elements, IsField, IsSubFieldOf};
 use crate::traits::ByteConversion;
-use core::fmt::Debug;
+use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
 /// A general quadratic extension field over `F`
@@ -174,6 +174,11 @@ where
     /// already have correct representations.
     fn from_base_type(x: [FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         x
+    }
+
+    /// Displays the element as the pair of components it is built on.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_extension_elements(a, f)
     }
 }
 

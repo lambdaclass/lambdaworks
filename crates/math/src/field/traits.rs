@@ -1,7 +1,7 @@
 use super::{element::FieldElement, errors::FieldError};
 use crate::traits::ByteConversion;
 use crate::{errors::CreationError, unsigned_integer::traits::IsUnsignedInteger};
-use core::fmt::Debug;
+use core::fmt::{self, Debug};
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
 /// be necessary for FFT (as twiddle factors).
@@ -181,6 +181,35 @@ pub trait IsField: Debug + Clone {
     /// Takes as input an element of BaseType and returns the internal representation
     /// of that element in the field.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType;
+
+    /// Writes a human readable representation of the field element `a` into `f`.
+    ///
+    /// The default implementation uses the `Debug` representation of the underlying
+    /// type. Fields that keep their elements in an internal representation (e.g.
+    /// Montgomery form) should override this method to display the canonical value
+    /// of the element instead.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{a:?}")
+    }
+}
+
+/// Writes the components of an extension field element as `(c0, c1, ...)`.
+///
+/// This is meant to be used by the `fmt_element` implementation of extension
+/// fields, so that their elements are displayed in terms of the elements of the
+/// base field they are built on.
+pub fn fmt_extension_elements<F: IsField, const N: usize>(
+    components: &[FieldElement<F>; N],
+    f: &mut fmt::Formatter<'_>,
+) -> fmt::Result {
+    write!(f, "(")?;
+    for (i, component) in components.iter().enumerate() {
+        if i != 0 {
+            write!(f, ", ")?;
+        }
+        F::fmt_element(component.value(), f)?;
+    }
+    write!(f, ")")
 }
 
 /// Provides the Legendre symbol for an element modulo p

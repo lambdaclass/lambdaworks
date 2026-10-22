@@ -3,6 +3,7 @@ use crate::field::errors::FieldError;
 use crate::field::traits::{IsField, IsPrimeField};
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
+use core::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct P448GoldilocksPrimeField;
@@ -239,6 +240,11 @@ impl IsField for P448GoldilocksPrimeField {
         let mut x = x;
         Self::strong_reduce(&mut x);
         x
+    }
+
+    /// Displays the canonical value of the element in hexadecimal.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", <Self as IsPrimeField>::canonical(a))
     }
 }
 

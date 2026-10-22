@@ -10,7 +10,7 @@ use crate::{
     unsigned_integer::montgomery::MontgomeryAlgorithms,
 };
 
-use core::fmt::Debug;
+use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
 pub type U384PrimeField<M> = MontgomeryBackendPrimeField<M, 6>;
@@ -368,6 +368,14 @@ where
     #[inline(always)]
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::cios(&x, &Self::R2, &M::MODULUS, &Self::MU)
+    }
+
+    /// Displays the canonical value of the element in hexadecimal.
+    ///
+    /// The internal representation of the element is in Montgomery form, so it is
+    /// converted back before being displayed.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", <Self as IsPrimeField>::canonical(a))
     }
 }
 

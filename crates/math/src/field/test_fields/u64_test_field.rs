@@ -7,6 +7,7 @@ use crate::{
     },
     field::{errors::FieldError, extensions::quadratic::HasQuadraticNonResidue},
 };
+use core::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct U64Field<const MODULUS: u64>;
@@ -60,6 +61,11 @@ impl<const MODULUS: u64> IsField for U64Field<MODULUS> {
 
     fn from_base_type(x: u64) -> u64 {
         Self::from_u64(x)
+    }
+
+    /// Displays the canonical value of the element in hexadecimal.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "0x{:x}", a)
     }
 }
 

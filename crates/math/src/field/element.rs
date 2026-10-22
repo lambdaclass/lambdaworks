@@ -851,14 +851,13 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
     }
 }
 
-impl<M, const NUM_LIMBS: usize> fmt::Display
-    for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
-where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
-{
+impl<F: IsField> fmt::Display for FieldElement<F> {
+    /// Displays the element using the human readable representation of the field.
+    ///
+    /// Fields backed by a modulus show the canonical value of the element in
+    /// hexadecimal, e.g. `0x1a2b3c`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value: UnsignedInteger<NUM_LIMBS> = self.canonical();
-        write!(f, "{value}")
+        F::fmt_element(self.value(), f)
     }
 }
 
@@ -956,6 +955,21 @@ mod tests {
             format!("{some_field_element}"),
             format!("0x{}{}{}{}", "1", "0".repeat(16), "0".repeat(15), "1")
         );
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_display_extension_field() {
+        use alloc::format;
+
+        use crate::elliptic_curve::short_weierstrass::curves::bn_254::field_extension::Degree2ExtensionField;
+
+        let element = FieldElement::<Degree2ExtensionField>::new([
+            FieldElement::from(1),
+            FieldElement::from(2),
+        ]);
+
+        assert_eq!(format!("{element}"), "(0x1, 0x2)");
     }
 
     #[test]

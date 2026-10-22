@@ -6,10 +6,11 @@ use crate::{
     },
     field::element::FieldElement,
 };
+use core::fmt;
 
 use super::traits::IsEdwards;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct EdwardsProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
 
 impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
@@ -150,6 +151,41 @@ impl<E: IsEdwards> FromAffine<E::BaseField> for EdwardsProjectivePoint<E> {
 }
 
 impl<E: IsEllipticCurve> Eq for EdwardsProjectivePoint<E> {}
+
+impl<E: IsEllipticCurve> fmt::Display for EdwardsProjectivePoint<E> {
+    /// Displays the affine coordinates of the point, e.g. `(0x1a2b, 0x3c4d)`.
+    ///
+    /// The neutral element is displayed as `infinity`.
+    ///
+    /// Note that this computes the affine representation of the point, which
+    /// requires a field inversion.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let [x, y, z] = self.0.coordinates();
+        if *x == FieldElement::zero() && *y == *z {
+            return write!(f, "infinity");
+        }
+        let affine = self.0.to_affine();
+        write!(f, "({}, {})", affine.x(), affine.y())
+    }
+}
+
+impl<E: IsEllipticCurve> fmt::Debug for EdwardsProjectivePoint<E> {
+    /// Displays the type of the point followed by its affine coordinates,
+    /// e.g. `EdwardsProjectivePoint(x: 0x1a2b, y: 0x3c4d)`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let [x, y, z] = self.0.coordinates();
+        if *x == FieldElement::zero() && *y == *z {
+            return write!(f, "EdwardsProjectivePoint(infinity)");
+        }
+        let affine = self.0.to_affine();
+        write!(
+            f,
+            "EdwardsProjectivePoint(x: {}, y: {})",
+            affine.x(),
+            affine.y()
+        )
+    }
+}
 
 impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     /// Returns the point at infinity (neutral element) in projective coordinates.
@@ -404,5 +440,39 @@ mod tests {
 
         assert_eq!(batch_result.len(), 1);
         assert_eq!(batch_result[0], points[0].to_affine());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_display_edwards_point() {
+        use alloc::format;
+
+        let point = create_point(12, 11);
+
+        assert_eq!(format!("{point}"), "(0xc, 0xb)");
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_debug_edwards_point() {
+        use alloc::format;
+
+        let point = create_point(12, 11);
+
+        assert_eq!(
+            format!("{point:?}"),
+            "EdwardsProjectivePoint(x: 0xc, y: 0xb)"
+        );
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_display_neutral_element_edwards() {
+        use alloc::format;
+
+        let point = EdwardsProjectivePoint::<TinyJubJubEdwards>::neutral_element();
+
+        assert_eq!(format!("{point}"), "infinity");
+        assert_eq!(format!("{point:?}"), "EdwardsProjectivePoint(infinity)");
     }
 }

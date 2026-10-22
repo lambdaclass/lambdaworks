@@ -2,11 +2,12 @@ use super::field::{Mersenne31Field, MERSENNE_31_PRIME_FIELD_ORDER};
 use crate::field::{
     element::FieldElement,
     errors::FieldError,
-    traits::{HasDefaultTranscript, IsFFTField, IsField, IsSubFieldOf},
+    traits::{fmt_extension_elements, HasDefaultTranscript, IsFFTField, IsField, IsSubFieldOf},
 };
 #[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 use crate::traits::ByteConversion;
+use core::fmt;
 
 type FpE = FieldElement<Mersenne31Field>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
@@ -91,6 +92,11 @@ impl IsField for Degree2ExtensionField {
     /// already have correct representations.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
+    }
+
+    /// Displays the element as the components it is built on.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_extension_elements(a, f)
     }
 }
 
@@ -288,6 +294,11 @@ impl IsField for Degree4ExtensionField {
 
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
+    }
+
+    /// Displays the element as the components it is built on.
+    fn fmt_element(a: &Self::BaseType, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt_extension_elements(a, f)
     }
 }
 
