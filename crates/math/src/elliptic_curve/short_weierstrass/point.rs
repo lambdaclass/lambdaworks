@@ -17,7 +17,9 @@ use crate::traits::AsBytes;
 use alloc::vec::Vec;
 
 #[derive(Clone, Debug)]
-pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
+pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve> {
+    pub point: ProjectivePoint<E>,
+}
 
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
@@ -26,17 +28,21 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         if z != &FieldElement::<E::BaseField>::zero()
             && E::defining_equation_projective(x, y, z) == FieldElement::<E::BaseField>::zero()
         {
-            Ok(Self(ProjectivePoint::new(value)))
+            Ok(Self {
+                point: ProjectivePoint::new(value),
+            })
         // The point at infinity is (0, 1, 0)
         // We convert every (0, _, 0) into the infinity.
         } else if x == &FieldElement::<E::BaseField>::zero()
             && z == &FieldElement::<E::BaseField>::zero()
         {
-            Ok(Self(ProjectivePoint::new([
-                FieldElement::<E::BaseField>::zero(),
-                FieldElement::<E::BaseField>::one(),
-                FieldElement::<E::BaseField>::zero(),
-            ])))
+            Ok(Self {
+                point: ProjectivePoint::new([
+                    FieldElement::<E::BaseField>::zero(),
+                    FieldElement::<E::BaseField>::one(),
+                    FieldElement::<E::BaseField>::zero(),
+                ]),
+            })
         } else {
             Err(EllipticCurveError::InvalidPoint)
         }
@@ -48,39 +54,43 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         // SAFETY: The caller MUST ensure that [x:y:z] represents valid point on the
         // curve. Passing arbitrary coordinates here can violate the invariant
         // and produce silently incorrect results in subsequent operations.
-        Self(ProjectivePoint::new(value))
+        Self {
+            point: ProjectivePoint::new(value),
+        }
     }
 
     /// Changes the point coordinates without checking that it satisfies the curve equation.
     pub fn set_unchecked(&mut self, value: [FieldElement<E::BaseField>; 3]) {
         // SAFETY: The caller MUST ensure that the provided coordinates represent a valid curve
         // point. Setting invalid coordinates may lead to silently incorrect computations later on.
-        self.0.value = value
+        self.point.value = value
     }
 
     /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
-        self.0.x()
+        self.point.x()
     }
 
     /// Returns the `y` coordinate of the point.
     pub fn y(&self) -> &FieldElement<E::BaseField> {
-        self.0.y()
+        self.point.y()
     }
 
     /// Returns the `z` coordinate of the point.
     pub fn z(&self) -> &FieldElement<E::BaseField> {
-        self.0.z()
+        self.point.z()
     }
 
     /// Returns a tuple [x, y, z] with the coordinates of the point.
     pub fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
-        self.0.coordinates()
+        self.point.coordinates()
     }
 
     /// Returns the affine representation of the point [x, y, 1]
     pub fn to_affine(&self) -> Self {
-        Self(self.0.to_affine())
+        Self {
+            point: self.point.to_affine(),
+        }
     }
 
     /// Converts a slice of projective points to affine representation efficiently
@@ -192,7 +202,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
 impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassProjectivePoint<E> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        self.point == other.point
     }
 }
 
@@ -658,7 +668,9 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(JacobianPoint<E>);
+pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve> {
+    pub point: JacobianPoint<E>,
+}
 
 impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
     /// Creates an elliptic curve point giving the jacobian [x: y: z] coordinates.
@@ -668,54 +680,62 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         if z != &FieldElement::<E::BaseField>::zero()
             && E::defining_equation_jacobian(x, y, z) == FieldElement::<E::BaseField>::zero()
         {
-            Ok(Self(JacobianPoint::new(value)))
+            Ok(Self {
+                point: JacobianPoint::new(value),
+            })
         // The point at infinity is any (_, _, 0).
         // We canonicalize every z==0 to (1, 1, 0).
         } else if z == &FieldElement::<E::BaseField>::zero() {
-            Ok(Self(JacobianPoint::new([
-                FieldElement::<E::BaseField>::one(),
-                FieldElement::<E::BaseField>::one(),
-                FieldElement::<E::BaseField>::zero(),
-            ])))
+            Ok(Self {
+                point: JacobianPoint::new([
+                    FieldElement::<E::BaseField>::one(),
+                    FieldElement::<E::BaseField>::one(),
+                    FieldElement::<E::BaseField>::zero(),
+                ]),
+            })
         } else {
             Err(EllipticCurveError::InvalidPoint)
         }
     }
 
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates without
-    /// checking that the point satisfies the curve equation.
+    /// checking that it satisfies the curve equation.
     pub const fn new_unchecked(value: [FieldElement<E::BaseField>; 3]) -> Self {
         // SAFETY: The caller MUST ensure that [x:y:z] represents either a valid point on the
         // curve. Passing arbitrary coordinates here can violate the invariant
         // and produce silently incorrect results in subsequent operations.
-        Self(JacobianPoint::new(value))
+        Self {
+            point: JacobianPoint::new(value),
+        }
     }
 
     /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
-        self.0.x()
+        self.point.x()
     }
 
     /// Returns the `y` coordinate of the point.
     pub fn y(&self) -> &FieldElement<E::BaseField> {
-        self.0.y()
+        self.point.y()
     }
 
     /// Returns the `z` coordinate of the point.
     pub fn z(&self) -> &FieldElement<E::BaseField> {
-        self.0.z()
+        self.point.z()
     }
 
     /// Returns a tuple [x, y, z] with the coordinates of the point.
     pub fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
-        self.0.coordinates()
+        self.point.coordinates()
     }
 
     /// Creates the same point in affine coordinates. That is,
     /// returns [x / z^2: y / z^3: 1] where `self` is [x: y: z].
     /// Panics if `self` is the point at infinity.
     pub fn to_affine(&self) -> Self {
-        Self(self.0.to_affine())
+        Self {
+            point: self.point.to_affine(),
+        }
     }
 
     /// Converts a slice of Jacobian points to affine representation efficiently
@@ -802,7 +822,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
     pub fn set_unchecked(&mut self, value: [FieldElement<E::BaseField>; 3]) {
         // SAFETY: The caller MUST ensure that the provided coordinates represent a valid curve
         // point. Setting invalid coordinates may lead to silently incorrect computations later on.
-        self.0.value = value
+        self.point.value = value
     }
 
     /// More efficient than operate_with. Other should be in affine form!
@@ -852,7 +872,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
 
 impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassJacobianPoint<E> {
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        self.point == other.point
     }
 }
 
